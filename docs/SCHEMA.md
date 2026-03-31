@@ -377,6 +377,10 @@ COMMENT ON TABLE ingestion_log IS 'Log de jobs. Critério de aceite: sem failed 
 
 ## 7. Seeds
 
+> [!WARNING]
+> **Nota de Implementação (M2):** O seed inicial para desenvolvimento local mudou da abordagem via SQL (antigo `005_seeds.sql`) para o script Node.js idempotente `backend/scripts/seed_dev.js`. Este script impede execuções e sobrescritas acidentais em produção, inserindo usuários, bancas mocks e chaves criptográficas de forma segura. O backup das queries puras de mock M1 foi mantido em `full_schema.sql.bak`. As queries SQL estáticas abaixo servem apenas como documentação de referência das entidades originais inseridas.
+> 
+
 ### 7.1 Bookmakers
 
 ```sql
@@ -1055,11 +1059,11 @@ migrations/
 ├── 002_reference_tables.sql
 ├── 003_data_tables.sql
 ├── 004_control_tables.sql
-├── 005_seeds.sql
 ├── 006_indexes.sql
 ├── 007_views.sql
 ├── 008_functions_triggers.sql
-└── 009_compression_policy.sql      -- PÓS-MVP
+├── 009_m2_core_engine.sql
+└── full_schema.sql.bak
 ```
 
 ### 13.3 Estimativas de Tamanho

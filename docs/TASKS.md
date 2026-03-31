@@ -97,10 +97,11 @@ T04 ──┼──── T05 (Football-Data CSV) ──── T14 (Backfill Eta
 ├── 002_reference_tables.sql
 ├── 003_data_tables.sql
 ├── 004_control_tables.sql
-├── 005_seeds.sql
 ├── 006_indexes.sql
 ├── 007_views.sql
-└── 008_functions_triggers.sql
+├── 008_functions_triggers.sql
+├── 009_m2_core_engine.sql
+└── full_schema.sql.bak
 📁 scripts/
 └── run_migrations.sh
 
@@ -964,7 +965,7 @@ T01 → T03 → T05 → T14 → T15 (⏸️ Marcelo) → T16 → T17 → T18 →
 
 ```
 FUNDAÇÃO
-  [ ] T01  Schema DDL + seeds executados
+  [x] T01  Schema DDL + seeds executados
   [ ] T02  Estrutura do projeto + YAMLs
   [ ] T03  BaseCollector + Normalizer
   [ ] T04  Conexão DB + helpers
@@ -1000,3 +1001,41 @@ ACEITE M1
   [ ] Documentação atualizada
   [ ] Handoff para M2
 ```
+
+---
+
+## 11. Módulo 2: Core Analítico (Concluído)
+
+> **Nota Oficial:** O Módulo 2 (NodeJS Backend Engine, API, Middlewares e Cron Jobs) foi 100% desenvolvido antes do M1 entrar em vigor, possuindo seu próprio roadmap de execução. Segue trilha documental do seu estado de maturidade:
+
+### Resumo das Fases Resolvidas (Status: READY PARA PRODUÇÃO)
+
+**Fase 1: Setup e Ferramentas Base** `[100%]`
+- [x] Pool de Conexões assíncronas ao banco construídas de forma global.
+- [x] Middlewares centrais implementados (Tratamento `AppError`, ParseId helpers, Validações estritas de schema `Joi`).
+- [x] Sistema de Tracking avançado com Winston Logger ativo.
+
+**Fase 2: Core Models** `[100%]`
+- [x] `Bankroll.js`: Persistência de extratos integrando PostgreSQL Advisory Locks para resolver race-conditions de usuários em apostas concorrentes.
+- [x] `Prediction.js`: Suporte a injeção transacional atômica para salvamento aglomerado sem quebras lógicas.
+- [x] `Match.js / Team.js`: Helpers de conversão O(1) com map-cache para Footystats IDs para sync massivo seguro.
+- [x] Auth layers e entidades `Odd / League`.
+
+**Fase 3: APIs Fundacionais** `[100%]`
+- [x] Segregação em Node Routers (`routes/auth.js` com JWT login tipado e hashes cryptográficos).
+- [x] Fallbacks nativos em ausência de Env Vars.
+
+**Fase 4: Predict Engine & Value Bets (Masterpiece)** `[100%]`
+- [x] `statsService.js`: Motor Atuarial. Implementa distribuição Bivariada de Poisson dinâmico simulando Matrixes [0..8] gols, cruzando com Overrounds de Casa de Aposta extraídos.
+- [x] `kellyService.js`: Gerenciamento e precificação. Retorna o True-Odds e emite relatórios ValueBet cruzando saldos correntes na balança de Kelley com clamps fixados.
+- [x] `settlementService.js`: Motor de Liquidação. Compara snapshots "shadow/predict" contra "scores ft-ht", depositando automaticamente o payout na banca e fechando furos transacionais.
+
+**Fase 5: Rotas Administrativas e de Telemetria** `[100%]`
+- [x] 9 Sub-Routers criados (`leagues`, `teams`, `matches`, `odds`, `predictions`, `bets`, `bankroll`, `dashboard`).
+- [x] Sync Partial Mapping: Otimização N+1 em arrays gigantes limitando dependências seq.
+- [x] Dashboard Views: Implementação robusta de time-series combinando PLs diários com `generate_series`.
+
+**Fase 6: Orquestração Final do Cluster M2** `[100%]`
+- [x] `app.js`: Master Core isolado blindado com Helmet e limitadores customizados de IPS massivos em rotas Críticas e de Login.
+- [x] `scheduler.js`: Relojoeiro operante com bloqueador de instâncias paralelas. Faz triggers automáticos de settlementService pelo node-cron a cada 60min no backend sem interferir a main thread.
+- [x] `server.js`: Listen Wrapper com hookings para Graceful Exit protegendo fluxos no-ar de cortes secos (`SIGINT` e `SIGTERM`).
