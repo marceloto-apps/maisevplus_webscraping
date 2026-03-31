@@ -1,0 +1,36 @@
+# ============================================================
+# MaisEV+ WebScraping — Módulo 1: Coleta de Dados
+# Tech Stack: Python 3.11+
+# ============================================================
+
+# --- HTTP ---
+httpx[http2]>=0.27.0       # HTTP client async (Footystats, The Odds API, API-Football, FBRef)
+aiohttp>=3.9.5             # Async HTTP alternativo
+
+# --- Scraping ---
+selenium>=4.20.0           # FlashScore (via Selenium)
+undetected-chromedriver>=3.5.5  # ChromeDriver anti-bot para FlashScore
+beautifulsoup4>=4.12.3     # FBRef parsing
+lxml>=5.2.1                # Parser HTML rápido (BS4 backend)
+understat>=0.3.0           # Understat xG (lib async Python)
+
+# --- Database ---
+asyncpg>=0.29.0            # Driver async PostgreSQL
+psycopg2-binary>=2.9.9     # Driver sync (migrations, scripts)
+
+# --- Data / Utils ---
+pandas>=2.2.2              # CSV parsing (Football-Data)
+pyyaml>=6.0.1              # Leitura dos arquivos YAML de config
+python-dotenv>=1.0.1       # Leitura do .env
+pydantic>=2.7.1            # Validação de dados / dataclasses tipadas
+
+# --- Scheduler ---
+APScheduler>=3.10.4        # Jobs cron + jobs dinâmicos (APScheduler AsyncIO)
+
+# --- Logging ---
+structlog>=24.2.0          # Logging estruturado (JSON)
+
+# --- Testes ---
+pytest>=8.2.0
+pytest-asyncio>=0.23.6
+pytest-mock>=3.14.0

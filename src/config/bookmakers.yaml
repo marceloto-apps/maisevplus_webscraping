@@ -1,0 +1,106 @@
+# ============================================================
+# bookmakers.yaml — Casas de apostas no escopo
+# Referência: SPECS.md § 4 | PRD.md § 4
+# 13 casas | Nomes canônicos baseados em Bet365
+# ============================================================
+
+bookmakers:
+  pinnacle:
+    display_name: "Pinnacle"
+    type: "sharp"
+    clv_priority: 1
+    flashscore_aliases:
+      - "Pinnacle"
+      - "Pinnacle Sports"
+
+  betfair_ex:
+    display_name: "Betfair Exchange"
+    type: "exchange"
+    clv_priority: 2
+    flashscore_aliases:
+      - "Betfair"
+      - "Betfair Exchange"
+
+  bet365:
+    display_name: "Bet365"
+    type: "retail"
+    clv_priority: 3
+    flashscore_aliases:
+      - "bet365"
+      - "Bet365"
+
+  1xbet:
+    display_name: "1xBet"
+    type: "retail"
+    clv_priority: null
+    flashscore_aliases:
+      - "1xBet"
+
+  betano:
+    display_name: "Betano"
+    type: "br_retail"
+    clv_priority: null
+    flashscore_aliases:
+      - "Betano"
+
+  sportingbet:
+    display_name: "Sportingbet"
+    type: "br_retail"
+    clv_priority: null
+    flashscore_aliases:
+      - "Sportingbet"
+
+  superbet:
+    display_name: "Superbet"
+    type: "br_retail"
+    clv_priority: null
+    flashscore_aliases:
+      - "Superbet"
+
+  betnacional:
+    display_name: "BetNacional"
+    type: "br_retail"
+    clv_priority: null
+    flashscore_aliases:
+      - "BetNacional"
+      - "Bet Nacional"
+
+  estrela_bet:
+    display_name: "EstrelaBet"
+    type: "br_retail"
+    clv_priority: null
+    flashscore_aliases:
+      - "EstrelaBet"
+      - "Estrela Bet"
+
+  kto:
+    display_name: "KTO"
+    type: "br_retail"
+    clv_priority: null
+    flashscore_aliases:
+      - "KTO"
+
+  7k:
+    display_name: "7K"
+    type: "br_retail"
+    clv_priority: null
+    flashscore_aliases:
+      - "7K"
+
+  f12:
+    display_name: "F12"
+    type: "br_retail"
+    clv_priority: null
+    flashscore_aliases:
+      - "F12"
+      - "F12.bet"
+
+  multibet:
+    display_name: "Multibet"
+    type: "br_retail"
+    clv_priority: null
+    flashscore_aliases:
+      - "Multibet"
+
+# Prioridade CLV: Pinnacle (1) → Betfair Exchange (2) → Bet365 (3)
+# Odds Footystats EXCLUÍDAS (compiladas, não de mercado)

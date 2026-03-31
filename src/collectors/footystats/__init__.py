@@ -1,0 +1,2 @@
+# src/collectors/footystats package
+

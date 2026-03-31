@@ -1,0 +1,105 @@
+# ============================================================
+# sources.yaml — Configuração das fontes de dados
+# Referência: SPECS.md § 2
+# ============================================================
+
+sources:
+  footystats:
+    name: "Footystats API"
+    type: "http_rest"
+    base_url: "https://api.football-data-api.com"
+    rate_limit: null           # key ilimitada
+    retry_max: 4
+    retry_initial_delay: 30
+    timeout: 30
+    health_check_endpoint: "/league-list"
+
+  flashscore:
+    name: "FlashScore"
+    type: "selenium"
+    base_url: "https://www.flashscore.com"
+    rate_limit:
+      requests: 30
+      window_seconds: 60
+    retry_max: 3
+    timeout: 45
+    headless: true
+    health_check_url: "https://www.flashscore.com"
+
+  football_data:
+    name: "Football-Data.co.uk"
+    type: "http_csv"
+    base_url_main: "https://www.football-data.co.uk/mmz4281"
+    base_url_extra: "https://www.football-data.co.uk/new"
+    rate_limit:
+      requests: 10
+      window_seconds: 60
+    retry_max: 3
+    timeout: 30
+    health_check_url: "https://www.football-data.co.uk"
+
+  fbref:
+    name: "FBRef"
+    type: "http_scraping"
+    base_url: "https://fbref.com"
+    rate_limit:
+      requests: 10
+      window_seconds: 60
+    retry_max: 3
+    timeout: 30
+    health_check_url: "https://fbref.com"
+
+  understat:
+    name: "Understat"
+    type: "http_async_lib"
+    base_url: "https://understat.com"
+    rate_limit:
+      requests: 20
+      window_seconds: 60
+    retry_max: 3
+    timeout: 30
+    health_check_url: "https://understat.com"
+
+  odds_api:
+    name: "The Odds API"
+    type: "http_rest"
+    base_url: "https://api.the-odds-api.com/v4"
+    rate_limit_monthly_per_key: 500
+    keys_count: 5
+    retry_max: 3
+    timeout: 20
+    health_check_endpoint: "/sports"
+
+  api_football:
+    name: "API-Football"
+    type: "http_rest"
+    base_url: "https://v3.football.api-sports.io"
+    rate_limit_daily_per_key: 100
+    keys_count: 7
+    retry_max: 3
+    timeout: 20
+    health_check_endpoint: "/status"
+
+# Hierarquia de fallback (ordem de preferência)
+fallback:
+  resultados:
+    - footystats
+    - api_football
+    - flashscore
+    - football_data
+  odds_realtime:
+    - flashscore
+    - odds_api
+  odds_closing_clv:
+    - flashscore
+    - football_data
+  xg:
+    - understat   # Top 5 ligas (granular)
+    - fbref       # 19 ligas adicionais
+    - footystats  # SCO_L1, SCO_L2 (básico)
+  escalacoes:
+    - api_football
+    - flashscore
+  fixtures:
+    - footystats
+    - api_football

@@ -1,0 +1,101 @@
+# ============================================================
+# markets.yaml — Mercados e linhas de apostas
+# Referência: SPECS.md § 5 | PRD.md § 5
+# ============================================================
+
+markets:
+  full_time:
+    period: "ft"
+
+    1x2:
+      market_type: "1x2"
+      line: null
+      ways: 3
+      selections: ["home", "draw", "away"]
+
+    ou:
+      market_type: "ou"
+      ways: 2
+      selections: ["over", "under"]
+      lines:
+        - 0.5
+        - 1.0
+        - 1.25
+        - 1.5
+        - 1.75
+        - 2.0
+        - 2.25
+        - 2.5
+        - 2.75
+        - 3.0
+        - 3.25
+        - 3.5
+        - 3.75
+        - 4.0
+        - 4.25
+        - 4.5
+
+    ah:
+      market_type: "ah"
+      ways: 2
+      selections: ["home_ah", "away_ah"]
+      lines: "dynamic_balanced_pm2"
+      # Lógica: encontra linha 50/50 (|home - away| mínimo), coleta ±2 steps de 0.25
+
+    dc:
+      market_type: "dc"
+      line: null
+      ways: 3
+      selections: ["1x", "12", "x2"]
+
+    dnb:
+      market_type: "dnb"
+      line: null
+      ways: 2
+      selections: ["home", "away"]
+
+    btts:
+      market_type: "btts"
+      line: null
+      ways: 2
+      selections: ["yes", "no"]
+
+  half_time:
+    period: "ht"
+
+    1x2_ht:
+      market_type: "1x2_ht"
+      line: null
+      ways: 3
+      selections: ["home", "draw", "away"]
+
+    ou_ht:
+      market_type: "ou_ht"
+      ways: 2
+      selections: ["over", "under"]
+      lines:
+        - 0.5
+        - 0.75
+        - 1.0
+        - 1.25
+        - 1.5
+        - 1.75
+        - 2.0
+        - 2.25
+        - 2.5
+
+    ah_ht:
+      market_type: "ah_ht"
+      ways: 2
+      selections: ["home_ah", "away_ah"]
+      lines: "dynamic_balanced"
+      # Apenas a linha 50/50 para HT
+
+# Filtros de odds — não inserir quando:
+odds_filters:
+  skip_values: ["-", "", null]
+  min_odds: 1.01    # odds <= 1.0 são inválidas
+
+# Resumo: 9 mercados por jogo, por casa
+# FT: 1x2 (1) + OU (16 linhas) + AH (5 linhas) + DC (1) + DNB (1) + BTTS (1) = 25 combos
+# HT: 1x2_ht (1) + OU_ht (9 linhas) + AH_ht (1) = 11 combos

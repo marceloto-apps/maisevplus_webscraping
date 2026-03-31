@@ -1,0 +1,457 @@
+# ============================================================
+# leagues.yaml — Configuração de Ligas e Season IDs
+# Referência: SPECS.md § 3 | PRD.md § 3
+# Total: 26 ligas (17 Tier 1, 5 Tier 2, 4 Extras)
+# ============================================================
+
+leagues:
+  # ================= ENGLAND =================
+  ENG_PL:
+    name: "Premier League"
+    country: "England"
+    tier: 1
+    football_data_code: "E0"
+    football_data_type: "main"
+    understat_name: "EPL"
+    fbref_id: "9"
+    xg_source: "understat"
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 6135, fd: "2122" }
+      "2022/2023": { footystats: 7704, fd: "2223" }
+      "2023/2024": { footystats: 9660, fd: "2324" }
+      "2024/2025": { footystats: 12325, fd: "2425" }
+      "2025/2026": { footystats: 15050, fd: "2526" }
+
+  ENG_CH:
+    name: "Championship"
+    country: "England"
+    tier: 1
+    football_data_code: "E1"
+    football_data_type: "main"
+    understat_name: null
+    fbref_id: "10"
+    xg_source: "fbref"
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 6089, fd: "2122" }
+      "2022/2023": { footystats: 7593, fd: "2223" }
+      "2023/2024": { footystats: 9663, fd: "2324" }
+      "2024/2025": { footystats: 12451, fd: "2425" }
+      "2025/2026": { footystats: 14930, fd: "2526" }
+
+  ENG_L1:
+    name: "League One"
+    country: "England"
+    tier: 1
+    football_data_code: "E2"
+    football_data_type: "main"
+    understat_name: null
+    fbref_id: "15"
+    xg_source: "fbref"
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 6017, fd: "2122" }
+      "2022/2023": { footystats: 7570, fd: "2223" }
+      "2023/2024": { footystats: 9582, fd: "2324" }
+      "2024/2025": { footystats: 12446, fd: "2425" }
+      "2025/2026": { footystats: 14934, fd: "2526" }
+
+  ENG_L2:
+    name: "League Two"
+    country: "England"
+    tier: 1
+    football_data_code: "E3"
+    football_data_type: "main"
+    understat_name: null
+    fbref_id: "16"
+    xg_source: "fbref"
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 6015, fd: "2122" }
+      "2022/2023": { footystats: 7574, fd: "2223" }
+      "2023/2024": { footystats: 9581, fd: "2324" }
+      "2024/2025": { footystats: 12422, fd: "2425" }
+      "2025/2026": { footystats: 14935, fd: "2526" }
+
+  ENG_NL:
+    name: "National League"
+    country: "England"
+    tier: 1
+    football_data_code: "EC"
+    football_data_type: "main"
+    understat_name: null
+    fbref_id: "58"
+    xg_source: "fbref"
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 6088, fd: "2122" }
+      "2022/2023": { footystats: 7729, fd: "2223" }
+      "2023/2024": { footystats: 9700, fd: "2324" }
+      "2024/2025": { footystats: 12622, fd: "2425" }
+      "2025/2026": { footystats: 15657, fd: "2526" }
+
+  # ================= SCOTLAND =================
+  SCO_PL:
+    name: "Premiership"
+    country: "Scotland"
+    tier: 1
+    football_data_code: "SC0"
+    football_data_type: "main"
+    understat_name: null
+    fbref_id: "40"
+    xg_source: "fbref"
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 5992, fd: "2122" }
+      "2022/2023": { footystats: 7494, fd: "2223" }
+      "2023/2024": { footystats: 9636, fd: "2324" }
+      "2024/2025": { footystats: 12455, fd: "2425" }
+      "2025/2026": { footystats: 15000, fd: "2526" }
+
+  SCO_CH:
+    name: "Championship"
+    country: "Scotland"
+    tier: 1
+    football_data_code: "SC1"
+    football_data_type: "main"
+    understat_name: null
+    fbref_id: "69"
+    xg_source: "fbref"
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 5991, fd: "2122" }
+      "2022/2023": { footystats: 7498, fd: "2223" }
+      "2023/2024": { footystats: 9637, fd: "2324" }
+      "2024/2025": { footystats: 12456, fd: "2425" }
+      "2025/2026": { footystats: 15061, fd: "2526" }
+
+  SCO_L1:
+    name: "League One"
+    country: "Scotland"
+    tier: 1
+    football_data_code: "SC2"
+    football_data_type: "main"
+    understat_name: null
+    fbref_id: null
+    xg_source: "footystats"
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 5976, fd: "2122" }
+      "2022/2023": { footystats: 7505, fd: "2223" }
+      "2023/2024": { footystats: 9639, fd: "2324" }
+      "2024/2025": { footystats: 12474, fd: "2425" }
+      "2025/2026": { footystats: 14943, fd: "2526" }
+
+  SCO_L2:
+    name: "League Two"
+    country: "Scotland"
+    tier: 1
+    football_data_code: "SC3"
+    football_data_type: "main"
+    understat_name: null
+    fbref_id: null
+    xg_source: "footystats"
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 5974, fd: "2122" }
+      "2022/2023": { footystats: 7506, fd: "2223" }
+      "2023/2024": { footystats: 9638, fd: "2324" }
+      "2024/2025": { footystats: 12453, fd: "2425" }
+      "2025/2026": { footystats: 15209, fd: "2526" }
+
+  # ================= GERMANY =================
+  GER_BL:
+    name: "Bundesliga"
+    country: "Germany"
+    tier: 1
+    football_data_code: "D1"
+    football_data_type: "main"
+    understat_name: "Bundesliga"
+    fbref_id: "20"
+    xg_source: "understat"
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 6192, fd: "2122" }
+      "2022/2023": { footystats: 7664, fd: "2223" }
+      "2023/2024": { footystats: 9655, fd: "2324" }
+      "2024/2025": { footystats: 12529, fd: "2425" }
+      "2025/2026": { footystats: 14968, fd: "2526" }
+
+  GER_B2:
+    name: "2. Bundesliga"
+    country: "Germany"
+    tier: 1
+    football_data_code: "D2"
+    football_data_type: "main"
+    understat_name: null
+    fbref_id: "33"
+    xg_source: "fbref"
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 6020, fd: "2122" }
+      "2022/2023": { footystats: 7499, fd: "2223" }
+      "2023/2024": { footystats: 9656, fd: "2324" }
+      "2024/2025": { footystats: 12528, fd: "2425" }
+      "2025/2026": { footystats: 14931, fd: "2526" }
+
+  # ================= ITALY =================
+  ITA_SA:
+    name: "Serie A"
+    country: "Italy"
+    tier: 1
+    football_data_code: "I1"
+    football_data_type: "main"
+    understat_name: "Serie_A"
+    fbref_id: "11"
+    xg_source: "understat"
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 6198, fd: "2122" }
+      "2022/2023": { footystats: 7608, fd: "2223" }
+      "2023/2024": { footystats: 9697, fd: "2324" }
+      "2024/2025": { footystats: 12530, fd: "2425" }
+      "2025/2026": { footystats: 15068, fd: "2526" }
+
+  ITA_SB:
+    name: "Serie B"
+    country: "Italy"
+    tier: 1
+    football_data_code: "I2"
+    football_data_type: "main"
+    understat_name: null
+    fbref_id: "18"
+    xg_source: "fbref"
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 6205, fd: "2122" }
+      "2022/2023": { footystats: 7864, fd: "2223" }
+      "2023/2024": { footystats: 9808, fd: "2324" }
+      "2024/2025": { footystats: 12621, fd: "2425" }
+      "2025/2026": { footystats: 15632, fd: "2526" }
+
+  # ================= SPAIN =================
+  ESP_PD:
+    name: "La Liga"
+    country: "Spain"
+    tier: 1
+    football_data_code: "SP1"
+    football_data_type: "main"
+    understat_name: "La_Liga"
+    fbref_id: "12"
+    xg_source: "understat"
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 6211, fd: "2122" }
+      "2022/2023": { footystats: 7665, fd: "2223" }
+      "2023/2024": { footystats: 9665, fd: "2324" }
+      "2024/2025": { footystats: 12316, fd: "2425" }
+      "2025/2026": { footystats: 14956, fd: "2526" }
+
+  ESP_SD:
+    name: "La Liga 2"
+    country: "Spain"
+    tier: 1
+    football_data_code: "SP2"
+    football_data_type: "main"
+    understat_name: null
+    fbref_id: "17"
+    xg_source: "fbref"
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 6120, fd: "2122" }
+      "2022/2023": { footystats: 7592, fd: "2223" }
+      "2023/2024": { footystats: 9675, fd: "2324" }
+      "2024/2025": { footystats: 12467, fd: "2425" }
+      "2025/2026": { footystats: 15066, fd: "2526" }
+
+  # ================= FRANCE =================
+  FRA_L1:
+    name: "Ligue 1"
+    country: "France"
+    tier: 1
+    football_data_code: "F1"
+    football_data_type: "main"
+    understat_name: "Ligue_1"
+    fbref_id: "13"
+    xg_source: "understat"
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 6019, fd: "2122" }
+      "2022/2023": { footystats: 7500, fd: "2223" }
+      "2023/2024": { footystats: 9674, fd: "2324" }
+      "2024/2025": { footystats: 12337, fd: "2425" }
+      "2025/2026": { footystats: 14932, fd: "2526" }
+
+  FRA_L2:
+    name: "Ligue 2"
+    country: "France"
+    tier: 1
+    football_data_code: "F2"
+    football_data_type: "main"
+    understat_name: null
+    fbref_id: "60"
+    xg_source: "fbref"
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 6018, fd: "2122" }
+      "2022/2023": { footystats: 7501, fd: "2223" }
+      "2023/2024": { footystats: 9621, fd: "2324" }
+      "2024/2025": { footystats: 12338, fd: "2425" }
+      "2025/2026": { footystats: 14954, fd: "2526" }
+
+  # ================= TIER 2 EUROPEIAS =================
+  NED_ED:
+    name: "Eredivisie"
+    country: "Netherlands"
+    tier: 2
+    football_data_code: "N1"
+    football_data_type: "main"
+    understat_name: null
+    fbref_id: "23"
+    xg_source: "fbref"
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 5951, fd: "2122" }
+      "2022/2023": { footystats: 7482, fd: "2223" }
+      "2023/2024": { footystats: 9653, fd: "2324" }
+      "2024/2025": { footystats: 12322, fd: "2425" }
+      "2025/2026": { footystats: 14936, fd: "2526" }
+
+  BEL_PL:
+    name: "Pro League"
+    country: "Belgium"
+    tier: 2
+    football_data_code: "B1"
+    football_data_type: "main"
+    understat_name: null
+    fbref_id: "37"
+    xg_source: "fbref"
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 6079, fd: "2122" }
+      "2022/2023": { footystats: 7544, fd: "2223" }
+      "2023/2024": { footystats: 9577, fd: "2324" }
+      "2024/2025": { footystats: 12137, fd: "2425" }
+      "2025/2026": { footystats: 14937, fd: "2526" }
+
+  POR_PL:
+    name: "Primeira Liga"
+    country: "Portugal"
+    tier: 2
+    football_data_code: "P1"
+    football_data_type: "main"
+    understat_name: null
+    fbref_id: "32"
+    xg_source: "fbref"
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 6117, fd: "2122" }
+      "2022/2023": { footystats: 7731, fd: "2223" }
+      "2023/2024": { footystats: 9984, fd: "2324" }
+      "2024/2025": { footystats: 12931, fd: "2425" }
+      "2025/2026": { footystats: 15115, fd: "2526" }
+
+  TUR_SL:
+    name: "Süper Lig"
+    country: "Turkey"
+    tier: 2
+    football_data_code: "T1"
+    football_data_type: "main"
+    understat_name: null
+    fbref_id: "26"
+    xg_source: "fbref"
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 6125, fd: "2122" }
+      "2022/2023": { footystats: 7768, fd: "2223" }
+      "2023/2024": { footystats: 9913, fd: "2324" }
+      "2024/2025": { footystats: 12641, fd: "2425" }
+      "2025/2026": { footystats: 14972, fd: "2526" }
+
+  GRE_SL:
+    name: "Super League"
+    country: "Greece"
+    tier: 2
+    football_data_code: "G1"
+    football_data_type: "main"
+    understat_name: null
+    fbref_id: "27"
+    xg_source: "fbref"
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 6282, fd: "2122" }
+      "2022/2023": { footystats: 7954, fd: "2223" }
+      "2023/2024": { footystats: 9889, fd: "2324" }
+      "2024/2025": { footystats: 12734, fd: "2425" }
+      "2025/2026": { footystats: 15163, fd: "2526" }
+
+  # ================= EXTRAS =================
+  BRA_SA:
+    name: "Brasileirão Série A"
+    country: "Brazil"
+    tier: 3
+    football_data_code: "BRA"
+    football_data_type: "extra"
+    understat_name: null
+    fbref_id: "24"
+    xg_source: "fbref"
+    season_format: "annual"
+    seasons:
+      "2021": { footystats: 5713, fd: null }
+      "2022": { footystats: 7097, fd: null }
+      "2023": { footystats: 9035, fd: null }
+      "2024": { footystats: 11321, fd: null }
+      "2025": { footystats: 14231, fd: null }
+      "2026": { footystats: 16544, fd: null }
+
+  MEX_LM:
+    name: "Liga MX"
+    country: "Mexico"
+    tier: 3
+    football_data_code: "MEX"
+    football_data_type: "extra"
+    understat_name: null
+    fbref_id: "31"
+    xg_source: "fbref"
+    season_format: "jul_may"
+    seasons:
+      "2021/2022": { footystats: 6038, fd: null }
+      "2022/2023": { footystats: 7425, fd: null }
+      "2023/2024": { footystats: 9525, fd: null }
+      "2024/2025": { footystats: 12136, fd: null }
+      "2025/2026": { footystats: 15234, fd: null }
+
+  AUT_BL:
+    name: "Bundesliga"
+    country: "Austria"
+    tier: 3
+    football_data_code: "AUT"
+    football_data_type: "extra"
+    understat_name: null
+    fbref_id: "56"
+    xg_source: "fbref"
+    season_format: "jul_may"
+    seasons:
+      "2021/2022": { footystats: 6008, fd: null }
+      "2022/2023": { footystats: 7890, fd: null }
+      "2023/2024": { footystats: 9954, fd: null }
+      "2024/2025": { footystats: 12472, fd: null }
+      "2025/2026": { footystats: 14923, fd: null }
+
+  SWI_SL:
+    name: "Super League"
+    country: "Switzerland"
+    tier: 3
+    football_data_code: "SWZ"
+    football_data_type: "extra"
+    understat_name: null
+    fbref_id: "57"
+    xg_source: "fbref"
+    season_format: "jul_may"
+    seasons:
+      "2021/2022": { footystats: 6044, fd: null }
+      "2022/2023": { footystats: 7504, fd: null }
+      "2023/2024": { footystats: 9580, fd: null }
+      "2024/2025": { footystats: 12326, fd: null }
+      "2025/2026": { footystats: 15047, fd: null }
