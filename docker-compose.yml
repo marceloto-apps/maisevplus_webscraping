@@ -1,0 +1,47 @@
+services:
+  # ----------------------------------------------------------
+  # TimescaleDB (PostgreSQL 16 + TimescaleDB)
+  # ----------------------------------------------------------
+  db:
+    image: timescale/timescaledb-ha:pg16
+    container_name: maisev_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-maisevplus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-maisevplus}
+      POSTGRES_DB: ${POSTGRES_DB:-maisevplus_db}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/home/postgres/pgdata/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-maisevplus} -d ${POSTGRES_DB:-maisevplus_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ----------------------------------------------------------
+  # Backend API (Node.js — stage dev)
+  # ----------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      target: dev
+    container_name: maisev_backend
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    ports:
+      - "${API_PORT:-3000}:3000"
+    volumes:
+      - ./backend:/usr/src/app
+      # Proteção do node_modules de dentro do container
+      - /usr/src/app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
