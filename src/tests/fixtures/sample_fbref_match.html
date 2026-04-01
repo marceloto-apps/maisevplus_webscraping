@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <!-- stats_11abcd_summary -->
+    <table id="stats_11abcd_summary">
+        <thead>
+            <tr>
+                <th colspan="1">Unnamed: 0_level_0</th>
+                <th colspan="2">Unnamed: 1_level_0</th>
+                <th colspan="2">Performance</th>
+                <th colspan="2">Expected</th>
+            </tr>
+            <tr>
+                <th>Player</th>
+                <th>Pos</th>
+                <th>Min</th>
+                <th>Gls</th>
+                <th>Ast</th>
+                <th>xG</th>
+                <th>xAG</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><th>John Doe</th><td>FW</td><td>90</td><td>1</td><td>0</td><td>0.75</td><td>0.10</td></tr>
+            <tr><th>Jane Smith</th><td>MF</td><td>45</td><td>0</td><td>1</td><td>0.12</td><td>0.80</td></tr>
+            <tr><th>Missing Name</th><td>DF</td><td>90</td><td>0</td><td>0</td><td>0.00</td><td>0.00</td></tr>
+            <tr><th>11 Players</th><td></td><td>900</td><td>1</td><td>1</td><td>0.87</td><td>0.90</td></tr>
+        </tbody>
+    </table>
+
+    <!-- stats_11abcd_passing -->
+    <table id="stats_11abcd_passing">
+        <thead>
+            <tr><th>Player</th><th>Att</th><th>Cmp</th><th>PrgP</th></tr>
+        </thead>
+        <tbody>
+            <tr><th>John Doe</th><td>20</td><td>15</td><td>3</td></tr>
+            <tr><th>Jane Smith</th><td>40</td><td>35</td><td>12</td></tr>
+            <tr><th>11 Players</th><td>60</td><td>50</td><td>15</td></tr>
+        </tbody>
+    </table>
+
+    <!-- stats_11abcd_defense -->
+    <table id="stats_11abcd_defense">
+        <thead>
+            <tr><th>Player</th><th>Tkl</th><th>Blocks</th><th>Press</th></tr>
+        </thead>
+        <tbody>
+            <tr><th>John Doe</th><td>0</td><td>0</td><td>5</td></tr>
+            <tr><th>Jane Smith</th><td>4</td><td>2</td><td>18</td></tr>
+            <tr><th>Extra Player</th><td>1</td><td>0</td><td>3</td></tr>
+            <tr><th>11 Players</th><td>5</td><td>2</td><td>26</td></tr>
+        </tbody>
+    </table>
+
+    <!-- stats_11abcd_possession -->
+    <table id="stats_11abcd_possession">
+        <thead>
+            <tr><th>Player</th><th>Carries</th><th>PrgC</th></tr>
+        </thead>
+        <tbody>
+            <tr><th>John Doe</th><td>15</td><td>5</td></tr>
+            <tr><th>Jane Smith</th><td>30</td><td>8</td></tr>
+            <tr><th>11 Players</th><td>45</td><td>13</td></tr>
+        </tbody>
+    </table>
+
+    <!-- stats_11abcd_gca -->
+    <table id="stats_11abcd_gca">
+        <thead>
+            <tr><th>Player</th><th>SCA</th><th>GCA</th></tr>
+        </thead>
+        <tbody>
+            <tr><th>John Doe</th><td>2</td><td>1</td></tr>
+            <tr><th>Jane Smith</th><td>5</td><td>0</td></tr>
+            <tr><th>11 Players</th><td>7</td><td>1</td></tr>
+        </tbody>
+    </table>
+
+
+    <!-- === AWAY TEAM (hash: 99zzxx) === -->
+
+    <!-- stats_99zzxx_summary -->
+    <table id="stats_99zzxx_summary">
+        <thead>
+            <tr><th>Player</th><th>Min</th><th>xG</th><th>xAG</th></tr>
+        </thead>
+        <tbody>
+            <tr><th>Rival Striker</th><td>90</td><td>0.50</td><td>0.00</td></tr>
+            <tr><th>Rival Mid</th><td>90</td><td>0.15</td><td>0.30</td></tr>
+            <tr><th>11 Players</th><td>900</td><td>0.65</td><td>0.30</td></tr>
+        </tbody>
+    </table>
+
+    <!-- stats_99zzxx_passing -->
+    <!-- Missing table to test error handling! (Imagine they didn't have GCA either) -->
+    <table id="stats_99zzxx_passing">
+        <thead>
+            <tr><th>Player</th><th>PrgP</th></tr>
+        </thead>
+        <tbody>
+            <tr><th>Rival Striker</th><td>1</td></tr>
+            <tr><th>Rival Mid</th><td>8</td></tr>
+            <tr><th>11 Players</th><td>9</td></tr>
+        </tbody>
+    </table>
+
+    <!-- stats_99zzxx_defense -->
+    <table id="stats_99zzxx_defense">
+        <thead>
+            <tr><th>Player</th><th>Press</th><th>Tkl</th><th>Blocks</th></tr>
+        </thead>
+        <tbody>
+            <tr><th>Rival Striker</th><td>8</td><td>1</td><td>0</td></tr>
+            <tr><th>Rival Mid</th><td>25</td><td>3</td><td>1</td></tr>
+            <tr><th>11 Players</th><td>33</td><td>4</td><td>1</td></tr>
+        </tbody>
+    </table>
+
+    <!-- stats_99zzxx_possession -->
+    <table id="stats_99zzxx_possession">
+        <thead>
+            <tr><th>Player</th><th>Carries</th><th>PrgC</th></tr>
+        </thead>
+        <tbody>
+            <tr><th>Rival Striker</th><td>10</td><td>2</td></tr>
+            <tr><th>Rival Mid</th><td>20</td><td>5</td></tr>
+            <tr><th>11 Players</th><td>30</td><td>7</td></tr>
+        </tbody>
+    </table>
+    <!-- MISSING GCA FOR AWAY TEAM -> TO VALIDATE RESILIENCE -->
+</body>
+</html>
