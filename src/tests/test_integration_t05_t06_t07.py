@@ -98,6 +98,7 @@ async def test_full_pipeline_cross_integration():
             assert len(matches) == 1  # NAO DUPLICOU!
             assert matches[0]['kickoff'].hour == 14  # Hora atualizada pela FS
             assert matches[0]['ht_home'] == 1 # Atualizou HT
+            assert matches[0]['ht_away'] == 0
             
             stats_fs = await conn.fetch("SELECT * FROM match_stats WHERE match_id = $1 AND source = 'footystats'", matches[0]['match_id'])
             assert len(stats_fs) == 1
@@ -109,8 +110,15 @@ async def test_full_pipeline_cross_integration():
         class MockUSScraper:
             async def fetch_match_shots(self, u_id):
                 return {
-                    'h': [{'minute': 23, 'result': 'Goal', 'xG': 0.8, 'X': 0.9, 'Y': 0.5}],
-                    'a': [{'minute': 45, 'result': 'Goal', 'xG': 0.6, 'X': 0.9, 'Y': 0.5}]
+                    'h': [
+                        {'minute': 23, 'result': 'Goal', 'xG': 0.82, 'X': 0.9, 'Y': 0.5},
+                        {'minute': 55, 'result': 'SavedShot', 'xG': 0.45, 'X': 0.85, 'Y': 0.4},
+                        {'minute': 71, 'result': 'Goal', 'xG': 0.68, 'X': 0.88, 'Y': 0.6},
+                    ],
+                    'a': [
+                        {'minute': 38, 'result': 'Goal', 'xG': 0.55, 'X': 0.91, 'Y': 0.45},
+                        {'minute': 67, 'result': 'MissedShots', 'xG': 0.12, 'X': 0.75, 'Y': 0.3},
+                    ]
                 }
                 
         us = UnderstatBackfill(scraper=MockUSScraper())
@@ -145,21 +153,36 @@ async def test_full_pipeline_cross_integration():
             
             fs_xg = await conn.fetchval("SELECT xg_home FROM match_stats WHERE match_id=$1 AND source='footystats'", match_id)
             us_xg = await conn.fetchval("SELECT xg_home FROM match_stats WHERE match_id=$1 AND source='understat'", match_id)
-            assert abs(float(fs_xg) - float(us_xg)) < 1.5
+            assert abs(float(fs_xg) - float(us_xg)) < 1.0, f"xG divergiu muito: FS={fs_xg}, US={us_xg}"
             
             raw = await conn.fetchval("SELECT raw_json FROM match_stats WHERE match_id=$1 AND source='understat'", match_id)
             import json
             raw_dict = json.loads(raw) if isinstance(raw, str) else raw
             assert 'aggregated' in raw_dict
             assert 'home_shots' in raw_dict
-            assert raw_dict['aggregated']['shots_home'] == 1
+            assert raw_dict['aggregated']['shots_home'] == 3
+            
+            # Sub-campos de shots
+            for shot in raw_dict['home_shots'] + raw_dict['away_shots']:
+                assert all(k in shot for k in ['minute', 'x', 'y', 'xG', 'result']), f"Ddos de shot irregulares: {shot.keys()}"
+
+            # Garantindo a solidez dos Multi-Aliases das 3 rotas
+            for tid in [team_h, team_a]:
+                aliases = await conn.fetch("SELECT DISTINCT source FROM team_aliases WHERE team_id = $1", tid)
+                alias_sources = {r['source'] for r in aliases}
+                assert alias_sources >= {'football_data', 'footystats', 'understat'}, f"Timefalha aliases na base: {alias_sources}"
 
     finally:
-        # TEARDOWN
+        # TEARDOWN CASCATA
         if league_id:
             async with db_pool.acquire() as conn:
+                await conn.execute("DELETE FROM match_stats WHERE match_id IN (SELECT match_id FROM matches WHERE league_id = $1)", league_id)
+                await conn.execute("DELETE FROM odds_history WHERE match_id IN (SELECT match_id FROM matches WHERE league_id = $1)", league_id)
+                await conn.execute("DELETE FROM matches WHERE league_id = $1", league_id)
+                await conn.execute("DELETE FROM seasons WHERE league_id = $1", league_id)
                 await conn.execute("DELETE FROM leagues WHERE league_id = $1", league_id)
         if team_h and team_a:
             async with db_pool.acquire() as conn:
+                await conn.execute("DELETE FROM team_aliases WHERE team_id IN ($1, $2)", team_h, team_a)
                 await conn.execute("DELETE FROM teams WHERE team_id IN ($1, $2)", team_h, team_a)
         await db_pool.close()
