@@ -1045,5 +1045,5 @@ ACEITE M1
 - [x] **Rota 1 (Healthcheck):** End-point `/health` implementado e respondendo corretamente na porta 3000.
 - [x] **Rota 2 (Predictions):** End-point `/api/predictions/active` refatorado para ler a model `predictions` (M2 schema) ignorando auth (Rota Pública). Retornos de Matriz validados.
 - [x] **Seed Dev Integrado:** Script `seed_dev.js` isolado do DB docker, atualizado para as Specifications do M2.
-- [ ] **Rota 3 (Auth Login):** Rodar Seed Dev na VPS para injetar Admin e testar geração estática de JWT pelo Postman/cURL.
-- [ ] **Rota 4 (Dashboard):** Expor sumário financeiro com cruzamentos da `bankroll`.
+- [x] **Rota 3 (Auth Login):** Rodar Seed Dev na VPS para injetar Admin e testar geração estática de JWT pelo Postman/cURL.
+- [x] **Rota 4 (Dashboard):** Expor sumário financeiro com cruzamentos da `bankroll`.
