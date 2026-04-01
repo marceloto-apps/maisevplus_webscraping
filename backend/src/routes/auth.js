@@ -25,7 +25,7 @@ const generateToken = (user) => {
     throw new AppError('JWT_SECRET não configurado no ambiente', 500);
   }
   return jwt.sign(
-    { id: user.id, role: user.role, display_name: user.display_name },
+    { id: user.id },
     config.jwt.secret,
     { expiresIn: config.jwt.expiresIn }
   );
