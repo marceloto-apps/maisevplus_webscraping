@@ -971,7 +971,7 @@ FUNDAÇÃO
   [ ] T04  Conexão DB + helpers
 
 COLETORES CORE
-  [ ] T05  Football-Data CSV collector
+  [x] T05  Football-Data CSV collector
   [ ] T06  Footystats collector
   [ ] T07  Understat collector
   [ ] T08  FBRef collector
