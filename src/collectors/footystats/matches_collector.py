@@ -89,25 +89,24 @@ FOOTYSTATS_FIELD_MAP = {
     'awayGoalCount':       ('matches', 'ft_away', 'int', lambda v: int(v) if v is not None and v != "" else None),
     'ht_goals_team_a':     ('matches', 'ht_home', 'int', clean_stat),
     'ht_goals_team_b':     ('matches', 'ht_away', 'int', clean_stat),
-    'team_a_goal_timings': ('matches', 'home_goal_minutes', 'jsonb', parse_csv_minutes),
-    'team_b_goal_timings': ('matches', 'away_goal_minutes', 'jsonb', parse_csv_minutes),
+    'team_a_goal_timings': ('matches', 'goals_home_minutes', 'jsonb', parse_csv_minutes),
+    'team_b_goal_timings': ('matches', 'goals_away_minutes', 'jsonb', parse_csv_minutes),
 
     # Tabela MATCH_STATS (Deep Stats p/ ML)
-    'team_a_xg':           ('match_stats', 'home_xg', 'float', clean_xg),
-    'team_b_xg':           ('match_stats', 'away_xg', 'float', clean_xg),
-    'team_a_corners':      ('match_stats', 'home_corners', 'int', clean_stat),
-    'team_b_corners':      ('match_stats', 'away_corners', 'int', clean_stat),
-    'team_a_yellow_cards': ('match_stats', 'home_yellow', 'int', clean_stat),
-    'team_b_yellow_cards': ('match_stats', 'away_yellow', 'int', clean_stat),
-    'team_a_red_cards':    ('match_stats', 'home_red', 'int', clean_stat),
-    'team_b_red_cards':    ('match_stats', 'away_red', 'int', clean_stat),
-    'team_a_possession':   ('match_stats', 'home_possession', 'float', clean_possession), # Closure bound
-    'team_b_possession':   ('match_stats', 'away_possession', 'float', clean_possession), # Closure bound
-    'team_a_shots':        ('match_stats', 'home_shots', 'int', clean_stat),
-    'team_b_shots':        ('match_stats', 'away_shots', 'int', clean_stat),
-    'team_a_shotsOnTarget':('match_stats', 'home_shots_on_target', 'int', clean_stat),
-    'team_b_shotsOnTarget':('match_stats', 'away_shots_on_target', 'int', clean_stat),
-    'goalTimingDistributed':('match_stats', 'goal_timing_distribution', 'jsonb', parse_distribution),
+    'team_a_xg':           ('match_stats', 'xg_home', 'float', clean_xg),
+    'team_b_xg':           ('match_stats', 'xg_away', 'float', clean_xg),
+    'team_a_corners':      ('match_stats', 'corners_home_ft', 'int', clean_stat),
+    'team_b_corners':      ('match_stats', 'corners_away_ft', 'int', clean_stat),
+    'team_a_yellow_cards': ('match_stats', 'yellow_cards_home_ft', 'int', clean_stat),
+    'team_b_yellow_cards': ('match_stats', 'yellow_cards_away_ft', 'int', clean_stat),
+    'team_a_red_cards':    ('match_stats', 'red_cards_home_ft', 'int', clean_stat),
+    'team_b_red_cards':    ('match_stats', 'red_cards_away_ft', 'int', clean_stat),
+    'team_a_possession':   ('match_stats', 'possession_home', 'float', clean_possession), # Closure bound
+    'team_b_possession':   ('match_stats', 'possession_away', 'float', clean_possession), # Closure bound
+    'team_a_shots':        ('match_stats', 'shots_home', 'int', clean_stat),
+    'team_b_shots':        ('match_stats', 'shots_away', 'int', clean_stat),
+    'team_a_shotsOnTarget':('match_stats', 'shots_on_target_home', 'int', clean_stat),
+    'team_b_shotsOnTarget':('match_stats', 'shots_on_target_away', 'int', clean_stat),
 }
 
 class MatchesCollector:
