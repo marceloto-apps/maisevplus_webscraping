@@ -8,11 +8,6 @@ const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 
 async function runSeed() {
-  if (process.env.NODE_ENV === 'production') {
-    console.error("🔴 ERRO CRÍTICO: Tentativa de rodar Seed de Dev em PRODUÇÃO. Abortando.");
-    process.exit(1);
-  }
-
   const client = await pool.connect();
   try {
     console.log("🌱 Iniciando Seed de Desenvolvimento (Idempotente)...");
