@@ -5,43 +5,42 @@ const Prediction = {
   async findAll(filters = {}) {
     let sql = `
       SELECT p.*, 
-             m.match_date, m.status as match_status, m.home_score, m.away_score,
-             th.name as home_team, ta.name as away_team 
+             m.kickoff as match_date, m.status as match_status, m.ft_home, m.ft_away,
+             th.name_canonical as home_team, ta.name_canonical as away_team 
       FROM predictions p
-      JOIN matches m ON p.match_id = m.id
-      JOIN teams th ON m.home_team_id = th.id
-      JOIN teams ta ON m.away_team_id = ta.id
+      JOIN matches m ON p.match_id = m.match_id
+      JOIN teams th ON m.home_team_id = th.team_id
+      JOIN teams ta ON m.away_team_id = ta.team_id
       WHERE 1=1
     `;
     const params = [];
     let paramIdx = 1;
 
-    if (filters.status) {
-      sql += ` AND p.status = $${paramIdx++}`;
-      params.push(filters.status);
+    if (filters.status === 'pending') {
+      sql += ` AND m.status = 'scheduled'`;
     }
-    if (filters.model_name) {
-      sql += ` AND p.model_name = $${paramIdx++}`;
-      params.push(filters.model_name);
+    if (filters.model_version) {
+      sql += ` AND p.model_version = $${paramIdx++}`;
+      params.push(filters.model_version);
     }
-    if (filters.market) {
-      sql += ` AND p.market = $${paramIdx++}`;
-      params.push(filters.market);
+    if (filters.suggested_bet) {
+      sql += ` AND p.suggested_bet = $${paramIdx++}`;
+      params.push(filters.suggested_bet);
     }
     if (filters.min_ev !== undefined) {
-      sql += ` AND p.ev_pct >= $${paramIdx++}`;
+      sql += ` AND p.ev_percent >= $${paramIdx++}`;
       params.push(parseFloat(filters.min_ev));
     }
     if (filters.date_from) {
-      sql += ` AND m.match_date >= $${paramIdx++}`;
+      sql += ` AND m.kickoff >= $${paramIdx++}`;
       params.push(filters.date_from);
     }
     if (filters.date_to) {
-      sql += ` AND m.match_date <= $${paramIdx++}`;
+      sql += ` AND m.kickoff <= $${paramIdx++}`;
       params.push(filters.date_to);
     }
 
-    sql += ` ORDER BY m.match_date DESC, p.ev_pct DESC`;
+    sql += ` ORDER BY m.kickoff DESC, p.ev_percent DESC`;
 
     const limit = parseInt(filters.limit, 10) || 50;
     const offset = parseInt(filters.offset, 10) || 0;
