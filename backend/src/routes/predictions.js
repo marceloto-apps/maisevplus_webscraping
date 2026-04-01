@@ -8,6 +8,33 @@ const { authenticate, authorize } = require('../middlewares/auth');
 const { validate } = require('../middlewares/validate');
 const AppError = require('../utils/AppError');
 
+// ==========================================
+// PUBLIC ROUTES
+// ==========================================
+
+// Rota 2: /api/predictions/active (Pública, EV > 2.0 por padrão)
+router.get('/active', async (req, res, next) => {
+  try {
+    const threshold = parseFloat(req.query.min_ev) || 2.0;
+    const limit = parseInt(req.query.limit, 10) || 100;
+
+    const queryFilters = {
+      status: 'pending',
+      min_ev: threshold,
+      limit: limit
+    };
+    
+    // Lista Value Bets ativas ordenadas por Date e EV_PCT
+    const preds = await Prediction.findAll(queryFilters);
+    res.json(preds);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==========================================
+// PROTECTED ROUTES (JWT Required)
+// ==========================================
 router.use(authenticate);
 
 const qsSchema = Joi.object({
@@ -30,27 +57,6 @@ router.get('/', validate(qsSchema, 'query'), async (req, res, next) => {
   }
 });
 
-router.get('/value-bets', async (req, res, next) => {
-  try {
-    // Para value bets ativas globais de hoje, varreríamos uma cache ou rodaríamos findValueBets() 
-    // em todos os matches scheduled.
-    // Mas p/ simplificação de rota da spec, listamos preds pendentes ordenadas por EV
-    // (o q não cruza real time best_odds de ODD_HISTORY a todo segundo a menos q montemos um Worker)
-    const threshold = parseFloat(req.query.min_ev) || 2.0;
-
-    const queryFilters = {
-      status: 'pending',
-      min_ev: threshold,
-      limit: 100
-    };
-    
-    // Devolve da cache do DB os calculos já persistidos pelas pipelines
-    const preds = await Prediction.findAll(queryFilters);
-    res.json(preds);
-  } catch (error) {
-    next(error);
-  }
-});
 
 router.get('/performance', async (req, res, next) => {
   try {
