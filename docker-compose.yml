@@ -32,7 +32,7 @@ services:
     container_name: maisev_backend
     restart: unless-stopped
     env_file:
-      - .env.docker
+      - .env
     ports:
       - "${API_PORT:-3000}:3000"
     volumes:
