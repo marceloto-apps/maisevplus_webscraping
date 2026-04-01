@@ -405,7 +405,7 @@ GET <https://api.football-data-api.com/league-matches>
 
 **Escopo:**
 
-- Usar lib `understat` (async Python)
+- Scraper httpx e Regex nativo (sem libs de terceiros) p/ extração de JS variables
 - Coletar xG granular para 5 ligas Top 5: EPL, La_Liga, Bundesliga, Serie_A, Ligue_1
 - Parse: understat_id, home, away, xg_home, xg_away, date
 - INSERT/UPDATE em `match_stats` com `source='understat'`
@@ -791,7 +791,7 @@ python -m src.collectors.footystats.backfill --all-seasons
 
 ```bash
 # Understat (~3h)
-python -m src.collectors.understat.xg_collector --mode=backfill
+python -m src.collectors.understat.backfill
 
 # FBRef (~14h, rodar em background)
 nohup python -m src.collectors.fbref.scraper --mode=backfill > fbref_backfill.log 2>&1 &
