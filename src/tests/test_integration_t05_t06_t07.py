@@ -26,7 +26,7 @@ async def test_full_pipeline_cross_integration():
         # ==========================================
         async with db_pool.acquire() as conn:
             await conn.execute("DELETE FROM leagues WHERE name = 'TEST_EPL'")
-            await conn.execute("DELETE FROM teams WHERE name IN ('Test Arsenal', 'Test Liverpool')")
+            await conn.execute("DELETE FROM teams WHERE name_canonical IN ('Test Arsenal', 'Test Liverpool')")
             
             league_id = await conn.fetchval("INSERT INTO leagues (name, country, tier) VALUES ('TEST_EPL', 'England', 1) RETURNING league_id")
             season_id = await conn.fetchval(
@@ -34,8 +34,8 @@ async def test_full_pipeline_cross_integration():
                    VALUES ($1, '2324', '2023-08-01', '2024-06-01', 99991, '2324') RETURNING season_id""",
                 league_id
             )
-            team_h = await conn.fetchval("INSERT INTO teams (name, country) VALUES ('Test Arsenal', 'England') RETURNING team_id")
-            team_a = await conn.fetchval("INSERT INTO teams (name, country) VALUES ('Test Liverpool', 'England') RETURNING team_id")
+            team_h = await conn.fetchval("INSERT INTO teams (name_canonical, country) VALUES ('Test Arsenal', 'England') RETURNING team_id")
+            team_a = await conn.fetchval("INSERT INTO teams (name_canonical, country) VALUES ('Test Liverpool', 'England') RETURNING team_id")
             
             await conn.execute("""
                 INSERT INTO team_aliases (team_id, source, alias_name) VALUES 
