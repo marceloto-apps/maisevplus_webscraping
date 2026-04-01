@@ -18,8 +18,8 @@ async function runSeed() {
     const passwordHash = await bcrypt.hash('123456', salt);
 
     const { rows: users } = await client.query(`
-      INSERT INTO users (username, email, password_hash, role)
-      VALUES ('admin', 'admin@maisev.local', $1, 'admin')
+      INSERT INTO users (display_name, email, password_hash, role, is_active)
+      VALUES ('admin', 'admin@maisev.local', $1, 'admin', true)
       ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash
       RETURNING id;
     `, [passwordHash]);

@@ -9,7 +9,7 @@ const { validate } = require('../middlewares/validate');
 const AppError = require('../utils/AppError');
 
 const registerSchema = Joi.object({
-  username: Joi.string().alphanum().min(3).max(30).required(),
+  display_name: Joi.string().min(3).max(50).required(),
   email: Joi.string().email().required(),
   password: Joi.string().min(6).required(),
 });
@@ -25,7 +25,7 @@ const generateToken = (user) => {
     throw new AppError('JWT_SECRET não configurado no ambiente', 500);
   }
   return jwt.sign(
-    { id: user.id, role: user.role, username: user.username },
+    { id: user.id, role: user.role, display_name: user.display_name },
     config.jwt.secret,
     { expiresIn: config.jwt.expiresIn }
   );
@@ -33,23 +33,23 @@ const generateToken = (user) => {
 
 router.post('/register', validate(registerSchema), async (req, res, next) => {
   try {
-    const { username, email, password } = req.body;
+    const { display_name, email, password } = req.body;
 
     // Conflitos de Conta
     const existingUser = await User.findByEmail(email);
     if (existingUser) throw new AppError('Email já está em uso', 400);
 
-    const existingUsername = await User.findByUsername(username);
-    if (existingUsername) throw new AppError('Username já está em uso', 400);
+    const existingUsername = await User.findByDisplayName(display_name);
+    if (existingUsername) throw new AppError('Display Name já está em uso', 400);
 
     // Salva model (já embute bcrypt na model layer)
-    const newUser = await User.create({ username, email, password });
+    const newUser = await User.create({ display_name, email, password });
     
     // Auto-login após register entregando token
     const token = generateToken(newUser);
 
     res.status(201).json({
-      user: { id: newUser.id, username: newUser.username, role: newUser.role },
+      user: { id: newUser.id, display_name: newUser.display_name, role: newUser.role },
       token
     });
   } catch (err) {
@@ -77,14 +77,14 @@ router.post('/login', loginLimiter, validate(loginSchema, 'body'), async (req, r
       throw new AppError('Credenciais inválidas', 401, 'UNAUTHORIZED');
     }
 
-    if (!user.active) {
+    if (!user.is_active) {
       throw new AppError('Usuário inativo ou bloqueado', 403, 'FORBIDDEN');
     }
 
     const token = generateToken(user);
     
     res.json({
-      user: { id: user.id, username: user.username, role: user.role },
+      user: { id: user.id, display_name: user.display_name, role: user.role },
       token
     });
   } catch (err) {
