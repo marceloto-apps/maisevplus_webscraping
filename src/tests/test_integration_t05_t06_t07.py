@@ -102,7 +102,7 @@ async def test_full_pipeline_cross_integration():
             
             stats_fs = await conn.fetch("SELECT * FROM match_stats WHERE match_id = $1 AND source = 'footystats'", matches[0]['match_id'])
             assert len(stats_fs) == 1
-            assert stats_fs[0]['xg_home'] == 2.10
+            assert float(stats_fs[0]['xg_home']) == 2.10
 
         # ==========================================
         # 3. T07 - Understat Web Scraping Inject
