@@ -3,35 +3,44 @@ const AppError = require('../utils/AppError');
 
 const Bankroll = {
   /**
-   * Pega o saldo mais recente
+   * Pega o saldo mais recente do usuário
    */
-  async getCurrentBalance() {
-    const { rows } = await query('SELECT balance FROM bankroll ORDER BY created_at DESC LIMIT 1');
-    return rows.length ? parseFloat(rows[0].balance) : 0;
+  async getCurrentBalance(userId) {
+    if (!userId) throw new Error('user_id required for getCurrentBalance');
+    const { rows } = await query(
+      'SELECT balance_after FROM bankroll WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1', 
+      [userId]
+    );
+    return rows.length ? parseFloat(rows[0].balance_after) : 0;
   },
 
-  async getHistory(limit = 50) {
-    const { rows } = await query('SELECT * FROM bankroll ORDER BY created_at DESC LIMIT $1', [limit]);
+  async getHistory(userId, limit = 50) {
+    if (!userId) throw new Error('user_id required for getHistory');
+    const { rows } = await query(
+      'SELECT * FROM bankroll WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2', 
+      [userId, limit]
+    );
     return rows;
   },
 
   /**
    * addEntry usa transação isolada ou externa (se passar o client)
-   * Usa advisory lock para evitar race conditions em processamento concorrente de apostas
+   * Usa advisory lock isolado pelo ID do usuário
    */
-  async addEntry(data, externalClient = null) {
+  async addEntry(userId, data, externalClient = null) {
+    if (!userId) throw new Error('user_id required for addEntry');
     if (externalClient) {
-      return this._executeEntry(data, externalClient);
+      return this._executeEntry(userId, data, externalClient);
     }
 
     const client = await getClient();
     try {
       await client.query('BEGIN');
       
-      // Lock advisory para serializar escritas no bankroll (chave 1 arbitraria para bankroll)
-      await client.query('SELECT pg_advisory_xact_lock(1)');
+      // Lock advisory atrelado ao usuário em vez de global
+      await client.query('SELECT pg_advisory_xact_lock($1)', [userId]);
 
-      const result = await this._executeEntry(data, client);
+      const result = await this._executeEntry(userId, data, client);
 
       await client.query('COMMIT');
       return result;
@@ -44,13 +53,14 @@ const Bankroll = {
   },
 
   /** Lógica pura isolada — sempre roda dentro de uma transação */
-  async _executeEntry(data, client) {
+  async _executeEntry(userId, data, client) {
     const { rows: latest } = await client.query(
-      'SELECT balance FROM bankroll ORDER BY created_at DESC LIMIT 1 FOR UPDATE'
+      'SELECT balance_after FROM bankroll WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1 FOR UPDATE',
+      [userId]
     );
-    const currentBalance = latest.length ? parseFloat(latest[0].balance) : 0;
+    const currentBalance = latest.length ? parseFloat(latest[0].balance_after) : 0;
 
-    const { operation, amount, bet_id = null, description = '' } = data;
+    const { tx_type, amount, bet_id = null, description = '' } = data;
     const parsedAmount = parseFloat(amount);
 
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
@@ -58,34 +68,34 @@ const Bankroll = {
     }
 
     let newBalance;
-    if (operation === 'deposit' || operation === 'win') {
+    if (tx_type === 'deposit' || tx_type === 'bet_won' || tx_type === 'bet_void' || tx_type === 'adjustment') {
       newBalance = currentBalance + parsedAmount;
-    } else if (operation === 'withdraw' || operation === 'bet' || operation === 'loss') {
+    } else if (tx_type === 'withdraw' || tx_type === 'bet_placed' || tx_type === 'bet_lost') {
       newBalance = currentBalance - parsedAmount;
     } else {
       throw new AppError('Operação de bankroll inválida', 400, 'INVALID_OPERATION');
     }
 
-    if (newBalance < 0 && operation !== 'deposit') {
+    if (newBalance < 0 && tx_type !== 'deposit') {
       throw new AppError('Saldo insuficiente para esta operação', 400, 'INSUFFICIENT_FUNDS');
     }
 
     const { rows } = await client.query(
-      `INSERT INTO bankroll (balance, operation, amount, bet_id, description, created_at)
-       VALUES ($1, $2, $3, $4, $5, NOW())
+      `INSERT INTO bankroll (user_id, balance_after, tx_type, amount, bet_id, description, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())
        RETURNING *`,
-      [newBalance, operation, parsedAmount, bet_id, description]
+      [userId, newBalance, tx_type, parsedAmount, bet_id, description]
     );
 
     return rows[0];
   },
 
-  async deposit(amount, description = 'Deposit via API') {
-    return this.addEntry({ operation: 'deposit', amount, description });
+  async deposit(userId, amount, description = 'Deposit via API') {
+    return this.addEntry(userId, { tx_type: 'deposit', amount, description });
   },
 
-  async withdraw(amount, description = 'Withdraw via API') {
-    return this.addEntry({ operation: 'withdraw', amount, description });
+  async withdraw(userId, amount, description = 'Withdraw via API') {
+    return this.addEntry(userId, { tx_type: 'withdraw', amount, description });
   }
 };
 

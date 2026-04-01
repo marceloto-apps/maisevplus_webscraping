@@ -33,13 +33,14 @@ async function runSeed() {
 
     // 2. Mock de Banca ($10.000 se não existir histórico)
     const { rows: brCheck } = await client.query(
-      `SELECT balance FROM bankroll ORDER BY created_at DESC LIMIT 1`
+      `SELECT balance_after FROM bankroll WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [userId]
     );
     if (brCheck.length === 0) {
       await client.query(`
-        INSERT INTO bankroll (balance, operation, amount, description, created_at)
-        VALUES (10000.00, 'deposit', 10000.00, 'Seed Inicial de Dev', NOW());
-      `);
+        INSERT INTO bankroll (user_id, tx_type, amount, balance_after, description, created_at)
+        VALUES ($1, 'deposit', 10000.00, 10000.00, 'Seed Inicial de Dev', NOW());
+      `, [userId]);
       console.log(`✅ Banca falsa ativada ($ 10.000).`);
     }
 

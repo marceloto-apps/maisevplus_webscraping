@@ -12,19 +12,21 @@ router.use(authenticate);
  */
 router.get('/summary', async (req, res, next) => {
   try {
+    const userId = req.user.id;
     const [
       balance,
       { rows: openBetsRows },
       { rows: monthlyPnlRows }
     ] = await Promise.all([
-      Bankroll.getCurrentBalance(),
-      query(`SELECT COUNT(*)::int AS count, COALESCE(SUM(stake), 0) AS exposure FROM bets WHERE status = 'open'`),
+      Bankroll.getCurrentBalance(userId),
+      query(`SELECT COUNT(*)::int AS count, COALESCE(SUM(stake), 0) AS exposure FROM bets WHERE status = 'pending' AND user_id = $1`, [userId]),
       query(`
-        SELECT COALESCE(SUM(profit_loss), 0) AS monthly_pnl 
+        SELECT COALESCE(SUM(pnl), 0) AS monthly_pnl 
         FROM bets 
-        WHERE status IN ('won', 'lost', 'void', 'push') 
+        WHERE status IN ('won', 'lost', 'void', 'half_won', 'half_lost') 
           AND settled_at >= date_trunc('month', CURRENT_DATE)
-      `)
+          AND user_id = $1
+      `, [userId])
     ]);
 
     res.json({
@@ -40,11 +42,12 @@ router.get('/summary', async (req, res, next) => {
 
 router.get('/daily-pnl', async (req, res, next) => {
   try {
+    const userId = req.user.id;
     // Últimos 30 dias com generate_series para cobrir lacunas
     const sql = `
       SELECT 
         d::date AS day,
-        COALESCE(SUM(b.profit_loss), 0) AS daily_pnl
+        COALESCE(SUM(b.pnl), 0) AS daily_pnl
       FROM generate_series(
         CURRENT_DATE - INTERVAL '30 days', 
         CURRENT_DATE, 
@@ -52,11 +55,12 @@ router.get('/daily-pnl', async (req, res, next) => {
       ) d
       LEFT JOIN bets b 
         ON date_trunc('day', b.settled_at)::date = d::date
-        AND b.status IN ('won', 'lost', 'void', 'push')
+        AND b.status IN ('won', 'lost', 'void', 'half_won', 'half_lost')
+        AND b.user_id = $1
       GROUP BY 1
       ORDER BY 1 ASC
     `;
-    const { rows } = await query(sql);
+    const { rows } = await query(sql, [userId]);
     
     // Tratamento para arrays plain no react (Chart.js / Recharts)
     const formatted = rows.map(r => ({
@@ -72,21 +76,23 @@ router.get('/daily-pnl', async (req, res, next) => {
 
 router.get('/model-performance', async (req, res, next) => {
   try {
+    const userId = req.user.id;
     const sql = `
       SELECT 
-        p.model_name,
+        p.model_version AS model_name,
         COUNT(p.id) AS total_pred_settled,
-        SUM(CASE WHEN p.result_status = 'won' THEN 1 ELSE 0 END) AS wins,
-        SUM(CASE WHEN p.result_status = 'lost' THEN 1 ELSE 0 END) AS losses,
-        SUM(CASE WHEN p.result_status = 'push' THEN 1 ELSE 0 END) AS pushes,
-        COALESCE(SUM(b.profit_loss), 0) AS total_profit,
+        SUM(CASE WHEN b.status IN ('won', 'half_won') THEN 1 ELSE 0 END) AS wins,
+        SUM(CASE WHEN b.status IN ('lost', 'half_lost') THEN 1 ELSE 0 END) AS losses,
+        SUM(CASE WHEN b.status = 'void' THEN 1 ELSE 0 END) AS pushes,
+        COALESCE(SUM(b.pnl), 0) AS total_profit,
         COALESCE(SUM(b.stake), 0) AS total_staked
       FROM predictions p
-      LEFT JOIN bets b ON p.id = b.prediction_id
-      WHERE p.result_status IN ('won', 'lost', 'push')
-      GROUP BY p.model_name
+      JOIN bets b ON p.id = b.prediction_id
+      WHERE b.status IN ('won', 'lost', 'void', 'half_won', 'half_lost')
+        AND b.user_id = $1
+      GROUP BY p.model_version
     `;
-    const { rows } = await query(sql);
+    const { rows } = await query(sql, [userId]);
 
     const format = rows.map(r => {
       const w = parseInt(r.wins, 10);
