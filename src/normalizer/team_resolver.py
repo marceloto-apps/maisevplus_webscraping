@@ -121,3 +121,66 @@ class MatchResolver:
             source=source,
         )
         return None
+
+    async def resolve_with_footystats(
+        self,
+        league_id: int,
+        home_name: str,
+        away_name: str,
+        kickoff_date: date,
+        footystats_id: int
+    ) -> Optional[UUID]:
+        """
+        Solução hierárquica baseada nos specs M1 Footystats.
+        Prioridade 1: ID exato gravado na DB.
+        Prioridade 2: Match Natural (Date).
+        Prioridade 3: Fuzzy (+-1 dia), obrigatoriamente resultando em 1 unica row.
+        """
+        home_id = await self._team_resolver.resolve("footystats", home_name)
+        away_id = await self._team_resolver.resolve("footystats", away_name)
+
+        if home_id is None or away_id is None:
+            return None
+
+        async with self._pool.acquire() as conn:
+            # 1. Hard Match
+            row = await conn.fetchrow("SELECT match_id FROM matches WHERE footystats_id = $1", footystats_id)
+            if row:
+                return row["match_id"]
+
+            # 2. Composite Match
+            row = await conn.fetchrow(
+                """
+                SELECT match_id FROM matches
+                WHERE league_id = $1 AND home_team_id = $2 AND away_team_id = $3 AND kickoff::date = $4
+                LIMIT 1
+                """,
+                league_id, home_id, away_id, kickoff_date,
+            )
+            if row:
+                return row["match_id"]
+
+            # 3. Fuzzy match (+- 1 day lock)
+            rows = await conn.fetch(
+                """
+                SELECT match_id FROM matches
+                WHERE league_id = $1
+                  AND home_team_id = $2
+                  AND away_team_id = $3
+                  AND ABS(kickoff::date - $4::date) <= 1
+                """,
+                league_id, home_id, away_id, kickoff_date,
+            )
+            if len(rows) == 1:
+                return rows[0]["match_id"]
+            elif len(rows) > 1:
+                logger.warning(
+                    "fuzzy_match_ambiguous",
+                    count=len(rows),
+                    league_id=league_id,
+                    home=home_id,
+                    away=away_id,
+                    date=str(kickoff_date)
+                )
+
+        return None

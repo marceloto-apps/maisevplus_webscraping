@@ -966,13 +966,13 @@ T01 → T03 → T05 → T14 → T15 (⏸️ Marcelo) → T16 → T17 → T18 →
 ```
 FUNDAÇÃO
   [x] T01  Schema DDL + seeds executados
-  [ ] T02  Estrutura do projeto + YAMLs
-  [ ] T03  BaseCollector + Normalizer
-  [ ] T04  Conexão DB + helpers
+  [x] T02  Estrutura do projeto + YAMLs
+  [x] T03  BaseCollector + Normalizer
+  [x] T04  Conexão DB + helpers
 
 COLETORES CORE
   [x] T05  Football-Data CSV collector
-  [ ] T06  Footystats collector
+  [x] T06  Footystats collector
   [ ] T07  Understat collector
   [ ] T08  FBRef collector
 
