@@ -124,9 +124,23 @@ async function runSeed() {
         // Prediction com EV
         const edge = ((1 / g.trueOdds) * g.bookieOdds) - 1;
         await client.query(`
-          INSERT INTO predictions (match_id, market, selection, probability, true_odds, bookmaker_id, bookmaker_odds, edge, kelly_fraction, suggested_stake, status)
-          VALUES ($1, '1x2', 'home', $2, $3, $4, $5, $6, 0.02, 200, 'open')
-        `, [matchId, (1 / g.trueOdds), g.trueOdds, bookmakerId, g.bookieOdds, edge > 0 ? edge : 0]);
+          INSERT INTO predictions (
+            match_id, user_id, model_version,
+            home_lambda, away_lambda,
+            prob_home, prob_draw, prob_away,
+            fair_odd_home, fair_odd_draw, fair_odd_away,
+            edge_home, edge_draw, edge_away,
+            suggested_bet, ev_percent, confidence
+          )
+          VALUES (
+            $1, NULL, 'poisson_v1',
+            1.5, 1.2,
+            $2, 0.25, 0.25,
+            $3, 4.0, 4.0,
+            $4, 0, 0,
+            'home', $5, 0.85
+          )
+        `, [matchId, (1 / g.trueOdds), g.trueOdds, edge > 0 ? edge : 0, edge > 0 ? edge * 100 : 0]);
       }
     }
 
