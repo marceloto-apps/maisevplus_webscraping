@@ -5,6 +5,7 @@ Funde em dicts de jogadores, calculando o RAW_JSON e AGGREGATED finale de xG/xAG
 """
 import re
 import pandas as pd
+from io import StringIO
 from typing import Dict, Any, List
 
 from ...db.logger import get_logger
@@ -95,7 +96,8 @@ class FBRefParser:
                 continue
 
             # Joga pro pandas ler bonitão aquele tranco html isolado
-            df_list = pd.read_html(str(table_node))
+            # Passamos via StringIO para o Pandas (evitando parse como file_path em versões novas lxml baseadas)
+            df_list = pd.read_html(StringIO(str(table_node)))
             if not df_list:
                 continue
             
