@@ -1039,3 +1039,11 @@ ACEITE M1
 - [x] `app.js`: Master Core isolado blindado com Helmet e limitadores customizados de IPS massivos em rotas Críticas e de Login.
 - [x] `scheduler.js`: Relojoeiro operante com bloqueador de instâncias paralelas. Faz triggers automáticos de settlementService pelo node-cron a cada 60min no backend sem interferir a main thread.
 - [x] `server.js`: Listen Wrapper com hookings para Graceful Exit protegendo fluxos no-ar de cortes secos (`SIGINT` e `SIGTERM`).
+
+**Fase 7: Deploy VPS e Hooks do Frontend (Mar/2026)** `[Em Andamento]`
+- [x] **Infraestrutura VPS:** Migração do Backend para a VPS conectando na porta `5432` nativa (Host Network Mode).
+- [x] **Rota 1 (Healthcheck):** End-point `/health` implementado e respondendo corretamente na porta 3000.
+- [x] **Rota 2 (Predictions):** End-point `/api/predictions/active` refatorado para ler a model `predictions` (M2 schema) ignorando auth (Rota Pública). Retornos de Matriz validados.
+- [x] **Seed Dev Integrado:** Script `seed_dev.js` isolado do DB docker, atualizado para as Specifications do M2.
+- [ ] **Rota 3 (Auth Login):** Rodar Seed Dev na VPS para injetar Admin e testar geração estática de JWT pelo Postman/cURL.
+- [ ] **Rota 4 (Dashboard):** Expor sumário financeiro com cruzamentos da `bankroll`.
