@@ -6,19 +6,21 @@ asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None,
 collected 0 items / 1 error
 
 =================================== ERRORS ====================================
-________________ ERROR collecting src/tests/test_footystats.py ________________
-ImportError while importing test module 'C:\Users\MASTER\OneDrive\Projetos\Gits\maisevplus_webscraping\src\tests\test_footystats.py'.
+________________ ERROR collecting src/tests/test_understat.py _________________
+ImportError while importing test module 'C:\Users\MASTER\OneDrive\Projetos\Gits\maisevplus_webscraping\src\tests\test_understat.py'.
 Hint: make sure your test modules/packages have valid Python names.
 Traceback:
 ..\..\..\..\AppData\Local\Programs\Python\Python314\Lib\importlib\__init__.py:88: in import_module
     return _bootstrap._gcd_import(name[level:], package, level)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-src\tests\test_footystats.py:9: in <module>
-    from src.collectors.footystats.matches_collector import MatchesCollector
-src\collectors\footystats\__init__.py:8: in <module>
-    from .fixtures_collector import FixturesCollector
-E   ModuleNotFoundError: No module named 'src.collectors.footystats.fixtures_collector'
+src\tests\test_understat.py:6: in <module>
+    from src.collectors.understat.scraper import UnderstatScraper
+src\collectors\understat\__init__.py:7: in <module>
+    from .backfill import UnderstatBackfill
+src\collectors\understat\backfill.py:18: in <module>
+    from ...config import load_leagues_config
+E   ImportError: cannot import name 'load_leagues_config' from 'src.config' (unknown location)
 =========================== short test summary info ===========================
-ERROR src/tests/test_footystats.py
+ERROR src/tests/test_understat.py
 !!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
-============================== 1 error in 0.34s ===============================
+============================== 1 error in 0.35s ===============================

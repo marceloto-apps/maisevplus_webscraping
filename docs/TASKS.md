@@ -973,7 +973,7 @@ FUNDAÇÃO
 COLETORES CORE
   [x] T05  Football-Data CSV collector
   [x] T06  Footystats collector
-  [ ] T07  Understat collector
+  [x] T07  Understat collector
   [ ] T08  FBRef collector
 
 COLETORES SECUNDÁRIOS
