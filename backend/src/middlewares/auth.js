@@ -28,7 +28,7 @@ const authenticate = async (req, res, next) => {
         error: { code: 'UNAUTHORIZED', message: 'Usuário não encontrado' }
       });
     }
-    if (!user.active) {
+    if (!user.is_active) {
       return res.status(403).json({
         error: { code: 'FORBIDDEN', message: 'Conta de usuário inativa' }
       });
