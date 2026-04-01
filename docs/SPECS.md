@@ -836,14 +836,9 @@ class FBRefInput:
 ```python
 @dataclass
 class FBRefMatchRecord:
-    fbref_id: str
-    date: str
-    home_name: str
-    away_name: str
-    ft_home: int
-    ft_away: int
-    xg_home: Optional[float]
-    xg_away: Optional[float]
+    home_players: List[Dict[str, Any]]
+    away_players: List[Dict[str, Any]]
+    aggregated: Dict[str, Any]  # xg_home, xg_away, progressive_passes_home, etc.
     source: str = "fbref"
 ```
 

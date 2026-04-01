@@ -437,19 +437,20 @@ GET <https://api.football-data-api.com/league-matches>
 
 **Escopo:**
 
-- `scraper.py`: requests + BeautifulSoup4, rate limiting 10 req/min
-- `parser.py`: extrair tabela de scores/fixtures com xG
-- Parse: fbref_id, date, home, away, ft_home, ft_away, xg_home, xg_away
-- INSERT/UPDATE em `match_stats` com `source='fbref'`
-- Link `fbref_id` em `matches`
-- Cobrir 19 ligas (todas exceto Top 5 Understat e SCO_L1/L2)
+- `api_client.py`: Asyncio, httpx, Semaphore(1) + Backoff 429
+- `parser.py`: BeautifulSoup + pd.read_html para desocultar e iterar por 5 tabelas atreladas de xG, Possesion e Defense.
+- Parse Nível 1: Home/Away Players `raw_json`, e Merge Aggregations nivel de partida (xg, sca, pressões)
+- INSERT/UPDATE em `match_stats` com `source='fbref'` (Upsert tolerância a falha)
+- Script de Backfill em massa com checkpoint inteligente via Banco de Dados
+- Cobrir 19 ligas configuradas no `leagues.yaml`
 
 **Entregáveis:**
 
-```
+```text
 📁 src/collectors/fbref/
 ├── __init__.py
-├── scraper.py
+├── api_client.py
+├── backfill.py
 └── parser.py
 📁 src/tests/test_fbref.py
 ```
