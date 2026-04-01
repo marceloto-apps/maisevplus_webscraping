@@ -28,7 +28,7 @@ async def test_full_pipeline_cross_integration():
             await conn.execute("DELETE FROM leagues WHERE name = 'TEST_EPL'")
             await conn.execute("DELETE FROM teams WHERE name_canonical IN ('Test Arsenal', 'Test Liverpool')")
             
-            league_id = await conn.fetchval("INSERT INTO leagues (name, country, tier) VALUES ('TEST_EPL', 'England', 1) RETURNING league_id")
+            league_id = await conn.fetchval("INSERT INTO leagues (code, name, country, tier, season_format) VALUES ('TEST_EPL', 'TEST_EPL', 'England', 1, 'aug_may') RETURNING league_id")
             season_id = await conn.fetchval(
                 """INSERT INTO seasons (league_id, label, start_date, end_date, footystats_season_id, football_data_season) 
                    VALUES ($1, '2324', '2023-08-01', '2024-06-01', 99991, '2324') RETURNING season_id""",
