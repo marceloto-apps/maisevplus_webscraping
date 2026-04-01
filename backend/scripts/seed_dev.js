@@ -4,7 +4,7 @@
  */
 
 const { pool } = require('../src/config/database');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 
 async function runSeed() {
