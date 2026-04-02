@@ -31,10 +31,10 @@ class FBRefClient:
 
     def _init_driver(self):
         options = uc.ChromeOptions()
-        # Usa o headless moderno que tem muito menos fingerprinting
-        options.add_argument('--headless=new')
+        # Removido o headless porque a Cloudflare barra qualquer Chromium sem interface GUI em sites Tier 1 (Sports-Reference)
         options.add_argument('--disable-gpu')
-        options.add_argument('--window-size=1920,1080')
+        # Tira a janela do caminho para não atrapalhar o usuário
+        options.add_argument('--window-position=-32000,-32000')
         return uc.Chrome(options=options, version_main=146)
 
     @retry(
