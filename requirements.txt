@@ -12,6 +12,7 @@ selenium>=4.20.0           # FlashScore (via Selenium)
 undetected-chromedriver>=3.5.5  # ChromeDriver anti-bot para FlashScore
 beautifulsoup4>=4.12.3     # FBRef parsing
 lxml>=5.2.1                # Parser HTML rápido (BS4 backend)
+tenacity>=8.3.0            # Exponential backoff para block do FBRef
 
 # --- Database ---
 asyncpg>=0.29.0            # Driver async PostgreSQL
