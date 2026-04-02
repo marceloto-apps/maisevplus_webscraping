@@ -3,7 +3,7 @@ T08 — FBRef API Client
 Rate limit defensivo: Semaphore(1) + cooldown 4.0s + backoff exponencial em 429.
 """
 import asyncio
-import httpx
+import undetected_chromedriver as uc
 from tenacity import (
     retry,
     wait_exponential,
@@ -15,36 +15,27 @@ from ...db.logger import get_logger
 
 logger = get_logger(__name__)
 
-
 class RateLimitedException(Exception):
     pass
-
 
 class FBRefClient:
     def __init__(self, timeout: int = 20, cooldown: float = 4.0):
         self.semaphore = asyncio.Semaphore(1)
         self.cooldown = cooldown
-        self.timeout = timeout
-        self._client: httpx.AsyncClient | None = None
-        self.headers = {
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/120.0.0.0 Safari/537.36"
-            ),
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-            "Accept-Language": "en-US,en;q=0.9",
-        }
+        self.driver = None
 
-    async def _ensure_client(self) -> httpx.AsyncClient:
-        if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(
-                http2=True,
-                headers=self.headers,
-                timeout=self.timeout,
-                follow_redirects=True,
-            )
-        return self._client
+    async def _ensure_client(self):
+        if self.driver is None:
+            self.driver = await asyncio.to_thread(self._init_driver)
+        return self.driver
+
+    def _init_driver(self):
+        options = uc.ChromeOptions()
+        # Usa o headless moderno que tem muito menos fingerprinting
+        options.add_argument('--headless=new')
+        options.add_argument('--disable-gpu')
+        options.add_argument('--window-size=1920,1080')
+        return uc.Chrome(options=options)
 
     @retry(
         wait=wait_exponential(multiplier=60, min=60, max=600),
@@ -53,22 +44,23 @@ class FBRefClient:
     )
     async def fetch_html(self, url: str) -> str:
         async with self.semaphore:
-            client = await self._ensure_client()
+            driver = await self._ensure_client()
             logger.info("fbref_fetch_start", url=url)
 
-            response = await client.get(url)
+            await asyncio.to_thread(driver.get, url)
+            html = driver.page_source
 
-            if response.status_code == 429:
+            if "Just a moment..." in html or "Attention Required!" in html or "403 Forbidden" in html:
                 logger.warning("fbref_rate_limit_429", url=url)
-                raise RateLimitedException(f"429 from {url}")
-
-            response.raise_for_status()
-            html = response.text
+                raise RateLimitedException(f"Cloudflare/429 from {url}")
 
         await asyncio.sleep(self.cooldown)
         return html
 
     async def close(self):
-        if self._client and not self._client.is_closed:
-            await self._client.aclose()
-            self._client = None
+        if self.driver:
+            try:
+                self.driver.quit()
+            except Exception:
+                pass
+            self.driver = None
