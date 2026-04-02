@@ -214,9 +214,7 @@ class FootballDataCollector(BaseCollector):
         return await self._insert_matches_and_odds(df, meta)
 
     async def _insert_matches_and_odds(self, df: pd.DataFrame, meta: dict) -> int:
-        team_resolver = TeamResolver(self._pool)
-        await team_resolver.load_cache()
-        match_resolver = MatchResolver(self._pool, team_resolver)
+        await TeamResolver.load_cache()
 
         # Tratar Datas e kickoffs
         df = df.dropna(subset=['Date', 'HomeTeam', 'AwayTeam'])
@@ -248,8 +246,8 @@ class FootballDataCollector(BaseCollector):
                 kickoff_dt = row['kickoff']
                 
                 # Resolução de times
-                home_id = await team_resolver.resolve(self.source_name, str(row['HomeTeam']))
-                away_id = await team_resolver.resolve(self.source_name, str(row['AwayTeam']))
+                home_id = await TeamResolver.resolve(self.source_name, str(row['HomeTeam']))
+                away_id = await TeamResolver.resolve(self.source_name, str(row['AwayTeam']))
 
                 if not home_id or not away_id:
                     # Time nao resolvido (esperado se a planilha de aliases não estiver 100% preenchida)
@@ -275,7 +273,7 @@ class FootballDataCollector(BaseCollector):
 
                 # Inserir ou recuperar Match
                 # Como é um script de semente (e depois corrigido por odds API), inseriremos se faltar
-                match_id = await match_resolver.resolve(
+                match_id = await MatchResolver.resolve(
                     league_id=league_id, home_name=str(row['HomeTeam']), away_name=str(row['AwayTeam']),
                     kickoff_date=kickoff_dt.date(), source=self.source_name
                 )

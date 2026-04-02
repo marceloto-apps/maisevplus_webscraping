@@ -987,7 +987,7 @@ ORQUESTRAÇÃO
 
 BACKFILL
   [ ] T14  Etapa 1: Football-Data seed
-  [ ] T15  Etapa 2: Revisão aliases (Marcelo)
+  [x] T15  Etapa 2: Revisão aliases (Marcelo)
   [ ] T16  Etapa 3: Footystats stats
   [ ] T17  Etapa 4: xG Understat + FBRef
   [ ] T18  Aliases cross-source
