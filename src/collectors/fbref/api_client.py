@@ -31,10 +31,9 @@ class FBRefClient:
 
     def _init_driver(self):
         options = uc.ChromeOptions()
-        # Removido o headless porque a Cloudflare barra qualquer Chromium sem interface GUI em sites Tier 1 (Sports-Reference)
         options.add_argument('--disable-gpu')
-        # Tira a janela do caminho para não atrapalhar o usuário
-        options.add_argument('--window-position=-32000,-32000')
+        # Precisaremos deixar a janela nascer com geometria natural para não ser identificada como bot.
+        # O usuário pode minimizá-la manualmente.
         return uc.Chrome(options=options, version_main=146)
 
     @retry(
