@@ -473,34 +473,38 @@ GET <https://api.football-data-api.com/league-matches>
 
 ---
 
-## 5. Fase 3 — Coletores Secundários
+## 5. Fase 3 — Coletores Principais MVP e Secundários
 
-### T09 — FlashScore Odds Collector
+### T09 — BetExplorer Odds Collector (Fonte Primária)
 
-⏱️ **4 dias** | 🔗 T03, T04
+⏱️ **3.5 dias** | 🔗 T03, T04
 
 **Escopo:**
 
-- `driver.py`: Selenium undetected-chromedriver, headless, cookie handler
-- `selectors.py`: CSS/XPath isolados (fácil manutenção quando HTML mudar)
-- `parser.py`: HTML → dict de odds por casa/mercado/linha
-- `odds_collector.py`: orquestra navegação → parse → normalização → insert
-- 13 casas × 9 mercados (FT: 1x2, ou, ah, dc, dnb, btts | HT: 1x2_ht, ou_ht, ah_ht)
-- Linhas dinâmicas: OU FT (16), OU HT (9), AH (balanced ± 2)
+- Arquitetura focada via HTTpx (+ Backoff) extraindo dados server-side + AJAX endpoints.
+- Extração de Opening e Closing odds simultâneas em 1 request (`data-odd` attributes).
+- `client.py`: httpx async + rate limiting + retry no BetExplorer.
+- `url_builder.py`: resolve o caminho das 26 ligas por temporada/jogo.
+- `parser.py`: BS4 → dicts de odds por casa/mercado/linha.
+- `odds_collector.py`: orquestra navegação → parse → normalização → insert.
+- Casas-alvo MVP: Pinnacle, Bet365, Betfair, 1xBet (Extraindo Closing/Opening nativos).
+- 9 Mercados: FT: 1x2, ou, ah, dc, dnb, btts | HT: 1x2_ht, ou_ht, ah_ht (requer investigar AJAX vs Playwright para abas).
 - Dedup via `content_hash` + `insert_odds_if_new()`
-- Mark `is_opening` no primeiro registro
+- Mark `is_opening` / `is_closing`
 - Overround calculado
 
 **Entregáveis:**
 
 ```
-📁 src/collectors/flashscore/
+📁 src/collectors/betexplorer/
 ├── __init__.py
-├── driver.py
-├── selectors.py
+├── client.py
+├── url_builder.py
 ├── parser.py
-└── odds_collector.py
-📁 src/tests/test_flashscore.py
+├── odds_collector.py
+├── selectors.py
+└── discovery.py
+📁 src/tests/test_betexplorer.py
 ```
 
 **Regras de filtragem:**
@@ -512,19 +516,14 @@ SKIP_CONDITIONS = [
     lambda odds: float(odds) <= 1.0,            # Sem retorno
 ]
 
-# Casas aceitas (filtro)
+# Casas aceitas no MVP de Valor (BetExplorer list)
 ACCEPTED_BOOKMAKERS = {
     "Pinnacle", "Pinnacle Sports",
     "Betfair", "Betfair Exchange",
     "bet365", "Bet365",
-    "1xBet",
-    "Betano", "Sportingbet", "Superbet",
-    "BetNacional", "Bet Nacional",
-    "EstrelaBet", "Estrela Bet",
-    "KTO", "7K",
-    "F12", "F12.bet",
-    "Multibet",
+    "1xBet"
 }
+# Nota POST-MVP: FlashScore entrará num Sprint posterior para extração de casas isoladas BR (Betano, KTO).
 ```
 
 **Critérios de aceite:**

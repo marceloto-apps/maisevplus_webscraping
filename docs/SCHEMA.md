@@ -91,6 +91,7 @@ CREATE TABLE leagues (
     understat_name      VARCHAR(50),
     fbref_id            VARCHAR(20),
     flashscore_path     VARCHAR(100),
+    betexplorer_path    VARCHAR(100),
     footystats_name     VARCHAR(100),
     xg_source           VARCHAR(20) DEFAULT 'fbref',
     is_active           BOOLEAN DEFAULT TRUE,
