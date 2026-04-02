@@ -25,14 +25,12 @@ class FBRefBackfill:
     def __init__(self, db_pool, client: FBRefClient):
         self._pool = db_pool
         self.client = client
-        self.team_resolver = TeamResolver(db_pool)
-        self.match_resolver = MatchResolver(db_pool, self.team_resolver)
         self.base_url = "https://fbref.com"
 
         # Lembre-se: FBRef usa "ENG-Premier-League" como identifier nas views, precisaremos dele + comp_id.
         
     async def init_caches(self):
-        await self.team_resolver.load_cache()
+        await TeamResolver.load_cache()
 
     async def index_season(self, league_id: int, fbref_comp_id: str, season_label: str, comp_name_slug: str):
         """
@@ -98,7 +96,7 @@ class FBRefBackfill:
                 home_slug = _clean_slug(home_td.text)
                 away_slug = _clean_slug(away_td.text)
 
-                match_id = await self.match_resolver.resolve(
+                match_id = await MatchResolver.resolve(
                     league_id=league_id,
                     home_alias=home_slug,
                     away_alias=away_slug,

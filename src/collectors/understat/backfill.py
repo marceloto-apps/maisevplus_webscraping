@@ -74,16 +74,14 @@ class UnderstatBackfill:
             logger.info("understat_backfill_already_done")
             return
 
-        team_resolver = TeamResolver(self._pool)
-        await team_resolver.load_cache()
-        match_resolver = MatchResolver(self._pool, team_resolver)
+        await TeamResolver.load_cache()
 
         semaphore = asyncio.Semaphore(CONCURRENCY)
 
         async def process_match(index: int, m_meta: dict):
             async with semaphore:
                 try:
-                    await self._process_single_match(index, m_meta, match_resolver, total_matches)
+                    await self._process_single_match(index, m_meta, total_matches)
                 except Exception as e:
                     logger.error("understat_match_error", match_id=m_meta.get('id'), error=str(e))
                 finally:
@@ -104,7 +102,7 @@ class UnderstatBackfill:
 
         logger.info("understat_backfill_done")
 
-    async def _process_single_match(self, idx: int, m_meta: dict, match_resolver: MatchResolver, total: int):
+    async def _process_single_match(self, idx: int, m_meta: dict, total: int):
         u_match_id = m_meta.get('id')
         parsed_dt = datetime.strptime(m_meta['datetime'], "%Y-%m-%d %H:%M:%S")
         h_name = m_meta['h']['title']
@@ -124,8 +122,8 @@ class UnderstatBackfill:
         # ja que as strings dos matches na DB já tem times unicos no mundo:
         # Porem o match_resolver atual requer league_id.
         async with self._pool.acquire() as conn:
-            home_id = await match_resolver._team_resolver.resolve("understat", h_name)
-            away_id = await match_resolver._team_resolver.resolve("understat", a_name)
+            home_id = await TeamResolver.resolve("understat", h_name)
+            away_id = await TeamResolver.resolve("understat", a_name)
 
             if not home_id or not away_id:
                 return # Time nao resolvido
@@ -169,3 +167,13 @@ class UnderstatBackfill:
                 """,
                 match_id, metrics.get('xg_home'), metrics.get('xg_away'), json.dumps(metrics.get('raw_json'))
             )
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--all-seasons", action="store_true", help="Faz o backfill completo")
+    args = parser.parse_args()
+    
+    scraper = UnderstatScraper()
+    backfiller = UnderstatBackfill(scraper)
+    asyncio.run(backfiller.run())
