@@ -47,3 +47,32 @@ def fair_odds_from_probs(probs: Sequence[float]) -> list[float]:
     if not (0.99 <= total <= 1.01):
         raise ValueError(f"Probabilidades devem somar ~1.0, soma atual: {total}")
     return [round(1.0 / p, 4) for p in probs]
+
+def remove_overround(odds: Sequence[float], method: str = "multiplicative") -> list[float]:
+    """
+    Remove o overround das odds de mercado para obter probabilidades 'justas'.
+    
+    Métodos:
+        - 'multiplicative': divide cada prob implícita pelo overround total (mais comum)
+        - 'additive': distribui a margem igualmente
+        - 'shin': modelo de Shin (mais preciso para favoritos vs longshots)
+    """
+    for o in odds:
+        if o <= 1.0:
+            raise ValueError(f"Odd inválida: {o}")
+            
+    implied = [1.0 / o for o in odds]
+    total = sum(implied)
+    
+    if method == "multiplicative":
+        fair_probs = [p / total for p in implied]
+    elif method == "additive":
+        excess = (total - 1.0) / len(odds)
+        fair_probs = [p - excess for p in implied]
+    elif method == "shin":
+        # Shin method - mais complexo, implementar futuramente
+        raise NotImplementedError("Shin method não implementado")
+    else:
+        raise ValueError(f"Método desconhecido: {method}")
+    
+    return [round(p, 6) for p in fair_probs]

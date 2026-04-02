@@ -19,9 +19,10 @@ from typing import Any, Optional
 from uuid import UUID
 
 from .odds_normalizer import calculate_overround
-from ..db import execute, fetch_val
 
-
+# NOTA: `time` intencionalmente excluído do hash.
+# Odds idênticas em timestamps diferentes = dedup (não mudou nada).
+# Se precisar de heartbeat/confirmação, adicionar `time` ao payload.
 def compute_content_hash(
     match_id: str,
     bookmaker_id: int,
@@ -86,7 +87,7 @@ async def insert_odds_if_new(
                  if v is not None}
 
     content_hash = compute_content_hash(
-        str(match_id), bookmaker_id, market_type, line, period, odds_vals
+        match_id, bookmaker_id, market_type, line, period, odds_vals
     )
 
     # --- Camada 1: verificar último hash ---
@@ -97,7 +98,7 @@ async def insert_odds_if_new(
         WHERE match_id = $1
           AND bookmaker_id = $2
           AND market_type  = $3
-          AND COALESCE(line, 0) = COALESCE($4, 0)
+          AND line IS NOT DISTINCT FROM $4
           AND period = $5
         ORDER BY time DESC
         LIMIT 1
@@ -121,7 +122,7 @@ async def insert_odds_if_new(
         VALUES
             ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, FALSE, $12, $13, $14)
         ON CONFLICT (match_id, bookmaker_id, market_type,
-                     COALESCE(line, 0), period, content_hash, time)
+                     COALESCE(line, -9999), period, content_hash, time)
         DO NOTHING
         """,
         time, match_id, bookmaker_id, market_type, line, period,

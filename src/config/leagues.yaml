@@ -15,6 +15,8 @@ leagues:
     understat_name: "EPL"
     fbref_id: "9"
     xg_source: "understat"
+    api_football_league_id: 39
+    odds_api_sport_key: "soccer_epl"
     season_format: "aug_may"
     seasons:
       "2021/2022": { footystats: 6135, fd: "2122" }
@@ -32,6 +34,8 @@ leagues:
     understat_name: null
     fbref_id: "10"
     xg_source: "fbref"
+    api_football_league_id: 40
+    odds_api_sport_key: "soccer_efl_champ"
     season_format: "aug_may"
     seasons:
       "2021/2022": { footystats: 6089, fd: "2122" }
@@ -49,6 +53,8 @@ leagues:
     understat_name: null
     fbref_id: "15"
     xg_source: "fbref"
+    api_football_league_id: null
+    odds_api_sport_key: null
     season_format: "aug_may"
     seasons:
       "2021/2022": { footystats: 6017, fd: "2122" }
@@ -66,6 +72,8 @@ leagues:
     understat_name: null
     fbref_id: "16"
     xg_source: "fbref"
+    api_football_league_id: null
+    odds_api_sport_key: null
     season_format: "aug_may"
     seasons:
       "2021/2022": { footystats: 6015, fd: "2122" }
@@ -83,6 +91,8 @@ leagues:
     understat_name: null
     fbref_id: "58"
     xg_source: "fbref"
+    api_football_league_id: 43
+    odds_api_sport_key: null
     season_format: "aug_may"
     seasons:
       "2021/2022": { footystats: 6088, fd: "2122" }
@@ -101,6 +111,8 @@ leagues:
     understat_name: null
     fbref_id: "40"
     xg_source: "fbref"
+    api_football_league_id: 179
+    odds_api_sport_key: "soccer_spl"
     season_format: "aug_may"
     seasons:
       "2021/2022": { footystats: 5992, fd: "2122" }
@@ -118,6 +130,8 @@ leagues:
     understat_name: null
     fbref_id: "69"
     xg_source: "fbref"
+    api_football_league_id: 180
+    odds_api_sport_key: null
     season_format: "aug_may"
     seasons:
       "2021/2022": { footystats: 5991, fd: "2122" }
@@ -170,6 +184,8 @@ leagues:
     understat_name: "Bundesliga"
     fbref_id: "20"
     xg_source: "understat"
+    api_football_league_id: 78
+    odds_api_sport_key: "soccer_germany_bundesliga"
     season_format: "aug_may"
     seasons:
       "2021/2022": { footystats: 6192, fd: "2122" }
@@ -187,6 +203,8 @@ leagues:
     understat_name: null
     fbref_id: "33"
     xg_source: "fbref"
+    api_football_league_id: null
+    odds_api_sport_key: null
     season_format: "aug_may"
     seasons:
       "2021/2022": { footystats: 6020, fd: "2122" }
@@ -205,6 +223,8 @@ leagues:
     understat_name: "Serie_A"
     fbref_id: "11"
     xg_source: "understat"
+    api_football_league_id: 135
+    odds_api_sport_key: "soccer_italy_serie_a"
     season_format: "aug_may"
     seasons:
       "2021/2022": { footystats: 6198, fd: "2122" }
@@ -222,6 +242,8 @@ leagues:
     understat_name: null
     fbref_id: "18"
     xg_source: "fbref"
+    api_football_league_id: 136
+    odds_api_sport_key: "soccer_italy_serie_b"
     season_format: "aug_may"
     seasons:
       "2021/2022": { footystats: 6205, fd: "2122" }
@@ -240,6 +262,8 @@ leagues:
     understat_name: "La_Liga"
     fbref_id: "12"
     xg_source: "understat"
+    api_football_league_id: 140
+    odds_api_sport_key: "soccer_spain_la_liga"
     season_format: "aug_may"
     seasons:
       "2021/2022": { footystats: 6211, fd: "2122" }
@@ -257,6 +281,8 @@ leagues:
     understat_name: null
     fbref_id: "17"
     xg_source: "fbref"
+    api_football_league_id: 141
+    odds_api_sport_key: "soccer_spain_segunda_division"
     season_format: "aug_may"
     seasons:
       "2021/2022": { footystats: 6120, fd: "2122" }
@@ -275,6 +301,8 @@ leagues:
     understat_name: "Ligue_1"
     fbref_id: "13"
     xg_source: "understat"
+    api_football_league_id: null
+    odds_api_sport_key: null
     season_format: "aug_may"
     seasons:
       "2021/2022": { footystats: 6019, fd: "2122" }
@@ -292,6 +320,8 @@ leagues:
     understat_name: null
     fbref_id: "60"
     xg_source: "fbref"
+    api_football_league_id: null
+    odds_api_sport_key: null
     season_format: "aug_may"
     seasons:
       "2021/2022": { footystats: 6018, fd: "2122" }
@@ -310,6 +340,8 @@ leagues:
     understat_name: null
     fbref_id: "23"
     xg_source: "fbref"
+    api_football_league_id: 88
+    odds_api_sport_key: "soccer_netherlands_eredivisie"
     season_format: "aug_may"
     seasons:
       "2021/2022": { footystats: 5951, fd: "2122" }
@@ -327,6 +359,8 @@ leagues:
     understat_name: null
     fbref_id: "37"
     xg_source: "fbref"
+    api_football_league_id: 144
+    odds_api_sport_key: "soccer_belgium_first_div"
     season_format: "aug_may"
     seasons:
       "2021/2022": { footystats: 6079, fd: "2122" }
@@ -344,6 +378,8 @@ leagues:
     understat_name: null
     fbref_id: "32"
     xg_source: "fbref"
+    api_football_league_id: 94
+    odds_api_sport_key: "soccer_portugal_primeira_liga"
     season_format: "aug_may"
     seasons:
       "2021/2022": { footystats: 6117, fd: "2122" }
@@ -361,6 +397,8 @@ leagues:
     understat_name: null
     fbref_id: "26"
     xg_source: "fbref"
+    api_football_league_id: 203
+    odds_api_sport_key: "soccer_turkey_super_league"
     season_format: "aug_may"
     seasons:
       "2021/2022": { footystats: 6125, fd: "2122" }
@@ -378,6 +416,8 @@ leagues:
     understat_name: null
     fbref_id: "27"
     xg_source: "fbref"
+    api_football_league_id: 197
+    odds_api_sport_key: "soccer_greece_super_league"
     season_format: "aug_may"
     seasons:
       "2021/2022": { footystats: 6282, fd: "2122" }
@@ -391,11 +431,15 @@ leagues:
     name: "Brasileirão Série A"
     country: "Brazil"
     tier: 3
+    # football_data_type: "extra" mapeará internamente pro endpoint avulso de "new/BRA.csv"
+    # Portando "fd" pode continuar setado null em todas as seasons de Extras de forma segura!
     football_data_code: "BRA"
     football_data_type: "extra"
     understat_name: null
     fbref_id: "24"
     xg_source: "fbref"
+    api_football_league_id: 71
+    odds_api_sport_key: "soccer_brazil_campeonato"
     season_format: "annual"
     seasons:
       "2021": { footystats: 5713, fd: null }
@@ -414,6 +458,8 @@ leagues:
     understat_name: null
     fbref_id: "31"
     xg_source: "fbref"
+    api_football_league_id: 262
+    odds_api_sport_key: "soccer_mexico_ligamx"
     season_format: "jul_may"
     seasons:
       "2021/2022": { footystats: 6038, fd: null }
@@ -431,6 +477,8 @@ leagues:
     understat_name: null
     fbref_id: "56"
     xg_source: "fbref"
+    api_football_league_id: 218
+    odds_api_sport_key: "soccer_austria_bundesliga"
     season_format: "jul_may"
     seasons:
       "2021/2022": { footystats: 6008, fd: null }
@@ -448,6 +496,8 @@ leagues:
     understat_name: null
     fbref_id: "57"
     xg_source: "fbref"
+    api_football_league_id: 207
+    odds_api_sport_key: "soccer_switzerland_superleague"
     season_format: "jul_may"
     seasons:
       "2021/2022": { footystats: 6044, fd: null }

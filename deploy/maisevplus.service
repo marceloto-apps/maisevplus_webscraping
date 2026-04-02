@@ -1,0 +1,18 @@
+[Unit]
+Description=MaisEVPlus Orchestrator
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/maisevplus_webscraping
+ExecStart=/opt/maisevplus_webscraping/.venv/bin/python -m src.scheduler.orchestrator
+Restart=on-failure
+RestartSec=30
+Environment=PYTHONUNBUFFERED=1
+
+# Opcional (se as chaves e acesso ficarem no arquivo .env injetado aqui)
+EnvironmentFile=/opt/maisevplus_webscraping/.env
+
+[Install]
+WantedBy=multi-user.target

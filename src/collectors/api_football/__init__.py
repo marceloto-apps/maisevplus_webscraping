@@ -1,2 +1,3 @@
-# src/collectors/api_football package
+from .api_collector import ApiFootballCollector
 
+__all__ = ['ApiFootballCollector']

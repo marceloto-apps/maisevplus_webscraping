@@ -1,2 +1,3 @@
-# src/collectors/odds_api package
+from .api_collector import OddsApiCollector
 
+__all__ = ['OddsApiCollector']
