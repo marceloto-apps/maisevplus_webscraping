@@ -10,6 +10,7 @@ import yaml
 from pathlib import Path
 
 import unicodedata
+from datetime import datetime
 
 from bs4 import BeautifulSoup
 from ...db.pool import get_pool
@@ -98,9 +99,9 @@ class FBRefBackfill:
 
                 match_id = await MatchResolver.resolve(
                     league_id=league_id,
-                    home_alias=home_slug,
-                    away_alias=away_slug,
-                    date_str=date_str,
+                    home_name=home_slug,
+                    away_name=away_slug,
+                    kickoff_date=datetime.strptime(date_str, "%Y-%m-%d").date(),
                     source="fbref"
                 )
 
