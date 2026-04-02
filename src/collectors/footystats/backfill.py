@@ -176,3 +176,14 @@ class FootyStatsBackfill:
                     s.get('possession_home'), s.get('possession_away'), s.get('shots_home'), s.get('shots_away'),
                     s.get('shots_on_target_home'), s.get('shots_on_target_away')
                 )
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--all-seasons", action="store_true", help="Faz o backfill completo")
+    args = parser.parse_args()
+    
+    from .api_client import FootyStatsClient
+    client = FootyStatsClient()
+    backfiller = FootyStatsBackfill(client)
+    asyncio.run(backfiller.run())
