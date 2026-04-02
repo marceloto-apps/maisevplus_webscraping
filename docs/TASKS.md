@@ -60,7 +60,7 @@ T04 ──┼──── T05 (Football-Data CSV) ──── T14 (Backfill Eta
 │      │                            │                      │
 │     T08 (FBRef) ─────────────── T17 (Backfill Etapa 4)  │
 │      │                            │                      │
-│     T09 (FlashScore) ──┐         T18 (Revisão Aliases)  │
+│     T09 (BetExplorer) ──┐         T18 (Revisão Aliases)  │
 │      │                 │          │                      │
 │     T10 (Odds API) ───┤          │                      │
 │      │                 │          │                      │
@@ -133,7 +133,7 @@ T04 ──┼──── T05 (Football-Data CSV) ──── T14 (Backfill Eta
 ├── collectors/
 │   ├── **init**.py
 │   ├── [base.py](http://base.py/)
-│   ├── flashscore/
+│   ├── betexplorer/
 │   ├── footystats/
 │   ├── football_data/
 │   ├── fbref/
@@ -196,17 +196,17 @@ bookmakers:
     display_name: "Pinnacle"
     type: "sharp"
     clv_priority: 1
-    flashscore_aliases: ["Pinnacle", "Pinnacle Sports"]
+    betexplorer_aliases: ["Pinnacle", "Pinnacle Sports"]
   betfair_ex:
     display_name: "Betfair Exchange"
     type: "exchange"
     clv_priority: 2
-    flashscore_aliases: ["Betfair", "Betfair Exchange"]
+    betexplorer_aliases: ["Betfair", "Betfair Exchange"]
   bet365:
     display_name: "Bet365"
     type: "retail"
     clv_priority: 3
-    flashscore_aliases: ["bet365", "Bet365"]
+    betexplorer_aliases: ["bet365", "Bet365"]
   # ... demais casas
 ```
 
@@ -523,7 +523,7 @@ ACCEPTED_BOOKMAKERS = {
     "bet365", "Bet365",
     "1xBet"
 }
-# Nota POST-MVP: FlashScore entrará num Sprint posterior para extração de casas isoladas BR (Betano, KTO).
+# Nota POST-MVP: BetExplorer entrará num Sprint posterior para extração de casas isoladas BR (Betano, KTO).
 ```
 
 **Critérios de aceite:**
@@ -534,7 +534,7 @@ ACCEPTED_BOOKMAKERS = {
 - ✅ `is_opening` marcado no primeiro registro de cada combinação
 - ✅ Overround calculado corretamente
 - ✅ Odds `"-"`, `""`, `"1.00"` filtradas
-- ✅ Health check: acessa página de teste no FlashScore
+- ✅ Health check: acessa página de teste no BetExplorer
 
 ---
 
@@ -549,7 +549,7 @@ ACCEPTED_BOOKMAKERS = {
 - Endpoints: upcoming odds (Pinnacle, Betfair, Bet365)
 - Markets: h2h, spreads, totals
 - INSERT em `odds_history` com `source='odds_api'`
-- Usado como validação cruzada + fallback de FlashScore
+- Usado como validação cruzada + fallback de BetExplorer
 
 **Entregáveis:**
 
@@ -631,10 +631,10 @@ ACCEPTED_BOOKMAKERS = {
 
 | Job | Tipo | Cron/Trigger | Fonte |
 | --- | --- | --- | --- |
-| `odds_standard` | cron | `0 6,10,14,20 * * *` BRT | FlashScore |
-| `odds_gameday_hourly` | cron | `0 8-23 * * *` BRT | FlashScore |
-| `odds_prematch_30` | date | T-30min | FlashScore |
-| `odds_prematch_2` | date | T-2min | FlashScore |
+| `odds_standard` | cron | `0 6,10,14,20 * * *` BRT | BetExplorer |
+| `odds_gameday_hourly` | cron | `0 8-23 * * *` BRT | BetExplorer |
+| `odds_prematch_30` | date | T-30min | BetExplorer |
+| `odds_prematch_2` | date | T-2min | BetExplorer |
 | `results_postmatch` | date | T+2h30 | Footystats |
 | `xg_postround` | cron | `0 6 * * *` BRT | Understat/FBRef |
 | `lineups_prematch` | date | T-60min | API-Football |
@@ -843,7 +843,7 @@ python -m scripts.import_aliases --file=output/unknown_aliases_resolved.csv
 **Escopo:**
 
 - Testes de integração: cada coletor faz coleta real de 1 jogo/liga
-- Teste de fallback: simular FlashScore down → Odds API assume
+- Teste de fallback: simular BetExplorer down → Odds API assume
 - Teste de retry: simular erro de rede → retry com backoff funciona
 - Teste de dedup: coleta duplicada → 0 inserts novos
 - Teste de key rotation: esgotar key 1 → key 2 assume
@@ -858,7 +858,7 @@ python -m scripts.import_aliases --file=output/unknown_aliases_resolved.csv
 ├── test_footystats.py
 ├── test_understat.py
 ├── test_fbref.py
-├── test_flashscore.py
+├── test_betexplorer.py
 ├── test_odds_api.py
 ├── test_api_football.py
 ├── test_normalizer.py
@@ -872,7 +872,7 @@ python -m scripts.import_aliases --file=output/unknown_aliases_resolved.csv
 
 - ✅ Todos os testes unitários passam
 - ✅ Teste de integração: 6 fontes coletam sem erro
-- ✅ Fallback FlashScore → Odds API funciona
+- ✅ Fallback BetExplorer → Odds API funciona
 - ✅ Retry com backoff funciona (delay progressivo)
 - ✅ Dedup funciona (0 duplicatas)
 - ✅ Key rotation funciona
@@ -913,7 +913,7 @@ SELECT COUNT(*) FROM unknown_aliases WHERE resolved = FALSE;
 | 5 | Schedule 48h | `ingestion_log` sem `failed` por 48h |
 | 6 | Dedup | Zero duplicatas |
 | 7 | Normalização | `unknown_aliases` resolved=FALSE = 0 |
-| 8 | Fallback | FlashScore off → Odds API assume |
+| 8 | Fallback | BetExplorer off → Odds API assume |
 | 9 | Multi-key | 7+5 keys rotacionando |
 | 10 | 13 casas | Pinnacle + Bet365 + 3+ BR coletadas |
 | 11 | HT/FT stats | Campos HT preenchidos onde disponível |
@@ -950,7 +950,7 @@ T01 → T03 → T05 → T14 → T15 (⏸️ Marcelo) → T16 → T17 → T18 →
 | --- | --- |
 | Dias 1–5 | T01 + T02 → T03 + T04 |
 | Dias 6–13 | T05 + T06 (core) em sequência, T07 + T08 podem sobrepor |
-| Dias 6–13 | T09 (FlashScore, 4 dias) pode iniciar junto com T06 |
+| Dias 6–13 | T09 (BetExplorer, 4 dias) pode iniciar junto com T06 |
 | Dias 10–13 | T10 + T11 em paralelo |
 | Dia 14 | T14 (backfill seed) |
 | Dias 15–16 | T15 (⏸️ aliases) // T12 + T13 em paralelo |
@@ -974,16 +974,16 @@ COLETORES CORE
   [x] T05  Football-Data CSV collector
   [x] T06  Footystats collector
   [x] T07  Understat collector
-  [ ] T08  FBRef collector
+  [x] T08  FBRef collector
 
 COLETORES SECUNDÁRIOS
-  [ ] T09  FlashScore odds collector
-  [ ] T10  The Odds API collector
-  [ ] T11  API-Football collector
+  [x] T09  BetExplorer odds collector
+  [x] T10  The Odds API collector
+  [x] T11  API-Football collector
 
 ORQUESTRAÇÃO
-  [ ] T12  Scheduler + Key Manager
-  [ ] T13  Alertas Telegram
+  [x] T12  Scheduler + Key Manager
+  [x] T13  Alertas Telegram
 
 BACKFILL
   [ ] T14  Etapa 1: Football-Data seed

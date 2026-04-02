@@ -39,7 +39,7 @@
 | Ponto | Decisão |
 | --- | --- |
 | Stats/Resultados | Footystats API (key ilimitada) — fonte primária |
-| Odds tempo real | FlashScore (Selenium) — fonte primária |
+| Odds tempo real | BetExplorer (Selenium) — fonte primária |
 | Backfill histórico | [Football-Data.co.uk](http://football-data.co.uk/) (CSV) → Footystats (stats) → Understat/FBRef (xG) |
 | xG Top 5 | Understat (granular, por chute) |
 | xG demais ligas cobertas | FBRef (por jogo) |
@@ -70,7 +70,7 @@
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
 │  ┌──────────────┐   ODDS TEMPO REAL        ┌──────────────────┐    │
-│  │  FlashScore   │ ──────────────────────── │  odds_history    │    │
+│  │  BetExplorer   │ ──────────────────────── │  odds_history    │    │
 │  │  (Selenium)   │   13 casas × 9 mercados  │  (hypertable)    │    │
 │  └──────────────┘                           └──────────────────┘    │
 │         │ fallback                                                  │
@@ -110,30 +110,30 @@
 | Fonte | Tipo | Responsabilidade Principal | Responsabilidade Secundária |
 | --- | --- | --- | --- |
 | **Footystats API** | HTTP REST (key ilimitada) | Resultados, stats completas, fixtures | — |
-| **FlashScore** | Selenium headless | Odds tempo real (13 casas × 9 mercados) | Fallback de resultados |
+| **BetExplorer** | Selenium headless | Odds tempo real (13 casas × 9 mercados) | Fallback de resultados |
 | [**Football-Data.co.uk**](http://football-data.co.uk/) | HTTP (CSV) | Backfill histórico (seed matches + odds Pinnacle/B365) | — |
 | **FBRef** | HTTP (requests + BS4) | xG para 19 ligas fora do Understat | Stats avançadas |
 | **Understat** | HTTP (lib Python async) | xG granular Top 5 (por chute, por situação) | — |
-| **The Odds API** | HTTP REST (5 keys grátis) | Validação cruzada de odds | Fallback quando FlashScore falha |
+| **The Odds API** | HTTP REST (5 keys grátis) | Validação cruzada de odds | Fallback quando BetExplorer falha |
 | **API-Football** | HTTP REST (7 keys grátis) | Escalações confirmadas | Fallback fixtures |
 
 ### 2.3 Hierarquia de Fallback
 
 ```
 RESULTADOS + STATS:
-  Footystats → API-Football → FlashScore → Football-Data.co.uk
+  Footystats → API-Football → BetExplorer → Football-Data.co.uk
 
 ODDS TEMPO REAL:
-  FlashScore → The Odds API
+  BetExplorer → The Odds API
 
 ODDS FECHAMENTO (CLV):
-  FlashScore (Pinnacle último snapshot) → Football-Data (Pinnacle CSV)
+  BetExplorer (Pinnacle último snapshot) → Football-Data (Pinnacle CSV)
 
 xG:
   Understat (5 ligas Top) → FBRef (19 ligas adicionais) → Footystats (2 ligas sem FBRef)
 
 ESCALAÇÕES:
-  API-Football → FlashScore
+  API-Football → BetExplorer
 
 FIXTURES/CALENDÁRIO:
   Footystats → API-Football
@@ -311,7 +311,7 @@ TIER 3 — Extras (4 ligas)
 
 ## 4. Casas de Apostas
 
-| Tier | Casa | Código | Tipo | CLV Priority | FlashScore Aliases |
+| Tier | Casa | Código | Tipo | CLV Priority | BetExplorer Aliases |
 | --- | --- | --- | --- | --- | --- |
 | Sharp | Pinnacle | `pinnacle` | sharp | **1** | "Pinnacle", "Pinnacle Sports" |
 | Exchange | Betfair Exchange | `betfair_ex` | exchange | **2** | "Betfair", "Betfair Exchange" |
@@ -396,10 +396,10 @@ Linha POSITIVA = handicap a favor do home (home pode perder por até X)
 
 | Job ID | Cron/Trigger | Fonte | Ação |
 | --- | --- | --- | --- |
-| `odds_standard` | `0 6,10,14,20 * * *` BRT | FlashScore | Odds de jogos D+1 a D+7 |
-| `odds_gameday_hourly` | Dinâmico: 1x/hora (jogos do dia) | FlashScore | Odds de jogos de hoje |
-| `odds_prematch_30` | Dinâmico: T-30min | FlashScore | Snapshot pré-jogo |
-| `odds_prematch_2` | Dinâmico: T-2min | FlashScore | Snapshot final |
+| `odds_standard` | `0 6,10,14,20 * * *` BRT | BetExplorer | Odds de jogos D+1 a D+7 |
+| `odds_gameday_hourly` | Dinâmico: 1x/hora (jogos do dia) | BetExplorer | Odds de jogos de hoje |
+| `odds_prematch_30` | Dinâmico: T-30min | BetExplorer | Snapshot pré-jogo |
+| `odds_prematch_2` | Dinâmico: T-2min | BetExplorer | Snapshot final |
 | `results_postmatch` | Dinâmico: T+2h30 | Footystats | Resultado + stats + mark closing |
 | `xg_postround` | `0 6 * * *` BRT | Understat + FBRef | xG da rodada anterior |
 | `lineups_prematch` | Dinâmico: T-60min | API-Football | Escalações confirmadas |
@@ -419,7 +419,7 @@ Linha POSITIVA = handicap a favor do home (home pode perder por até X)
 
 ### 6.3 Priorização no Schedule
 
-Quando há muitos jogos (>100/dia), FlashScore prioriza:
+Quando há muitos jogos (>100/dia), BetExplorer prioriza:
 
 1. **Tier 1** — coleta integral (todos os mercados, todas as linhas)
 2. **Tier 2** — coleta integral
@@ -570,7 +570,7 @@ CREATE TABLE leagues (
     football_data_type  VARCHAR(10),       -- 'main' ou 'extra'
     understat_name      VARCHAR(50),
     fbref_id            VARCHAR(20),
-    flashscore_path     VARCHAR(100),
+    betexplorer_path     VARCHAR(100),
     footystats_name     VARCHAR(100),      -- Nome exato no Footystats
     xg_source           VARCHAR(20) DEFAULT 'fbref',  -- 'understat', 'fbref', 'footystats'
     is_active           BOOLEAN DEFAULT TRUE,
@@ -698,7 +698,7 @@ CREATE TABLE matches (
 
     status              VARCHAR(20) DEFAULT 'scheduled',
 
-    flashscore_id       VARCHAR(30),
+    betexplorer_id       VARCHAR(30),
     football_data_id    VARCHAR(30),
     fbref_id            VARCHAR(30),
     understat_id        VARCHAR(30),
@@ -716,7 +716,7 @@ CREATE INDEX idx_matches_kickoff ON matches(kickoff);
 CREATE INDEX idx_matches_league_status ON matches(league_id, status);
 CREATE INDEX idx_matches_season ON matches(season_id);
 CREATE INDEX idx_matches_footystats ON matches(footystats_id) WHERE footystats_id IS NOT NULL;
-CREATE INDEX idx_matches_flashscore ON matches(flashscore_id) WHERE flashscore_id IS NOT NULL;
+CREATE INDEX idx_matches_betexplorer ON matches(betexplorer_id) WHERE betexplorer_id IS NOT NULL;
 ```
 
 ### 7.3 Match Stats
@@ -894,15 +894,15 @@ class BaseCollector(ABC):
         return f"{self.source_name}_{job_type}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
 ```
 
-### 8.2 FlashScore Odds Collector
+### 8.2 BetExplorer Odds Collector
 
 **Input:**
 
 ```python
 @dataclass
-class FlashScoreOddsInput:
+class BetExplorerOddsInput:
     match_id: str               # UUID interno
-    flashscore_id: str          # ID FlashScore (ex: "8jQr1kNM")
+    betexplorer_id: str          # ID BetExplorer (ex: "8jQr1kNM")
     markets: List[str]          # ['1x2', 'ou', 'ah', 'dc', 'dnb', 'btts', '1x2_ht', 'ou_ht', 'ah_ht']
     bookmakers_filter: List[str]
 ```
@@ -914,14 +914,14 @@ class FlashScoreOddsInput:
 class OddsRecord:
     time: datetime              # UTC
     match_id: str               # UUID interno
-    bookmaker_name: str         # Nome raw FlashScore
+    bookmaker_name: str         # Nome raw BetExplorer
     market_type: str
     line: Optional[float]
     period: str                 # 'ft' ou 'ht'
     odds_1: Optional[float]
     odds_x: Optional[float]
     odds_2: Optional[float]
-    source: str = "flashscore"
+    source: str = "betexplorer"
 ```
 
 **Transformação antes do INSERT:**
@@ -954,7 +954,7 @@ def transform_odds_record(record: OddsRecord, db) -> dict:
         "overround": overround,
         "is_opening": False,
         "is_closing": False,
-        "source": "flashscore",
+        "source": "betexplorer",
         "content_hash": content_hash
     }
 ```
@@ -1287,9 +1287,9 @@ scheduled → cancelled
 | Footystats | `""` (vazia) | Sem gols | `goals_*_minutes = NULL` |
 | Footystats | `"23,67,89"` | Minutos dos gols | → `[23, 67, 89]` (JSONB) |
 | Footystats | xG = `0.00` | xG zero (válido) | Manter `0.00` |
-| FlashScore | Odds = `"-"` ou `""` | Não disponível | Não inserir |
-| FlashScore | Odds = `"1.00"` | Sem retorno | Não inserir |
-| FlashScore | Casa ausente no mercado | Não oferece | Não inserir |
+| BetExplorer | Odds = `"-"` ou `""` | Não disponível | Não inserir |
+| BetExplorer | Odds = `"1.00"` | Sem retorno | Não inserir |
+| BetExplorer | Casa ausente no mercado | Não oferece | Não inserir |
 | Football-Data | Coluna vazia / `NaN` | Indisponível | → `NULL` |
 | Understat | xG = `None` | Não processado | Não inserir, retry dia seguinte |
 | FBRef | xG vazia | Sem dados | → `NULL` |
@@ -1521,7 +1521,7 @@ def retry_with_backoff(max_retries=4, initial_delay=30, max_delay=300, alert_on_
 
 ```python
 RATE_LIMITS = {
-    "flashscore":    {"max_requests": 30, "window_seconds": 60},
+    "betexplorer":    {"max_requests": 30, "window_seconds": 60},
     "fbref":         {"max_requests": 10, "window_seconds": 60},
     "understat":     {"max_requests": 20, "window_seconds": 60},
     "footystats":    {"max_requests": 60, "window_seconds": 60},
@@ -1534,7 +1534,7 @@ RATE_LIMITS = {
 
 ```python
 INTER_REQUEST_DELAYS = {
-    "flashscore":   (2.0, 4.0),
+    "betexplorer":   (2.0, 4.0),
     "fbref":        (6.0, 10.0),
     "understat":    (2.0, 3.0),
     "footystats":   (0.5, 1.0),
@@ -1591,7 +1591,7 @@ def create_chrome_driver() -> webdriver.Chrome:
 
 ```python
 WAIT_CONDITIONS = {
-    "flashscore": {
+    "betexplorer": {
         "page_load":      {"timeout": 15, "condition": (By.CSS_SELECTOR, "div.event__match")},
         "odds_tab_load":  {"timeout": 10, "condition": (By.CSS_SELECTOR, "div.ui-table__row")},
         "market_switch":  {"timeout": 8,  "condition": (By.CSS_SELECTOR, "div.ui-table__row")},
@@ -1647,10 +1647,10 @@ class SeleniumPool:
         self._semaphore.release()
 ```
 
-### 13.5 FlashScore Selectors (arquivo isolado)
+### 13.5 BetExplorer Selectors (arquivo isolado)
 
 ```python
-# collectors/flashscore/selectors.py
+# collectors/betexplorer/selectors.py
 # ATUALIZAR APENAS ESTE ARQUIVO quando layout mudar.
 # Versão: 2026-03-28
 
@@ -1708,7 +1708,7 @@ leagues:
     understat_name: "EPL"
     fbref_id: "9"
     xg_source: "understat"
-    flashscore_path: "england/premier-league"
+    betexplorer_path: "england/premier-league"
     footystats_name: "England Premier League"
     seasons:
       "2021/2022": { start: "2021-08-13", end: "2022-05-22", fd: "2122", us: 2021, fbref: "2021-2022", fs: 6135 }
@@ -1727,7 +1727,7 @@ leagues:
     understat_name: null
     fbref_id: "10"
     xg_source: "fbref"
-    flashscore_path: "england/championship"
+    betexplorer_path: "england/championship"
     footystats_name: "England Championship"
     seasons:
       "2021/2022": { start: "2021-08-06", end: "2022-05-29", fd: "2122", fs: 6089 }
@@ -1746,7 +1746,7 @@ leagues:
     understat_name: null
     fbref_id: "15"
     xg_source: "fbref"
-    flashscore_path: "england/league-one"
+    betexplorer_path: "england/league-one"
     footystats_name: "England EFL League One"
     seasons:
       "2021/2022": { start: "2021-08-07", end: "2022-04-30", fd: "2122", fs: 6017 }
@@ -1765,7 +1765,7 @@ leagues:
     understat_name: null
     fbref_id: "16"
     xg_source: "fbref"
-    flashscore_path: "england/league-two"
+    betexplorer_path: "england/league-two"
     footystats_name: "England EFL League Two"
     seasons:
       "2021/2022": { start: "2021-08-07", end: "2022-05-07", fd: "2122", fs: 6015 }
@@ -1784,7 +1784,7 @@ leagues:
     understat_name: null
     fbref_id: "58"
     xg_source: "fbref"
-    flashscore_path: "england/national-league"
+    betexplorer_path: "england/national-league"
     footystats_name: "England National League"
     seasons:
       "2021/2022": { start: "2021-08-21", end: "2022-06-05", fd: "2122", fs: 6088 }
@@ -1806,7 +1806,7 @@ leagues:
     understat_name: null
     fbref_id: "40"
     xg_source: "fbref"
-    flashscore_path: "scotland/premiership"
+    betexplorer_path: "scotland/premiership"
     footystats_name: "Scotland Premiership"
     seasons:
       "2021/2022": { start: "2021-07-31", end: "2022-05-25", fd: "2122", fs: 5992 }
@@ -1825,7 +1825,7 @@ leagues:
     understat_name: null
     fbref_id: "69"
     xg_source: "fbref"
-    flashscore_path: "scotland/championship"
+    betexplorer_path: "scotland/championship"
     footystats_name: "Scotland Championship"
     seasons:
       "2021/2022": { start: "2021-07-31", end: "2022-05-06", fd: "2122", fs: 5991 }
@@ -1844,7 +1844,7 @@ leagues:
     understat_name: null
     fbref_id: null
     xg_source: "footystats"
-    flashscore_path: "scotland/league-one"
+    betexplorer_path: "scotland/league-one"
     footystats_name: "Scotland League One"
     seasons:
       "2021/2022": { start: "2021-07-31", end: "2022-04-30", fd: "2122", fs: 5976 }
@@ -1863,7 +1863,7 @@ leagues:
     understat_name: null
     fbref_id: null
     xg_source: "footystats"
-    flashscore_path: "scotland/league-two"
+    betexplorer_path: "scotland/league-two"
     footystats_name: "Scotland League Two"
     seasons:
       "2021/2022": { start: "2021-07-31", end: "2022-04-30", fd: "2122", fs: 5974 }
@@ -1885,7 +1885,7 @@ leagues:
     understat_name: "Bundesliga"
     fbref_id: "20"
     xg_source: "understat"
-    flashscore_path: "germany/bundesliga"
+    betexplorer_path: "germany/bundesliga"
     footystats_name: "Germany Bundesliga"
     seasons:
       "2021/2022": { start: "2021-08-13", end: "2022-05-14", fd: "2122", us: 2021, fs: 6192 }
@@ -1904,7 +1904,7 @@ leagues:
     understat_name: null
     fbref_id: "33"
     xg_source: "fbref"
-    flashscore_path: "germany/2-bundesliga"
+    betexplorer_path: "germany/2-bundesliga"
     footystats_name: "Germany 2. Bundesliga"
     seasons:
       "2021/2022": { start: "2021-07-23", end: "2022-05-15", fd: "2122", fs: 6020 }
@@ -1926,7 +1926,7 @@ leagues:
     understat_name: "Serie_A"
     fbref_id: "11"
     xg_source: "understat"
-    flashscore_path: "italy/serie-a"
+    betexplorer_path: "italy/serie-a"
     footystats_name: "Italy Serie A"
     seasons:
       "2021/2022": { start: "2021-08-21", end: "2022-05-22", fd: "2122", us: 2021, fs: 6198 }
@@ -1945,7 +1945,7 @@ leagues:
     understat_name: null
     fbref_id: "18"
     xg_source: "fbref"
-    flashscore_path: "italy/serie-b"
+    betexplorer_path: "italy/serie-b"
     footystats_name: "Italy Serie B"
     seasons:
       "2021/2022": { start: "2021-08-20", end: "2022-05-06", fd: "2122", fs: 6205 }
@@ -1967,7 +1967,7 @@ leagues:
     understat_name: "La_Liga"
     fbref_id: "12"
     xg_source: "understat"
-    flashscore_path: "spain/laliga"
+    betexplorer_path: "spain/laliga"
     footystats_name: "Spain La Liga"
     seasons:
       "2021/2022": { start: "2021-08-13", end: "2022-05-22", fd: "2122", us: 2021, fs: 6211 }
@@ -1986,7 +1986,7 @@ leagues:
     understat_name: null
     fbref_id: "17"
     xg_source: "fbref"
-    flashscore_path: "spain/laliga2"
+    betexplorer_path: "spain/laliga2"
     footystats_name: "Spain Segunda División"
     seasons:
       "2021/2022": { start: "2021-08-13", end: "2022-05-29", fd: "2122", fs: 6120 }
@@ -2008,7 +2008,7 @@ leagues:
     understat_name: "Ligue_1"
     fbref_id: "13"
     xg_source: "understat"
-    flashscore_path: "france/ligue-1"
+    betexplorer_path: "france/ligue-1"
     footystats_name: "France Ligue 1"
     seasons:
       "2021/2022": { start: "2021-08-06", end: "2022-05-21", fd: "2122", us: 2021, fs: 6019 }
@@ -2027,7 +2027,7 @@ leagues:
     understat_name: null
     fbref_id: "60"
     xg_source: "fbref"
-    flashscore_path: "france/ligue-2"
+    betexplorer_path: "france/ligue-2"
     footystats_name: "France Ligue 2"
     seasons:
       "2021/2022": { start: "2021-07-24", end: "2022-05-14", fd: "2122", fs: 6018 }
@@ -2049,7 +2049,7 @@ leagues:
     understat_name: null
     fbref_id: "23"
     xg_source: "fbref"
-    flashscore_path: "netherlands/eredivisie"
+    betexplorer_path: "netherlands/eredivisie"
     footystats_name: "Netherlands Eredivisie"
     seasons:
       "2021/2022": { start: "2021-08-13", end: "2022-05-15", fd: "2122", fs: 5951 }
@@ -2071,7 +2071,7 @@ leagues:
     understat_name: null
     fbref_id: "37"
     xg_source: "fbref"
-    flashscore_path: "belgium/jupiler-pro-league"
+    betexplorer_path: "belgium/jupiler-pro-league"
     footystats_name: "Belgium Pro League"
     seasons:
       "2021/2022": { start: "2021-07-23", end: "2022-05-22", fd: "2122", fs: 6079 }
@@ -2093,7 +2093,7 @@ leagues:
     understat_name: null
     fbref_id: "32"
     xg_source: "fbref"
-    flashscore_path: "portugal/liga-portugal"
+    betexplorer_path: "portugal/liga-portugal"
     footystats_name: "Portugal Liga NOS"
     seasons:
       "2021/2022": { start: "2021-08-06", end: "2022-05-15", fd: "2122", fs: 6117 }
@@ -2115,7 +2115,7 @@ leagues:
     understat_name: null
     fbref_id: "26"
     xg_source: "fbref"
-    flashscore_path: "turkey/super-lig"
+    betexplorer_path: "turkey/super-lig"
     footystats_name: "Turkey Süper Lig"
     seasons:
       "2021/2022": { start: "2021-08-16", end: "2022-05-21", fd: "2122", fs: 6125 }
@@ -2137,7 +2137,7 @@ leagues:
     understat_name: null
     fbref_id: "27"
     xg_source: "fbref"
-    flashscore_path: "greece/super-league"
+    betexplorer_path: "greece/super-league"
     footystats_name: "Greece Super League"
     seasons:
       "2021/2022": { start: "2021-08-21", end: "2022-05-15", fd: "2122", fs: 6282 }
@@ -2159,7 +2159,7 @@ leagues:
     understat_name: null
     fbref_id: "24"
     xg_source: "fbref"
-    flashscore_path: "brazil/serie-a"
+    betexplorer_path: "brazil/serie-a"
     footystats_name: "Brazil Serie A"
     seasons:
       "2021": { start: "2021-05-29", end: "2021-12-09", fd: null, fs: 5713 }
@@ -2179,7 +2179,7 @@ leagues:
     understat_name: null
     fbref_id: "31"
     xg_source: "fbref"
-    flashscore_path: "mexico/liga-mx"
+    betexplorer_path: "mexico/liga-mx"
     footystats_name: "Mexico Liga MX"
     seasons:
       "2021/2022": { start: "2021-07-22", end: "2022-05-29", fd: null, fs: 6038 }
@@ -2198,7 +2198,7 @@ leagues:
     understat_name: null
     fbref_id: "56"
     xg_source: "fbref"
-    flashscore_path: "austria/bundesliga"
+    betexplorer_path: "austria/bundesliga"
     footystats_name: "Austria Bundesliga"
     seasons:
       "2021/2022": { start: "2021-07-23", end: "2022-05-22", fd: null, fs: 6008 }
@@ -2217,7 +2217,7 @@ leagues:
     understat_name: null
     fbref_id: "57"
     xg_source: "fbref"
-    flashscore_path: "switzerland/super-league"
+    betexplorer_path: "switzerland/super-league"
     footystats_name: "Switzerland Super League"
     seasons:
       "2021/2022": { start: "2021-07-24", end: "2022-05-22", fd: null, fs: 6044 }
@@ -2235,69 +2235,69 @@ bookmakers:
     display_name: "Pinnacle"
     type: "sharp"
     clv_priority: 1
-    flashscore_aliases: ["Pinnacle", "Pinnacle Sports"]
+    betexplorer_aliases: ["Pinnacle", "Pinnacle Sports"]
 
   betfair_ex:
     display_name: "Betfair Exchange"
     type: "exchange"
     clv_priority: 2
-    flashscore_aliases: ["Betfair", "Betfair Exchange"]
+    betexplorer_aliases: ["Betfair", "Betfair Exchange"]
 
   bet365:
     display_name: "Bet365"
     type: "retail"
     clv_priority: 3
-    flashscore_aliases: ["bet365", "Bet365"]
+    betexplorer_aliases: ["bet365", "Bet365"]
 
   1xbet:
     display_name: "1xBet"
     type: "retail"
-    flashscore_aliases: ["1xBet"]
+    betexplorer_aliases: ["1xBet"]
 
   betano:
     display_name: "Betano"
     type: "br_retail"
-    flashscore_aliases: ["Betano"]
+    betexplorer_aliases: ["Betano"]
 
   sportingbet:
     display_name: "Sportingbet"
     type: "br_retail"
-    flashscore_aliases: ["Sportingbet"]
+    betexplorer_aliases: ["Sportingbet"]
 
   superbet:
     display_name: "Superbet"
     type: "br_retail"
-    flashscore_aliases: ["Superbet"]
+    betexplorer_aliases: ["Superbet"]
 
   betnacional:
     display_name: "BetNacional"
     type: "br_retail"
-    flashscore_aliases: ["BetNacional", "Bet Nacional"]
+    betexplorer_aliases: ["BetNacional", "Bet Nacional"]
 
   estrela_bet:
     display_name: "EstrelaBet"
     type: "br_retail"
-    flashscore_aliases: ["EstrelaBet", "Estrela Bet"]
+    betexplorer_aliases: ["EstrelaBet", "Estrela Bet"]
 
   kto:
     display_name: "KTO"
     type: "br_retail"
-    flashscore_aliases: ["KTO"]
+    betexplorer_aliases: ["KTO"]
 
   7k:
     display_name: "7K"
     type: "br_retail"
-    flashscore_aliases: ["7K"]
+    betexplorer_aliases: ["7K"]
 
   f12:
     display_name: "F12"
     type: "br_retail"
-    flashscore_aliases: ["F12", "F12.bet"]
+    betexplorer_aliases: ["F12", "F12.bet"]
 
   multibet:
     display_name: "Multibet"
     type: "br_retail"
-    flashscore_aliases: ["Multibet"]
+    betexplorer_aliases: ["Multibet"]
 ```
 
 ### 14.3 markets.yaml
@@ -2370,11 +2370,11 @@ src/
 ├── collectors/
 │   ├── __init__.py
 │   ├── base.py                       # BaseCollector + CollectResult
-│   ├── flashscore/
+│   ├── betexplorer/
 │   │   ├── __init__.py
 │   │   ├── driver.py                 # create_chrome_driver + CookieHandler + SeleniumPool
 │   │   ├── parser.py                 # HTML → OddsRecord[]
-│   │   ├── odds_collector.py         # FlashScoreOddsCollector(BaseCollector)
+│   │   ├── odds_collector.py         # BetExplorerOddsCollector(BaseCollector)
 │   │   └── selectors.py             # CSS/XPath ISOLADOS
 │   ├── footystats/
 │   │   ├── __init__.py
@@ -2435,7 +2435,7 @@ src/
     │   └── test_key_manager.py
     ├── integration/
     │   ├── test_footystats_collector.py
-    │   ├── test_flashscore_collector.py
+    │   ├── test_betexplorer_collector.py
     │   ├── test_understat_collector.py
     │   ├── test_fbref_collector.py
     │   ├── test_odds_api_collector.py
@@ -2447,10 +2447,10 @@ src/
 
 ## 16. Diagrama de Sequência
 
-### 16.1 Coleta de Odds (FlashScore)
+### 16.1 Coleta de Odds (BetExplorer)
 
 ```
-Scheduler        FlashScore        Normalizer        DB           Telegram
+Scheduler        BetExplorer        Normalizer        DB           Telegram
    │              Collector                            │
    │── trigger ─────►│                                │
    │                  │── acquire driver (Pool)        │
@@ -2544,9 +2544,9 @@ BackfillRunner
 | --- | --- | --- |
 | Footystats 1 temp | `test_footystats_collector.py` | GET → parse → campos preenchidos |
 | Footystats -1 | `test_footystats_collector.py` | -1 → NULL no banco |
-| FlashScore 1 jogo | `test_flashscore_collector.py` | Navega → parse → odds Pinnacle |
-| FlashScore cookie | `test_flashscore_collector.py` | 1a vez aceita; 2a reutiliza |
-| FlashScore selector quebrado | `test_flashscore_collector.py` | → FAILED + alerta |
+| BetExplorer 1 jogo | `test_betexplorer_collector.py` | Navega → parse → odds Pinnacle |
+| BetExplorer cookie | `test_betexplorer_collector.py` | 1a vez aceita; 2a reutiliza |
+| BetExplorer selector quebrado | `test_betexplorer_collector.py` | → FAILED + alerta |
 | Understat 1 liga | `test_understat_collector.py` | → xG por jogo |
 | FBRef 1 liga | `test_fbref_collector.py` | → xG por jogo |
 | Odds API | `test_odds_api_collector.py` | → odds Pinnacle |
@@ -2677,7 +2677,7 @@ async def send_alert(message: str, level: str = "warning"):
 | 6 | Schedule 48h | 0 `failed` em `ingestion_log` por 48h |
 | 7 | Dedup | Zero duplicatas (query GROUP BY HAVING count > 1) |
 | 8 | Normalização | `SELECT COUNT(*) FROM unknown_aliases WHERE resolved=FALSE` = 0 |
-| 9 | Fallback | FlashScore off → The Odds API assume (teste manual) |
+| 9 | Fallback | BetExplorer off → The Odds API assume (teste manual) |
 | 10 | Multi-key | Keys rotacionando dentro dos limites |
 | 11 | 13 casas | Pinnacle + Bet365 + ≥3 BR coletadas para jogos do dia |
 | 12 | is_opening/closing | Marcados corretamente para jogos finished |
@@ -2700,7 +2700,7 @@ async def send_alert(message: str, level: str = "warning"):
 | 6 | Import aliases + Footystats collector + backfill (26 ligas) | 3 | #5 |
 | 7 | Understat collector + backfill Top 5 | 1 | Schema + Normalizer |
 | 8 | FBRef collector + backfill 19 ligas | 2 | Schema + Normalizer |
-| 9 | FlashScore collector (Selenium + 13 casas × 9 mercados) | 4 | Schema + Normalizer + Pool |
+| 9 | BetExplorer collector (Selenium + 13 casas × 9 mercados) | 4 | Schema + Normalizer + Pool |
 | 10 | The Odds API collector (5 keys) | 1 | KeyManager |
 | 11 | API-Football collector (7 keys) | 1 | KeyManager |
 | 12 | KeyManager (multi-key rotation + reset) | 1 | — |
@@ -2714,7 +2714,7 @@ async def send_alert(message: str, level: str = "warning"):
 
 ```
 Schema(2d) → Normalizer(2d) → Football-Data(2.5d) → ⏸️ Aliases(1.5d) → Footystats(3d) → Scheduler(2d) → Testes(2d) → Backfill(1.5d)
-                                                                        ↗ FlashScore(4d) ↗
+                                                                        ↗ BetExplorer(4d) ↗
                                                         KeyManager(1d) → Odds API(1d) ──↗
                                                                        → API-Football(1d)↗
                                                         Understat(1d) ────────────────↗
@@ -2728,17 +2728,17 @@ Schema(2d) → Normalizer(2d) → Football-Data(2.5d) → ⏸️ Aliases(1.5d) �
 
 | # | Risco | Prob | Impacto | Mitigação |
 | --- | --- | --- | --- | --- |
-| 1 | FlashScore muda selectors | **Alta** | Médio | `selectors.py` isolado; alerta automático; The Odds API fallback |
-| 2 | CAPTCHA/bloqueio FlashScore | Média | Alto | Rate limiting; UA rotation; delay humanizado; proxies pós-MVP |
+| 1 | BetExplorer muda selectors | **Alta** | Médio | `selectors.py` isolado; alerta automático; The Odds API fallback |
+| 2 | CAPTCHA/bloqueio BetExplorer | Média | Alto | Rate limiting; UA rotation; delay humanizado; proxies pós-MVP |
 | 3 | Footystats HT indisponível | Média | Baixo | NULL aceito; GENERATED com NULL handling |
 | 4 | Footystats retorna -1 | **Certa** | Baixo | Transform → NULL antes do INSERT |
 | 5 | FBRef não cobre SCO_L1/SCO_L2 | **Certa** | Baixo | xG via Footystats (básico) |
-| 6 | Football-Data extras têm menos odds | **Certa** | Baixo | Colunas ausentes → NULL; odds real-time via FlashScore |
+| 6 | Football-Data extras têm menos odds | **Certa** | Baixo | Colunas ausentes → NULL; odds real-time via BetExplorer |
 | 7 | API-Football bloqueia multi-conta | Baixa | Médio | 3 contas reserva; IPs diferentes |
 | 8 | The Odds API 2.500 req insuficientes | Média | Baixo | Priorizar Pinnacle; upgrade $30/mês se necessário |
 | 9 | Aliases não resolvidos | **Alta** (início) | Alto | `unknown_aliases` + alerta Telegram; pipeline skip + log |
 | 10 | 580 times para mapear | **Certa** | Médio | CSV bem formatado; revisão incremental por liga |
-| 11 | Volume FlashScore (180 jogos/dia pico) | Média | Médio | Priorização por tier; 2 instâncias Selenium |
+| 11 | Volume BetExplorer (180 jogos/dia pico) | Média | Médio | Priorização por tier; 2 instâncias Selenium |
 | 12 | FBRef backfill 14h | **Certa** | Baixo | Rate limit respeitado; roda overnight |
 
 ---

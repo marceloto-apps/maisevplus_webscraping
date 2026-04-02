@@ -33,7 +33,7 @@ Documentos complementares: `SCHEMA.md` (DDL + indexes), `TASKS.md` (breakdown de
 | Ponto | Decisão |
 | --- | --- |
 | Stats/Resultados | Footystats API (key ilimitada) — fonte primária |
-| Odds tempo real | FlashScore (Selenium headless) — fonte primária |
+| Odds tempo real | BetExplorer (Selenium headless) — fonte primária |
 | Backfill histórico | [Football-Data.co.uk](http://football-data.co.uk/) (CSV) → Footystats (stats) → Understat/FBRef (xG) |
 | xG Top 5 europeias | Understat (granular, por chute) |
 | xG demais ligas | FBRef (por jogo) |
@@ -61,24 +61,24 @@ Documentos complementares: `SCHEMA.md` (DDL + indexes), `TASKS.md` (breakdown de
 | Fonte | Tipo de Acesso | Responsabilidade Primária | Secundária |
 | --- | --- | --- | --- |
 | **Footystats API** | HTTP REST (key ilimitada) | Resultados, stats completas (xG, chutes, escanteios, cartões HT/FT, minutos gols), fixtures | — |
-| **FlashScore** | Selenium headless | Odds tempo real (13 casas × 9 mercados) | Fallback resultados |
+| **BetExplorer** | Selenium headless | Odds tempo real (13 casas × 9 mercados) | Fallback resultados |
 | [**Football-Data.co.uk**](http://football-data.co.uk/) | HTTP (CSV download) | Backfill seed (matches + odds Pinnacle/B365) | — |
 | **Understat** | HTTP (lib Python async) | xG granular Top 5 (por chute, por situação de jogo) | — |
 | **FBRef** | HTTP (requests + BeautifulSoup4) | xG por jogo (19 ligas adicionais) | Stats avançadas |
-| **The Odds API** | HTTP REST (5 keys free) | Validação cruzada de odds (Pinnacle) | Fallback quando FlashScore falha |
+| **The Odds API** | HTTP REST (5 keys free) | Validação cruzada de odds (Pinnacle) | Fallback quando BetExplorer falha |
 | **API-Football** | HTTP REST (7 keys free) | Escalações confirmadas | Fallback fixtures |
 
 ### 2.2 Hierarquia de Fallback
 
-RESULTADOS + STATS: Footystats → API-Football → FlashScore → [Football-Data.co.uk](http://football-data.co.uk/)
+RESULTADOS + STATS: Footystats → API-Football → BetExplorer → [Football-Data.co.uk](http://football-data.co.uk/)
 
-ODDS TEMPO REAL: FlashScore → The Odds API
+ODDS TEMPO REAL: BetExplorer → The Odds API
 
-ODDS FECHAMENTO (CLV): FlashScore (Pinnacle último snapshot antes do kickoff) → Football-Data (Pinnacle closing odds do CSV histórico)
+ODDS FECHAMENTO (CLV): BetExplorer (Pinnacle último snapshot antes do kickoff) → Football-Data (Pinnacle closing odds do CSV histórico)
 
 xG: Understat (5 ligas Top 5) → FBRef (19 ligas adicionais) → Footystats (2 ligas sem cobertura FBRef: SCO_L1, SCO_L2)
 
-ESCALAÇÕES: API-Football → FlashScore
+ESCALAÇÕES: API-Football → BetExplorer
 
 FIXTURES/CALENDÁRIO: Footystats → API-Football
 
@@ -90,7 +90,7 @@ FIXTURES/CALENDÁRIO: Footystats → API-Football
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
 │  ┌──────────────┐   ODDS TEMPO REAL        ┌──────────────────┐    │
-│  │  FlashScore   │ ──────────────────────── │  odds_history    │    │
+│  │  BetExplorer   │ ──────────────────────── │  odds_history    │    │
 │  │  (Selenium)   │   13 casas × 9 mercados  │  (hypertable)    │    │
 │  └──────────────┘                           └──────────────────┘    │
 │         │ fallback                                                  │
@@ -283,7 +283,7 @@ SCO_L1, SCO_L2
 
 ## 4. Casas de Apostas
 
-| Tier | Casa | Código DB | Tipo | CLV Priority | FlashScore Aliases |
+| Tier | Casa | Código DB | Tipo | CLV Priority | BetExplorer Aliases |
 | --- | --- | --- | --- | --- | --- |
 | Sharp | Pinnacle | `pinnacle` | sharp | **1** | "Pinnacle", "Pinnacle Sports" |
 | Exchange | Betfair Exchange | `betfair_ex` | exchange | **2** | "Betfair", "Betfair Exchange" |
@@ -365,10 +365,10 @@ Linha POSITIVA = handicap a favor do home (home pode perder por até X)
 
 | Job ID | Cron / Trigger | Fonte | Ação |
 | --- | --- | --- | --- |
-| `odds_standard` | `0 6,10,14,20 * * *` BRT | FlashScore | Odds de jogos D+1 a D+7 |
-| `odds_gameday_hourly` | Dinâmico: 1x/hora (8h–23h BRT, jogos do dia) | FlashScore | Odds de jogos de hoje não iniciados |
-| `odds_prematch_30` | Dinâmico: T-30min | FlashScore | Snapshot pré-jogo |
-| `odds_prematch_2` | Dinâmico: T-2min | FlashScore | Snapshot final (marca candidato a closing) |
+| `odds_standard` | `0 6,10,14,20 * * *` BRT | BetExplorer | Odds de jogos D+1 a D+7 |
+| `odds_gameday_hourly` | Dinâmico: 1x/hora (8h–23h BRT, jogos do dia) | BetExplorer | Odds de jogos de hoje não iniciados |
+| `odds_prematch_30` | Dinâmico: T-30min | BetExplorer | Snapshot pré-jogo |
+| `odds_prematch_2` | Dinâmico: T-2min | BetExplorer | Snapshot final (marca candidato a closing) |
 | `results_postmatch` | Dinâmico: T+2h30 | Footystats | Resultado + stats + mark `is_closing` |
 | `xg_postround` | `0 6 * * *` BRT | Understat + FBRef | xG da rodada anterior |
 | `lineups_prematch` | Dinâmico: T-60min | API-Football | Escalações confirmadas |
@@ -388,7 +388,7 @@ Linha POSITIVA = handicap a favor do home (home pode perder por até X)
 
 ### 6.3 Priorização
 
-Quando fila cheia (>100 jogos/dia), FlashScore prioriza por tier:
+Quando fila cheia (>100 jogos/dia), BetExplorer prioriza por tier:
 
 1. **Tier 1** — coleta integral (todos os mercados, todas as linhas)
 2. **Tier 2** — coleta integral
@@ -568,15 +568,15 @@ class BaseCollector(ABC):
         return f"{self.source_name}_{job_type}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
 ```
 
-### 7.2 FlashScore Odds Collector
+### 7.2 BetExplorer Odds Collector
 
 **Input:**
 
 ```python
 @dataclass
-class FlashScoreOddsInput:
+class BetExplorerOddsInput:
     match_id: str               # UUID interno
-    flashscore_id: str          # ID FlashScore (ex: "8jQr1kNM")
+    betexplorer_id: str          # ID BetExplorer (ex: "8jQr1kNM")
     markets: List[str]          # ['1x2', 'ou', 'ah', 'dc', 'dnb', 'btts', '1x2_ht', 'ou_ht', 'ah_ht']
     bookmakers_filter: List[str]
 ```
@@ -588,14 +588,14 @@ class FlashScoreOddsInput:
 class OddsRecord:
     time: datetime              # UTC
     match_id: str               # UUID interno
-    bookmaker_name: str         # Nome raw FlashScore
+    bookmaker_name: str         # Nome raw BetExplorer
     market_type: str
     line: Optional[float]
     period: str                 # 'ft' ou 'ht'
     odds_1: Optional[float]
     odds_x: Optional[float]
     odds_2: Optional[float]
-    source: str = "flashscore"
+    source: str = "betexplorer"
 ```
 
 **Transformação pré-INSERT:**
@@ -628,7 +628,7 @@ def transform_odds_record(record: OddsRecord, db) -> dict:
         "overround": overround,
         "is_opening": False,   # Determinado via mark_opening()
         "is_closing": False,   # Determinado via mark_closing_odds()
-        "source": "flashscore",
+        "source": "betexplorer",
         "content_hash": content_hash
     }
 ```
@@ -956,9 +956,9 @@ scheduled → cancelled
 | Footystats | `""` (vazia) | Sem gols | `goals_*_minutes = NULL` |
 | Footystats | `"23,67,89"` | Minutos dos gols | → `[23, 67, 89]` (JSONB) |
 | Footystats | xG = `0.00` | xG zero (válido) | Manter `0.00` |
-| FlashScore | Odds = `"-"` ou `""` | Não disponível | Não inserir |
-| FlashScore | Odds = `"1.00"` | Sem retorno | Não inserir |
-| FlashScore | Casa ausente no mercado | Não oferece | Não inserir |
+| BetExplorer | Odds = `"-"` ou `""` | Não disponível | Não inserir |
+| BetExplorer | Odds = `"1.00"` | Sem retorno | Não inserir |
+| BetExplorer | Casa ausente no mercado | Não oferece | Não inserir |
 | Football-Data | Coluna vazia / `NaN` | Indisponível | → `NULL` |
 | Understat | xG = `None` | Não processado | Não inserir, retry dia seguinte |
 | FBRef | xG vazia | Sem dados | → `NULL` |
@@ -1198,7 +1198,7 @@ def retry_with_backoff(max_retries=4, initial_delay=30, max_delay=300, alert_on_
 
 | Fonte | Max Requests | Janela |
 | --- | --- | --- |
-| FlashScore | 30 req | 60s |
+| BetExplorer | 30 req | 60s |
 | FBRef | 10 req | 60s |
 | Understat | 20 req | 60s |
 | Footystats | Ilimitada | — |
@@ -1207,11 +1207,11 @@ def retry_with_backoff(max_retries=4, initial_delay=30, max_delay=300, alert_on_
 
 ### 11.3 Regras de Fallback
 
-1. **FlashScore down** → The Odds API assume coleta de odds (Pinnacle/Bet365 apenas)
+1. **BetExplorer down** → The Odds API assume coleta de odds (Pinnacle/Bet365 apenas)
 2. **Footystats down** → API-Football para fixtures; resultados aguardam até Footystats voltar
 3. **Understat down** → Retry dia seguinte; xG via FBRef como alternativa (menos granular)
 4. **FBRef down** → Footystats xG como fallback (básico)
-5. **API-Football down** → FlashScore para escalações (menos confiável)
+5. **API-Football down** → BetExplorer para escalações (menos confiável)
 6. **The Odds API down** → Sem validação cruzada (não bloqueia pipeline)
 
 ---
@@ -1225,7 +1225,7 @@ src/
 ├── collectors/
 │   ├── __init__.py
 │   ├── base.py                       # BaseCollector + CollectResult
-│   ├── flashscore/
+│   ├── betexplorer/
 │   │   ├── __init__.py
 │   │   ├── driver.py                 # Selenium + cookie handler
 │   │   ├── parser.py                 # HTML → dict
@@ -1272,7 +1272,7 @@ src/
 │   └── telegram_mini.py              # Alertas mínimos M1
 └── tests/
     ├── test_footystats.py
-    ├── test_flashscore.py
+    ├── test_betexplorer.py
     ├── test_normalizer.py
     └── test_dedup.py
 ```
@@ -1283,7 +1283,7 @@ src/
 | --- | --- |
 | Linguagem | Python 3.11+ |
 | HTTP client | `httpx` (async) |
-| Scraping FlashScore | Selenium + undetected-chromedriver |
+| Scraping BetExplorer | Selenium + undetected-chromedriver |
 | Scraping FBRef | `requests` + `beautifulsoup4` |
 | Understat | `understat` (lib Python async) |
 | Banco de dados | PostgreSQL 16 + TimescaleDB |
@@ -1328,7 +1328,7 @@ Verifica disponibilidade de todas as fontes. Alerta via Telegram se:
 | 5 | Schedule 48h | `ingestion_log` sem `failed` por 48h |
 | 6 | Dedup | Zero duplicatas (query de verificação) |
 | 7 | Normalização | 100% dos times mapeados (~580 times × 6 fontes) |
-| 8 | Fallback | FlashScore off → The Odds API assume |
+| 8 | Fallback | BetExplorer off → The Odds API assume |
 | 9 | Multi-key | 7 keys API-Football + 5 keys Odds API rotacionando |
 | 10 | 13 casas | Pinnacle + Bet365 + 3+ BR coletadas para jogos do dia |
 | 11 | HT/FT stats | Campos HT preenchidos onde Footystats disponibiliza |
@@ -1348,7 +1348,7 @@ Verifica disponibilidade de todas as fontes. Alerta via Telegram se:
 | Footystats collector (stats/resultados/fixtures/backfill) | 3 |
 | Understat collector + backfill Top 5 | 1 |
 | FBRef collector + backfill Tier 2 | 2 |
-| FlashScore collector (odds 13 casas × 9 mercados) | 4 |
+| BetExplorer collector (odds 13 casas × 9 mercados) | 4 |
 | The Odds API collector (5 keys) | 1 |
 | API-Football collector (7 keys + escalações) | 1 |
 | Scheduler (jobs + key rotation + reset diário) | 2 |
@@ -1360,7 +1360,7 @@ Verifica disponibilidade de todas as fontes. Alerta via Telegram se:
 
 | Risco | Impacto | Mitigação |
 | --- | --- | --- |
-| FlashScore muda HTML/JS | Alto | Selectors isolados em `selectors.py`; health check detecta em 5min |
+| BetExplorer muda HTML/JS | Alto | Selectors isolados em `selectors.py`; health check detecta em 5min |
 | FBRef rate limit mais restritivo | Médio | Backoff adaptativo; backfill em horário de baixa |
 | Footystats API instável | Alto | Retry + fallback API-Football para resultados |
 | Aliases mal mapeados | Alto | `unknown_aliases` + alerta Telegram + revisão semanal |

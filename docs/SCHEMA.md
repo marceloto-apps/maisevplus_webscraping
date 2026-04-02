@@ -90,7 +90,7 @@ CREATE TABLE leagues (
     football_data_type  VARCHAR(10),
     understat_name      VARCHAR(50),
     fbref_id            VARCHAR(20),
-    flashscore_path     VARCHAR(100),
+    betexplorer_path     VARCHAR(100),
     betexplorer_path    VARCHAR(100),
     footystats_name     VARCHAR(100),
     xg_source           VARCHAR(20) DEFAULT 'fbref',
@@ -229,7 +229,7 @@ CREATE TABLE matches (
 
     status              VARCHAR(20) DEFAULT 'scheduled',
 
-    flashscore_id       VARCHAR(30),
+    betexplorer_id       VARCHAR(30),
     football_data_id    VARCHAR(30),
     fbref_id            VARCHAR(30),
     understat_id        VARCHAR(30),
@@ -665,7 +665,7 @@ CREATE INDEX idx_matches_kickoff ON matches(kickoff);
 CREATE INDEX idx_matches_league_status ON matches(league_id, status);
 CREATE INDEX idx_matches_season ON matches(season_id);
 CREATE INDEX idx_matches_footystats ON matches(footystats_id) WHERE footystats_id IS NOT NULL;
-CREATE INDEX idx_matches_flashscore ON matches(flashscore_id) WHERE flashscore_id IS NOT NULL;
+CREATE INDEX idx_matches_betexplorer ON matches(betexplorer_id) WHERE betexplorer_id IS NOT NULL;
 CREATE INDEX idx_matches_status_kickoff ON matches(status, kickoff) WHERE status = 'scheduled';
 
 -- MATCH STATS
@@ -747,7 +747,7 @@ SELECT
     l.tier,
     th.name_canonical AS home_team,
     ta.name_canonical AS away_team,
-    m.flashscore_id,
+    m.betexplorer_id,
     m.footystats_id,
     m.api_football_id
 FROM matches m
