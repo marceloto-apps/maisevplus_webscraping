@@ -475,7 +475,7 @@ leagues:
     football_data_code: "AUT"
     football_data_type: "extra"
     understat_name: null
-    fbref_id: "56"
+    fbref_id: "22"
     xg_source: "fbref"
     api_football_league_id: 218
     odds_api_sport_key: "soccer_austria_bundesliga"
@@ -494,7 +494,7 @@ leagues:
     football_data_code: "SWZ"
     football_data_type: "extra"
     understat_name: null
-    fbref_id: "57"
+    fbref_id: "36"
     xg_source: "fbref"
     api_football_league_id: 207
     odds_api_sport_key: "soccer_switzerland_superleague"
