@@ -35,7 +35,7 @@ class FBRefClient:
         options.add_argument('--headless=new')
         options.add_argument('--disable-gpu')
         options.add_argument('--window-size=1920,1080')
-        return uc.Chrome(options=options)
+        return uc.Chrome(options=options, version_main=146)
 
     @retry(
         wait=wait_exponential(multiplier=60, min=60, max=600),
