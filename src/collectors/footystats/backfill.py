@@ -44,9 +44,7 @@ class FootyStatsBackfill:
 
         semaphore = asyncio.Semaphore(CONCURRENCY)
         
-        team_resolver = TeamResolver(self._pool)
-        await team_resolver.load_cache()
-        match_resolver = MatchResolver(self._pool, team_resolver)
+        await TeamResolver.load_cache()
 
         async def process_season(season: dict):
             async with semaphore:
@@ -54,7 +52,7 @@ class FootyStatsBackfill:
                 data = await self.api_client.fetch_season_matches(fs_season_id)
                 
                 if data:
-                    await self._process_matches_batch(data, season, match_resolver, team_resolver)
+                    await self._process_matches_batch(data, season)
                 
                 await asyncio.sleep(DELAY_BETWEEN)
         
@@ -74,9 +72,7 @@ class FootyStatsBackfill:
 
     async def _process_matches_batch(self, 
                                      matches_data: List[Dict], 
-                                     season: dict, 
-                                     match_resolver: MatchResolver, 
-                                     team_resolver: TeamResolver):
+                                     season: dict):
         league_id = season['league_id']
         season_id = season['season_id']
         
@@ -86,8 +82,8 @@ class FootyStatsBackfill:
                 away_name = str(raw_match.get('away_name', ''))
                 
                 # Resolução de IDs e captura de pendentes
-                home_id = await team_resolver.resolve("footystats", home_name)
-                away_id = await team_resolver.resolve("footystats", away_name)
+                home_id = await TeamResolver.resolve("footystats", home_name)
+                away_id = await TeamResolver.resolve("footystats", away_name)
 
                 if home_id is None:
                     self.unresolved_teams.add(home_name)
@@ -105,7 +101,7 @@ class FootyStatsBackfill:
 
                 # O MATCH RESOLVER:
                 # Prioridade 1, 2, 3 com lock de 1-dia
-                match_id = await match_resolver.resolve_with_footystats(
+                match_id = await MatchResolver.resolve_with_footystats(
                     league_id, home_name, away_name, kickoff.date(), fs_id
                 )
 
