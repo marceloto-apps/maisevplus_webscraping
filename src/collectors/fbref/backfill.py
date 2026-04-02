@@ -47,7 +47,7 @@ class FBRefBackfill:
             return
 
         soup = BeautifulSoup(html, "lxml")
-        table = soup.find("table", {"id": lambda L: L and L.endswith("sched")})
+        table = soup.find("table", {"id": lambda L: L and L.startswith("sched")})
         
         if not table:
             logger.warning("fbref_schedule_not_found", url=url)
