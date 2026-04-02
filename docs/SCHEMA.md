@@ -90,7 +90,6 @@ CREATE TABLE leagues (
     football_data_type  VARCHAR(10),
     understat_name      VARCHAR(50),
     fbref_id            VARCHAR(20),
-    betexplorer_path     VARCHAR(100),
     betexplorer_path    VARCHAR(100),
     footystats_name     VARCHAR(100),
     xg_source           VARCHAR(20) DEFAULT 'fbref',
