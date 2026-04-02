@@ -5,14 +5,14 @@ After=network.target postgresql.service
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/maisevplus_webscraping
-ExecStart=/maisevplus_webscraping/.venv/bin/python -m src.scheduler.orchestrator
+WorkingDirectory=/root/maisevplus_webscraping
+ExecStart=/root/maisevplus_webscraping/.venv/bin/python -m src.scheduler.orchestrator
 Restart=on-failure
 RestartSec=30
 Environment=PYTHONUNBUFFERED=1
 
 # Opcional (se as chaves e acesso ficarem no arquivo .env injetado aqui)
-EnvironmentFile=/maisevplus_webscraping/.env
+EnvironmentFile=/root/maisevplus_webscraping/.env
 
 [Install]
 WantedBy=multi-user.target
