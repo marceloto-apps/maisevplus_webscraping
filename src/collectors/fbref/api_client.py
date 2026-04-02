@@ -48,9 +48,15 @@ class FBRefClient:
             logger.info("fbref_fetch_start", url=url)
 
             await asyncio.to_thread(driver.get, url)
+            
+            # Pausa pro-ativa fundamental para navegadores reais:
+            # O Cloudflare serve uma página em branco com JS puro que calcula o hash do navegador
+            # e faz um window.location.reload() cerca de 2-4 segundos depois.
+            await asyncio.sleep(4.0)
+            
             html = driver.page_source
 
-            if "Just a moment..." in html or "Attention Required!" in html or "403 Forbidden" in html:
+            if "Cloudflare" in html or "Just a moment..." in html or "Attention Required!" in html or "403 Forbidden" in html:
                 logger.warning("fbref_rate_limit_429", url=url)
                 raise RateLimitedException(f"Cloudflare/429 from {url}")
 
