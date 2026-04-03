@@ -65,7 +65,15 @@ class FBRefClient:
     async def close(self):
         if self.driver:
             try:
+                # Disable quit to avoid WinError 6 from __del__ throwing exceptions
                 self.driver.quit()
             except Exception:
                 pass
-            self.driver = None
+            finally:
+                try:
+                    # Monkey-patch para evitar OSError (WinError 6) no __del__ do UC no Windows
+                    import undetected_chromedriver as uc
+                    uc.Chrome.__del__ = lambda self: None
+                except Exception:
+                    pass
+                self.driver = None

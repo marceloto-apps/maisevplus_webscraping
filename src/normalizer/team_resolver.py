@@ -193,7 +193,7 @@ class MatchResolver:
                 WHERE league_id = $1
                   AND home_team_id = $2
                   AND away_team_id = $3
-                  AND ABS(EXTRACT(DAY FROM kickoff::date - $4::date)) <= 1
+                  AND ABS(kickoff::date - $4::date) <= 1
                 """,
                 league_id, home_id, away_id, kickoff_date,
             )

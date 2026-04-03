@@ -237,6 +237,7 @@ async def main_backfill():
             await orchestrator.process_pending_matches()
             
     finally:
+        await TeamResolver.flush_unknowns()
         await client.close()
         await db_pool.close()
 

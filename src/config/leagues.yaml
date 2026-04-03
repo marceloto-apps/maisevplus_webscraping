@@ -89,7 +89,7 @@ leagues:
     football_data_code: "EC"
     football_data_type: "main"
     understat_name: null
-    fbref_id: "58"
+    fbref_id: "34"
     xg_source: "fbref"
     api_football_league_id: 43
     odds_api_sport_key: null
@@ -128,7 +128,7 @@ leagues:
     football_data_code: "SC1"
     football_data_type: "main"
     understat_name: null
-    fbref_id: "69"
+    fbref_id: "72"
     xg_source: "fbref"
     api_football_league_id: 180
     odds_api_sport_key: null
@@ -475,7 +475,7 @@ leagues:
     football_data_code: "AUT"
     football_data_type: "extra"
     understat_name: null
-    fbref_id: "22"
+    fbref_id: "56"
     xg_source: "fbref"
     api_football_league_id: 218
     odds_api_sport_key: "soccer_austria_bundesliga"
@@ -494,7 +494,7 @@ leagues:
     football_data_code: "SWZ"
     football_data_type: "extra"
     understat_name: null
-    fbref_id: "36"
+    fbref_id: "57"
     xg_source: "fbref"
     api_football_league_id: 207
     odds_api_sport_key: "soccer_switzerland_superleague"

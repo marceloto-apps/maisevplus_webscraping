@@ -118,13 +118,11 @@ class FootyStatsBackfill:
                             ft_away = $4,
                             ht_home = $5,
                             ht_away = $6,
-                            goals_home_minutes = $7,
-                            goals_away_minutes = $8,
                             updated_at = NOW()
-                        WHERE match_id = $9
+                        WHERE match_id = $7
                         """,
                         fs_id, kickoff, m.get('ft_home'), m.get('ft_away'), m.get('ht_home'), m.get('ht_away'),
-                        m.get('goals_home_minutes'), m.get('goals_away_minutes'), match_id
+                        match_id
                     )
                 else:
                     # INSERT MATCHES
@@ -134,47 +132,140 @@ class FootyStatsBackfill:
                         INSERT INTO matches (
                             season_id, league_id, home_team_id, away_team_id,
                             footystats_id, kickoff, status, ft_home, ft_away, ht_home, ht_away,
-                            goals_home_minutes, goals_away_minutes, updated_at
-                        ) VALUES ($1, $2, $3, $4, $5, $6, 'finished', $7, $8, $9, $10, $11, $12, NOW())
+                            updated_at
+                        ) VALUES ($1, $2, $3, $4, $5, $6, 'finished', $7, $8, $9, $10, NOW())
                         RETURNING match_id
                         """,
                         season_id, league_id, home_id, away_id, fs_id, kickoff,
-                        m.get('ft_home'), m.get('ft_away'), m.get('ht_home'), m.get('ht_away'),
-                        m.get('goals_home_minutes'), m.get('goals_away_minutes')
+                        m.get('ft_home'), m.get('ft_away'), m.get('ht_home'), m.get('ht_away')
                     )
 
                 # INSERT MATCH_STATS (Upsert)
+                # Ordem das colunas segue a migration 011
                 s = parsed['match_stats']
                 await conn.execute(
                     """
                     INSERT INTO match_stats (
-                        match_id, source, xg_home, xg_away, corners_home_ft, corners_away_ft,
-                        yellow_cards_home_ft, yellow_cards_away_ft, red_cards_home_ft, red_cards_away_ft,
-                        possession_home, possession_away, shots_home, shots_away,
-                        shots_on_target_home, shots_on_target_away
+                        match_id,
+                        xg_home, xg_away,
+                        total_goals_ft,
+                        goals_home_minutes, goals_away_minutes,
+                        corners_home_ft, corners_away_ft,
+                        offsides_home, offsides_away,
+                        yellow_cards_home_ft, yellow_cards_away_ft,
+                        red_cards_home_ft, red_cards_away_ft,
+                        shots_on_target_home, shots_on_target_away,
+                        shots_off_target_home, shots_off_target_away,
+                        shots_home, shots_away,
+                        fouls_home, fouls_away,
+                        possession_home, possession_away,
+                        btts_potential,
+                        corners_home_ht, corners_away_ht,
+                        corners_home_2h, corners_away_2h,
+                        goals_home_2h, goals_away_2h,
+                        cards_home_ht, cards_away_ht,
+                        cards_home_2h, cards_away_2h,
+                        dangerous_attacks_home, dangerous_attacks_away,
+                        attacks_home, attacks_away,
+                        goals_home_0_10_min, goals_away_0_10_min,
+                        corners_home_0_10_min, corners_away_0_10_min,
+                        cards_home_0_10_min, cards_away_0_10_min,
+                        home_ppg, away_ppg,
+                        pre_match_home_ppg, pre_match_away_ppg,
+                        pre_match_overall_ppg_home, pre_match_overall_ppg_away,
+                        xg_prematch_home, xg_prematch_away,
+                        source
                     ) VALUES (
-                        $1, 'footystats', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+                        $1,
+                        $2, $3, $4, $5, $6, $7, $8, $9, $10,
+                        $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
+                        $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
+                        $31, $32, $33, $34, $35, $36, $37, $38, $39, $40,
+                        $41, $42, $43, $44, $45, $46, $47, $48, $49, $50,
+                        $51, $52, $53, 'footystats'
                     )
                     ON CONFLICT (match_id, source) DO UPDATE SET
                         xg_home = EXCLUDED.xg_home,
                         xg_away = EXCLUDED.xg_away,
+                        total_goals_ft = EXCLUDED.total_goals_ft,
+                        goals_home_minutes = EXCLUDED.goals_home_minutes,
+                        goals_away_minutes = EXCLUDED.goals_away_minutes,
                         corners_home_ft = EXCLUDED.corners_home_ft,
                         corners_away_ft = EXCLUDED.corners_away_ft,
+                        offsides_home = EXCLUDED.offsides_home,
+                        offsides_away = EXCLUDED.offsides_away,
                         yellow_cards_home_ft = EXCLUDED.yellow_cards_home_ft,
                         yellow_cards_away_ft = EXCLUDED.yellow_cards_away_ft,
                         red_cards_home_ft = EXCLUDED.red_cards_home_ft,
                         red_cards_away_ft = EXCLUDED.red_cards_away_ft,
-                        possession_home = EXCLUDED.possession_home,
-                        possession_away = EXCLUDED.possession_away,
+                        shots_on_target_home = EXCLUDED.shots_on_target_home,
+                        shots_on_target_away = EXCLUDED.shots_on_target_away,
+                        shots_off_target_home = EXCLUDED.shots_off_target_home,
+                        shots_off_target_away = EXCLUDED.shots_off_target_away,
                         shots_home = EXCLUDED.shots_home,
                         shots_away = EXCLUDED.shots_away,
-                        shots_on_target_home = EXCLUDED.shots_on_target_home,
-                        shots_on_target_away = EXCLUDED.shots_on_target_away
+                        fouls_home = EXCLUDED.fouls_home,
+                        fouls_away = EXCLUDED.fouls_away,
+                        possession_home = EXCLUDED.possession_home,
+                        possession_away = EXCLUDED.possession_away,
+                        btts_potential = EXCLUDED.btts_potential,
+                        corners_home_ht = EXCLUDED.corners_home_ht,
+                        corners_away_ht = EXCLUDED.corners_away_ht,
+                        corners_home_2h = EXCLUDED.corners_home_2h,
+                        corners_away_2h = EXCLUDED.corners_away_2h,
+                        goals_home_2h = EXCLUDED.goals_home_2h,
+                        goals_away_2h = EXCLUDED.goals_away_2h,
+                        cards_home_ht = EXCLUDED.cards_home_ht,
+                        cards_away_ht = EXCLUDED.cards_away_ht,
+                        cards_home_2h = EXCLUDED.cards_home_2h,
+                        cards_away_2h = EXCLUDED.cards_away_2h,
+                        dangerous_attacks_home = EXCLUDED.dangerous_attacks_home,
+                        dangerous_attacks_away = EXCLUDED.dangerous_attacks_away,
+                        attacks_home = EXCLUDED.attacks_home,
+                        attacks_away = EXCLUDED.attacks_away,
+                        goals_home_0_10_min = EXCLUDED.goals_home_0_10_min,
+                        goals_away_0_10_min = EXCLUDED.goals_away_0_10_min,
+                        corners_home_0_10_min = EXCLUDED.corners_home_0_10_min,
+                        corners_away_0_10_min = EXCLUDED.corners_away_0_10_min,
+                        cards_home_0_10_min = EXCLUDED.cards_home_0_10_min,
+                        cards_away_0_10_min = EXCLUDED.cards_away_0_10_min,
+                        home_ppg = EXCLUDED.home_ppg,
+                        away_ppg = EXCLUDED.away_ppg,
+                        pre_match_home_ppg = EXCLUDED.pre_match_home_ppg,
+                        pre_match_away_ppg = EXCLUDED.pre_match_away_ppg,
+                        pre_match_overall_ppg_home = EXCLUDED.pre_match_overall_ppg_home,
+                        pre_match_overall_ppg_away = EXCLUDED.pre_match_overall_ppg_away,
+                        xg_prematch_home = EXCLUDED.xg_prematch_home,
+                        xg_prematch_away = EXCLUDED.xg_prematch_away
                     """,
-                    match_id, s.get('xg_home'), s.get('xg_away'), s.get('corners_home_ft'), s.get('corners_away_ft'),
-                    s.get('yellow_cards_home_ft'), s.get('yellow_cards_away_ft'), s.get('red_cards_home_ft'), s.get('red_cards_away_ft'),
-                    s.get('possession_home'), s.get('possession_away'), s.get('shots_home'), s.get('shots_away'),
-                    s.get('shots_on_target_home'), s.get('shots_on_target_away')
+                    match_id,
+                    s.get('xg_home'), s.get('xg_away'),
+                    s.get('total_goals_ft'),
+                    s.get('goals_home_minutes'), s.get('goals_away_minutes'),
+                    s.get('corners_home_ft'), s.get('corners_away_ft'),
+                    s.get('offsides_home'), s.get('offsides_away'),
+                    s.get('yellow_cards_home_ft'), s.get('yellow_cards_away_ft'),
+                    s.get('red_cards_home_ft'), s.get('red_cards_away_ft'),
+                    s.get('shots_on_target_home'), s.get('shots_on_target_away'),
+                    s.get('shots_off_target_home'), s.get('shots_off_target_away'),
+                    s.get('shots_home'), s.get('shots_away'),
+                    s.get('fouls_home'), s.get('fouls_away'),
+                    s.get('possession_home'), s.get('possession_away'),
+                    s.get('btts_potential'),
+                    s.get('corners_home_ht'), s.get('corners_away_ht'),
+                    s.get('corners_home_2h'), s.get('corners_away_2h'),
+                    s.get('goals_home_2h'), s.get('goals_away_2h'),
+                    s.get('cards_home_ht'), s.get('cards_away_ht'),
+                    s.get('cards_home_2h'), s.get('cards_away_2h'),
+                    s.get('dangerous_attacks_home'), s.get('dangerous_attacks_away'),
+                    s.get('attacks_home'), s.get('attacks_away'),
+                    s.get('goals_home_0_10_min'), s.get('goals_away_0_10_min'),
+                    s.get('corners_home_0_10_min'), s.get('corners_away_0_10_min'),
+                    s.get('cards_home_0_10_min'), s.get('cards_away_0_10_min'),
+                    s.get('home_ppg'), s.get('away_ppg'),
+                    s.get('pre_match_home_ppg'), s.get('pre_match_away_ppg'),
+                    s.get('pre_match_overall_ppg_home'), s.get('pre_match_overall_ppg_away'),
+                    s.get('xg_prematch_home'), s.get('xg_prematch_away')
                 )
 
 if __name__ == "__main__":
