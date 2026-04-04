@@ -974,7 +974,7 @@ COLETORES CORE
   [x] T05  Football-Data CSV collector
   [x] T06  Footystats collector
   [x] T07  Understat collector
-  [x] T08  FBRef collector
+  [-] T08  FBRef collector (Arquivado/Buscando Alternativa)
 
 COLETORES SECUNDÁRIOS
   [x] T09  BetExplorer odds collector
@@ -989,7 +989,7 @@ BACKFILL
   [x] T14  Etapa 1: Football-Data seed
   [x] T15  Etapa 2: Revisão aliases (Marcelo)
   [x] T16  Etapa 3: Footystats stats (100% Cobertura)
-  [ ] T17  Etapa 4: xG Understat + FBRef
+  [ ] T17  Etapa 4: xG Understat (Procurando nova fonte alternativa ao FBRef)
   [ ] T18  Aliases cross-source
 
 VALIDAÇÃO
