@@ -989,7 +989,7 @@ BACKFILL
   [x] T14  Etapa 1: Football-Data seed
   [x] T15  Etapa 2: Revisão aliases (Marcelo)
   [x] T16  Etapa 3: Footystats stats (100% Cobertura)
-  [ ] T17  Etapa 4: xG Understat (Procurando nova fonte alternativa ao FBRef)
+  [ ] T17  Etapa 4: xG Understat (Avaliar alternativas: FotMob e SofaScore)
   [ ] T18  Aliases cross-source
 
 VALIDAÇÃO
