@@ -988,17 +988,17 @@ ORQUESTRAÇÃO
 BACKFILL
   [x] T14  Etapa 1: Football-Data seed
   [x] T15  Etapa 2: Revisão aliases (Marcelo)
-  [x] T16  Etapa 3: Footystats stats
+  [x] T16  Etapa 3: Footystats stats (100% Cobertura)
   [ ] T17  Etapa 4: xG Understat + FBRef
   [ ] T18  Aliases cross-source
 
 VALIDAÇÃO
-  [ ] T19  Testes + resiliência
-  [ ] T20  Go-live 48h
+  [ ] T19  Testes + resiliência globais
+  [ ] T20  Go-live 48h globais
 
 ACEITE M1
   [ ] Dashboard de aceite: todos ✅
-  [ ] Documentação atualizada
+  [x] Documentação atualizada (FootyStats 100%)
   [ ] Handoff para M2
 ```
 
