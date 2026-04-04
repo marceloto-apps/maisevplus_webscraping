@@ -206,6 +206,39 @@ async def schedule_gameday_jobs():
 
 # Mocks para imports mantidos do orchestator
 @safe_job
+async def footystats_daily():
+    """
+    Trigger: `0 5 * * *` BRT
+    Objetivo: Atualizar todos os jogos das temporadas ativas via FootyStats API.
+    Ao final avalia encerramento automático de temporadas concluídas.
+    """
+    from src.collectors.footystats.daily_updater import FootyStatsDailyUpdater
+    updater = FootyStatsDailyUpdater()
+    result = await updater.run()
+    logger.info(
+        "footystats_daily_complete",
+        seasons_processed=result.get("seasons_processed"),
+        matches_upserted=result.get("matches_upserted"),
+        seasons_closed=result.get("seasons_closed"),
+    )
+    return result
+
+
+@safe_job
+async def football_data_daily():
+    """
+    Trigger: `15 5 * * *` BRT
+    Objetivo: Atualizar CSVs da football-data.co.uk para temporadas ativas.
+    Ligas sem football_data_code são silenciosamente ignoradas.
+    """
+    from src.collectors.football_data.csv_collector import FootballDataCollector
+    collector = FootballDataCollector()
+    result = await collector.collect(mode="daily-update")
+    return {"provider": "football_data", "mode": "daily-update", "total": result.records_collected}
+
+
+# ---------------------------------------------------------------------------
+@safe_job
 async def odds_prematch_30(): pass
 
 @safe_job

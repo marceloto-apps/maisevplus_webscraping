@@ -13,6 +13,8 @@ from src.scheduler.jobs import (
     odds_standard,
     odds_gameday_hourly,
     fixtures_weekly,
+    footystats_daily,
+    football_data_daily,
     reset_daily_keys,
     reset_monthly_keys,
     schedule_gameday_jobs,
@@ -81,7 +83,25 @@ class AppOrchestrator:
             misfire_grace_time=3600
         )
 
-        # 5. Fixtures Weekly (Segundas-feiras 05:00 BRT)
+        # 5. FootyStats Daily — 05:00 BRT (atualiza temporadas ativas + auto-close)
+        self.scheduler.add_job(
+            footystats_daily,
+            'cron',
+            hour=5, minute=0,
+            id="footystats_daily",
+            misfire_grace_time=7200
+        )
+
+        # 6. Football-Data Daily — 05:15 BRT (atualiza CSVs das temporadas ativas)
+        self.scheduler.add_job(
+            football_data_daily,
+            'cron',
+            hour=5, minute=15,
+            id="football_data_daily",
+            misfire_grace_time=7200
+        )
+
+        # 7. Fixtures Weekly (Segundas-feiras 05:00 BRT — calendário futuro via API-Football)
         self.scheduler.add_job(
             fixtures_weekly,
             'cron',

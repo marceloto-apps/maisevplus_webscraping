@@ -85,6 +85,33 @@ class FootballDataCollector(BaseCollector):
                     "end": s["end_date"]
                 })
 
+    async def _get_active_football_data_codes(self) -> set:
+        """
+        Retorna os football_data_code das leagues que possuem ao menos uma
+        temporada ativa (is_current = TRUE). Leagues sem código são ignoradas.
+        """
+        await self._init_db_and_caches()
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT DISTINCT l.name, l.country
+                FROM seasons s
+                JOIN leagues l ON s.league_id = l.league_id
+                WHERE s.is_current = TRUE
+                """
+            )
+
+        active_codes = set()
+        for row in rows:
+            for key, conf in self._leagues_config.items():
+                if (conf.get("name") == row["name"]
+                        and conf.get("country") == row["country"]
+                        and conf.get("football_data_code")):
+                    active_codes.add(conf["football_data_code"])
+
+        logger.info("football_data_daily_active_codes", codes=sorted(active_codes))
+        return active_codes
+
     async def health_check(self) -> bool:
         """Valida que o repositório principal está vivo efetuando um GET ultra rápido de um CSV leve."""
         test_url = MAIN_URL_TEMPLATE.format(season="2324", code="E0")
@@ -101,20 +128,43 @@ class FootballDataCollector(BaseCollector):
 
     async def collect(self, mode: str = "seed-aliases", output_file: str = "output/team_aliases_seed.csv") -> CollectResult:
         """
-        Orquestra a coleta de todos os CSVs configurados.
+        Orquestra a coleta dos CSVs configurados.
         mode:
-          'seed-aliases' -> Extrai times únicos e gera CSV. Não escreve no banco.
-          'backfill'     -> Efetua parse, match resolution, e INSERTs definitivos.
+          'seed-aliases'  -> Extrai times únicos e gera CSV. Não escreve no banco.
+          'backfill'      -> Efetua parse, match resolution, e INSERTs definitivos (todas as seasons).
+          'daily-update'  -> Igual ao backfill, mas APENAS para seasons com is_current = TRUE.
+                             Silenciosamente ignora leagues sem football_data_code.
         """
         job_id = self.generate_job_id("batch_csv")
         await self._init_db_and_caches()
 
+        # No modo daily-update, filtramos as leagues ativas no banco
+        active_fd_codes: set | None = None
+        if mode == "daily-update":
+            active_fd_codes = await self._get_active_football_data_codes()
+            if not active_fd_codes:
+                logger.info("football_data_daily_no_active_leagues")
+                return CollectResult(
+                    source=self.source_name,
+                    job_type="batch_csv",
+                    job_id=job_id,
+                    status=CollectStatus.SUCCESS,
+                    started_at=datetime.now(timezone.utc),
+                    finished_at=datetime.now(timezone.utc),
+                    records=[],
+                    records_collected=0,
+                )
+
         tasks = []
-        urls_meta = []  # To keep track of what each URL represents
+        urls_meta = []
 
         for l_key, conf in self._leagues_config.items():
             code = conf.get("football_data_code")
             if not code:
+                continue  # Liga sem código CSV — ignorar silenciosamente
+
+            # No modo daily-update: pular leagues de temporadas inativas
+            if active_fd_codes is not None and code not in active_fd_codes:
                 continue
 
             l_type = conf.get("football_data_type", "main")
@@ -128,12 +178,15 @@ class FootballDataCollector(BaseCollector):
                 url = EXTRA_URL_TEMPLATE.format(code=code)
                 urls_meta.append({'url': url, 'type': 'extra', 'code': code})
 
-        # Download parallel limit
+        # Parallelismo limitado
         sem = asyncio.Semaphore(10)
+
+        # No daily-update, o modo de insert é igual ao backfill
+        effective_mode = "backfill" if mode == "daily-update" else mode
 
         async def _download_and_parse(meta: dict):
             async with sem:
-                return await self._process_url(meta, mode)
+                return await self._process_url(meta, effective_mode)
 
         logger.info("football_data_start", urls_count=len(urls_meta), mode=mode)
         results = await asyncio.gather(*[_download_and_parse(m) for m in urls_meta], return_exceptions=True)
@@ -147,18 +200,17 @@ class FootballDataCollector(BaseCollector):
                 logger.error("football_data_download_error", error=str(r))
                 failed_downloads += 1
             elif r:
-                if mode == "seed-aliases":
+                if effective_mode == "seed-aliases":
                     aliases_set.update(r)
                 else:
                     total_matches += r
 
-        if mode == "seed-aliases":
+        if effective_mode == "seed-aliases":
             os.makedirs(os.path.dirname(output_file), exist_ok=True)
             df_aliases = pd.DataFrame(sorted(list(aliases_set)), columns=["football_data_name"])
             df_aliases["canonical_name_bet365"] = ""
             df_aliases["country"] = ""
             df_aliases["league_code"] = ""
-            # Simple guessing code where possible by joining the lists, but manual is requested.
             df_aliases.to_csv(output_file, index=False)
             logger.info("aliases_seed_generated", count=len(aliases_set), path=output_file)
 
@@ -170,7 +222,7 @@ class FootballDataCollector(BaseCollector):
             started_at=datetime.now(timezone.utc),
             finished_at=datetime.now(timezone.utc),
             records=[],
-            records_collected=total_matches if mode == 'backfill' else len(aliases_set),
+            records_collected=total_matches if effective_mode != "seed-aliases" else len(aliases_set),
         )
 
     async def _process_url(self, meta: dict, mode: str):
