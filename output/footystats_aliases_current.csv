@@ -1,0 +1,484 @@
+alias_name,canonical_name,team_id
+aberdeen,Aberdeen,15
+ac milan,AC Milan,308
+accrington stanley,Accrington Stanley,16
+ad alcorcón,AD Alcorcon,25
+adana demirspor,Adana Demirspor,17
+admira,Admira,543
+aek athens,AEK Athens,11
+afc bournemouth,Bournemouth,88
+afc wimbledon,AFC Wimbledon,12
+airdrieonians,Airdrieonians,18
+ajax,Ajax,20
+alanyaspor,Alanyaspor,21
+albion rovers,Albion Rovers,24
+aldershot town,Aldershot Town,26
+alloa athletic,Alloa Athletic,28
+almere city,Almere City FC,29
+altrincham,Altrincham,32
+amiens sc,Amiens SC,34
+américa,América,522
+américa mineiro,América Mineiro,567
+angers sco,Angers SCO,38
+annan athletic,Annan Athletic,40
+antalyaspor,Antalyaspor,42
+apollon smirnis,Apollon Smyrnis,44
+arbroath,Arbroath,45
+arminia bielefeld,Arminia Bielefeld,74
+arsenal,Arsenal,48
+ascoli,Ascoli,49
+asteras tripolis,Asteras Tripolis,50
+aston villa,Aston Villa,51
+atalanta,Atalanta,52
+athletic club bilbao,Athletic Bilbao,53
+atlas,Atlas,577
+atlético go,Atlético GO,563
+atlético madrid,Atlético de Madrid,54
+atlético mineiro,Atlético Mineiro,513
+atlético pr,Atlético PR,550
+atlético san luis,Atlético San Luis,571
+atromitos,Atromitos,56
+augsburg,Augsburg,57
+austria klagenfurt,Austria Klagenfurt,536
+austria lustenau,Austria Lustenau,542
+austria wien,Austria Wien,510
+auxerre,Auxerre,58
+avaí,Avaí,566
+avellino,Avellino,59
+ayr united,Ayr United,60
+bahia,Bahia,518
+barnet,Barnet,63
+barnsley,Barnsley,64
+barrow,Barrow,65
+basel,Basel,583
+bastia,Bastia,66
+bayer leverkusen,Bayer Leverkusen,281
+bb bodrumspor,Bodrumspor,80
+belenenses,Belenenses,69
+benevento,Benevento,70
+benfica,Benfica,71
+birmingham city,Birmingham City,75
+blackburn rovers,Blackburn Rovers,76
+blackpool,Blackpool,77
+blau-weiß linz,Blau-Weiß Linz,539
+bologna,Bologna,81
+bolton wanderers,Bolton Wanderers,82
+bordeaux,Bordeaux,84
+boreham wood,Boreham Wood,85
+borussia dortmund,Borussia Dortmund,152
+borussia m'gladbach,Borussia M'gladbach,291
+boston united,Boston United,86
+botafogo,Botafogo,547
+boulogne,Boulogne,87
+brackley town,Brackley Town,89
+bradford city,Bradford City,90
+bragantino,Bragantino,545
+braintree town,Braintree Town,91
+brentford,Brentford,93
+brescia,Brescia,94
+brest,Brest,95
+brighton & hove albion,Brighton,96
+bristol city,Bristol City,97
+bristol rovers,Bristol Rovers,98
+bromley,Bromley,99
+burgos cf,Burgos CF,100
+burnley,Burnley,101
+burton albion,Burton Albion,102
+caen,Caen,105
+cagliari,Cagliari,106
+cambridge united,Cambridge United,107
+cardiff city,Cardiff City,109
+carlisle united,Carlisle United,110
+carrarese,Carrarese,111
+casa pia,Casa Pia,113
+catanzaro,Catanzaro,115
+cd castellón,CD Castellon,114
+ceará,Ceará,556
+celta de vigo,Celta de Vigo,116
+celtic,Celtic,117
+cercle brugge,Cercle Brugge,118
+cesena,Cesena,119
+cf fuenlabrada,Fuenlabrada,199
+chapecoense,Chapecoense,568
+charlton athletic,Charlton Athletic,122
+chelsea,Chelsea,124
+cheltenham town,Cheltenham Town,125
+chesterfield,Chesterfield,126
+cittadella,Cittadella,127
+club brugge,Club Brugge,129
+clyde,Clyde,130
+colchester united,Colchester United,131
+como,Como,132
+concarneau,Concarneau,133
+corinthians,Corinthians,555
+coritiba,Coritiba,519
+cosenza,Cosenza,135
+cove rangers,Cove Rangers,136
+coventry city,Coventry City,137
+cowdenbeath,Cowdenbeath,138
+crawley town,Crawley Town,139
+cremonese,Cremonese,140
+crewe alexandra,Crewe Alexandra,141
+criciúma,Criciúma,565
+crotone,Crotone,142
+cruz azul,Cruz Azul,521
+cruzeiro,Cruzeiro,548
+crystal palace,Crystal Palace,143
+cuiabá,Cuiabá,553
+dagenham & redbridge,Dagenham & Redbridge,145
+darmstadt 98,Darmstadt 98,146
+deportivo la coruña,Deportivo La Coruña,265
+derby county,Derby County,148
+dijon,Dijon,149
+doncaster rovers,Doncaster Rovers,150
+dorking wanderers,Dorking Wanderers,151
+dover athletic,Dover Athletic,153
+dumbarton,Dumbarton,155
+dundee united,Dundee United,157
+dunfermline athletic,Dunfermline Athletic,158
+dunkerque,Dunkerque,159
+dynamo dresden,Dynamo Dresden,154
+east fife,East Fife,160
+east kilbride,East Kilbride,161
+eastleigh,Eastleigh,162
+ebbsfleet united,Ebbsfleet United,163
+edinburgh city,Edinburgh City,164
+eintracht braunschweig,Eintracht Braunschweig,92
+eintracht frankfurt,Eintracht Frankfurt,166
+elgin city,Elgin City,169
+elversberg,SV Elversberg,170
+empoli,Empoli,171
+erzgebirge aue,Erzgebirge Aue,172
+estrela amadora,Estrela Amadora,175
+everton,Everton,177
+excelsior,Excelsior,178
+exeter city,Exeter City,179
+eyüpspor,Eyupspor,180
+falkirk,Falkirk,184
+famalicão,Famalicao,185
+farense,Farense,186
+fatih karagümrük,Fatih Karagumruk,253
+fc andorra,FC Andorra,37
+fc arouca,FC Arouca,47
+fc barcelona,Barcelona,61
+fc cartagena,FC Cartagena,112
+fenerbahçe,Fenerbahçe,187
+feralpisalò,FeralpiSalo,188
+feyenoord,Feyenoord,190
+fiorentina,Fiorentina,191
+flamengo,Flamengo,516
+fleetwood town,Fleetwood Town,192
+fluminense,Fluminense,549
+forest green rovers,Forest Green Rovers,194
+forfar athletic,Forfar Athletic,195
+fortaleza,Fortaleza,558
+fortuna düsseldorf,Fortuna Dusseldorf,196
+fortuna sittard,Fortuna Sittard,193
+freiburg,Freiburg,197
+frosinone,Frosinone,198
+fulham,Fulham,200
+galatasaray,Galatasaray,202
+gateshead,Gateshead,203
+gaziantep fk,Gaziantep FK,204
+gd chaves,GD Chaves,123
+genoa,Genoa,207
+gençlerbirliği,Genclerbirligi,205
+gil vicente,Gil Vicente,211
+gillingham,Gillingham,212
+giresunspor,Giresunspor,213
+go ahead eagles,Go Ahead Eagles,215
+goiás,Goiás,561
+grasshopper,Grasshopper,530
+grazer ak,Grazer AK,508
+greenock morton,Greenock Morton,319
+grenoble foot 38,Grenoble Foot,218
+greuther fürth,Greuther Furth,219
+grimsby town,Grimsby Town,220
+groningen,Groningen,221
+grêmio,Grêmio,554
+guadalajara,Guadalajara,576
+guingamp,Guingamp,223
+göztepe,Goztepe,216
+halifax town,FC Halifax Town,224
+hamburger sv,Hamburger SV,225
+hamilton academical,Hamilton Academical,226
+hannover 96,Hannover 96,227
+hansa rostock,Hansa Rostock,228
+harrogate town,Harrogate Town,229
+hartberg,Hartberg,541
+hartlepool united,Hartlepool United,230
+hatayspor,Hatayspor,231
+hearts,Hearts,232
+heerenveen,Heerenveen,233
+heidenheim,Heidenheim,234
+hellas verona,Hellas Verona,473
+hibernian,Hibernian,237
+hoffenheim,Hoffenheim,238
+holstein kiel,Holstein Kiel,239
+huddersfield town,Huddersfield Town,240
+hull city,Hull City,242
+ingolstadt,FC Ingolstadt,244
+internacional,Internacional,514
+inverness ct,Inverness CT,246
+ionikos,Ionikos,247
+ipswich town,Ipswich Town,248
+i̇stanbul başakşehir,Istanbul Basaksehir,103
+i̇stanbulspor,Istanbulspor,249
+jahn regensburg,Jahn Regensburg,388
+juve stabia,Juve Stabia,250
+juventude,Juventude,559
+juventus,Juventus,251
+juárez,Juárez,525
+kaiserslautern,Kaiserslautern,252
+karlsruher sc,Karlsruher SC,254
+kayserispor,Kayserispor,256
+kelty hearts,Kelty Hearts,257
+kidderminster harriers,Kidderminster Harriers,258
+kifisia,Kifisia,259
+kilmarnock,Kilmarnock,260
+king's lynn town,King's Lynn Town,261
+kocaelispor,Kocaelispor,262
+konyaspor,Konyaspor,263
+kv mechelen,KV Mechelen,305
+kv oostende,KV Oostende,340
+lamia,Lamia,266
+lask linz,LASK Linz,506
+lausanne sport,Lausanne Sport,580
+laval,Laval,269
+lazio,Lazio,270
+le havre,Le Havre,271
+le mans,Le Mans,272
+lecce,Lecce,273
+lecco,Lecco,274
+leeds united,Leeds United,275
+leganés,Leganes,276
+leicester city,Leicester City,277
+lens,Lens,278
+levadiakos,Levadiakos,279
+leyton orient,Leyton Orient,282
+león,León,575
+lille,Lille,283
+lincoln city,Lincoln City,284
+liverpool,Liverpool,285
+livingston,Livingston,286
+lorient,Lorient,287
+lugano,Lugano,534
+luton town,Luton Town,289
+luzern,Luzern,528
+maidenhead united,Maidenhead United,293
+maidstone united,Maidstone United,294
+mainz 05,Mainz 05,295
+manchester city,Manchester City,298
+manchester united,Manchester United,299
+mansfield town,Mansfield Town,300
+mantova,Mantova,301
+martigues,Martigues,304
+mazatlán,Mazatlán,524
+metz,Metz,306
+middlesbrough,Middlesbrough,307
+millwall,Millwall,309
+mirandés,Mirandes,311
+mirassol,Mirassol,560
+modena,Modena,312
+monaco,Monaco,313
+monterrey,Monterrey,578
+montpellier,Montpellier,314
+montrose,Montrose,315
+monza,Monza,316
+morecambe,Morecambe,317
+moreirense fc,Moreirense,318
+motherwell,Motherwell,320
+nac breda,NAC Breda,321
+nancy,Nancy,323
+nantes,Nantes,324
+napoli,Napoli,325
+necaxa,Necaxa,523
+newcastle united,Newcastle,326
+newport county,Newport County,327
+nice,Nice,328
+niort,Niort,331
+northampton town,Northampton Town,332
+norwich city,Norwich City,333
+nottingham forest,Nottingham Forest,334
+notts county,Notts County,335
+nürnberg,Nurnberg,336
+oh leuven,OH Leuven,343
+oldham athletic,Oldham Athletic,338
+oxford city,Oxford City,346
+oxford united,Oxford United,345
+pachuca,Pachuca,569
+paderborn,Paderborn,350
+palermo,Palermo,352
+palmeiras,Palmeiras,515
+panaitolikos,Panetolikos,354
+panathinaikos,Panathinaikos,353
+panserraikos,Panserraikos,355
+paok,PAOK,347
+parma,Parma,358
+partick thistle,Partick Thistle,359
+pas giannina,PAS Giannina,210
+paços de ferreira,Pacos de Ferreira,349
+pec zwolle,PEC Zwolle,504
+pendikspor,Pendikspor,361
+perugia,Perugia,362
+pescara,Pescara,363
+peterborough united,Peterborough United,364
+peterhead,Peterhead,365
+pisa,Pisa,366
+plymouth argyle,Plymouth Argyle,367
+pordenone,Pordenone,369
+port vale,Port Vale,370
+portimonense,Portimonense,371
+portsmouth,Portsmouth,373
+preston north end,Preston North End,374
+psv,PSV,348
+puebla,Puebla,572
+pumas unam,Pumas UNAM,574
+queen of the south,Queen of the South,377
+queen's park,Queen's Park,378
+queens park rangers,Queens Park Rangers,376
+querétaro,Querétaro,520
+raal la louvière,RAAL La Louviere,380
+racing santander,Racing Santander,406
+raith rovers,Raith Rovers,383
+rangers,Rangers,384
+rapid wien,Rapid Wien,511
+rayo vallecano,Rayo Vallecano,471
+rb leipzig,RB Leipzig,381
+reading,Reading,385
+real betis,Real Betis,73
+real madrid,Real Madrid,386
+real oviedo,Real Oviedo,344
+real sociedad,Real Sociedad,417
+real sociedad ii,Real Sociedad B,418
+real valladolid,Real Valladolid,470
+real zaragoza,Real Zaragoza,503
+reggiana,Reggiana,389
+reggina,Reggina,390
+reims,Reims,391
+remo,Remo,562
+rennes,Rennes,392
+rfc seraing,RFC Seraing,410
+rheindorf altach,Rheindorf Altach,537
+ried,Ried,540
+rizespor,Rizespor,394
+rkc waalwijk,RKC Waalwijk,482
+rochdale,Rochdale,395
+rodez,Rodez,396
+roma,Roma,397
+ross county,Ross County,398
+rotherham united,Rotherham United,399
+royal antwerp fc,Royal Antwerp,43
+saint-étienne,Saint-Etienne,429
+salernitana,Salernitana,400
+salford city,Salford City,401
+salzburg,Salzburg,505
+sampdoria,Sampdoria,402
+samsunspor,Samsunspor,403
+sandhausen,SV Sandhausen,404
+santa clara,Santa Clara,405
+santos,Santos,551
+santos laguna,Santos Laguna,570
+sassuolo,Sassuolo,407
+schalke 04,Schalke 04,408
+scunthorpe united,Scunthorpe United,409
+sd amorebieta,Amorebieta,35
+sd ponferradina,Ponferradina,368
+servette,Servette,533
+sheffield united,Sheffield United,412
+sheffield wednesday,Sheffield Wednesday,413
+shrewsbury town,Shrewsbury Town,414
+sint-truiden,Sint-Truiden,433
+sion,Sion,535
+sivasspor,Sivasspor,415
+sochaux,Sochaux,416
+solihull moors,Solihull Moors,419
+southampton,Southampton,420
+southend united,Southend United,421
+spal,SPAL,425
+sparta rotterdam,Sparta Rotterdam,426
+spezia,Spezia,428
+sport recife,Sport Recife,557
+sporting braga,Sporting Braga,422
+sporting gijón,Sporting Gijon,423
+st. gallen,St. Gallen,581
+st. johnstone,St Johnstone,430
+st. mirren,St Mirren,431
+st. pauli,St. Pauli,432
+stade lausanne-ouchy,Stade Lausanne-Ouchy,585
+standard liège,Standard Liege,435
+stenhousemuir,Stenhousemuir,436
+stevenage,Stevenage,437
+stirling albion,Stirling Albion,438
+stockport county,Stockport County,439
+stoke city,Stoke City,440
+stranraer,Stranraer,441
+strasbourg,Strasbourg,442
+sturm graz,Sturm Graz,507
+stuttgart,Stuttgart,443
+sunderland,Sunderland,445
+sutton united,Sutton United,446
+swansea city,Swansea City,447
+swindon town,Swindon Town,448
+são paulo,São Paulo,546
+südtirol,Sudtirol,444
+tamworth,Tamworth,449
+telstar,Telstar,450
+ternana,Ternana,452
+thun,Thun,586
+tigres uanl,Tigres UANL,573
+tijuana,Tijuana,527
+toluca,Toluca,526
+torino,Torino,454
+torquay united,Torquay United,455
+tottenham hotspur,Tottenham,456
+toulouse,Toulouse,457
+trabzonspor,Trabzonspor,458
+tranmere rovers,Tranmere Rovers,459
+troyes,Troyes,460
+truro city,Truro City,461
+twente,Twente,462
+ud ibiza,UD Ibiza,243
+ud las palmas,Las Palmas,268
+udinese,Udinese,463
+union berlin,Union Berlin,466
+union saint-gilloise,Union Saint-Gilloise,434
+us alessandria,Alessandria,27
+utrecht,Utrecht,467
+valenciennes,Valenciennes,469
+vasco da gama,Vasco da Gama,544
+venezia,Venezia,472
+villarreal,Villarreal,475
+villarreal ii,Villarreal B,476
+virtus entella,Virtus Entella,477
+vitesse,Vitesse,478
+vitória,Vitória,552
+vitória guimarães,Vitória de Guimarães,222
+volendam,Volendam,480
+volos nfc,Volos NFC,481
+walsall,Walsall,483
+watford,Watford,485
+wattens,Wattens,538
+wealdstone,Wealdstone,486
+wehen wiesbaden,Wehen Wiesbaden,487
+werder bremen,Werder Bremen,488
+west bromwich albion,West Bromwich Albion,489
+west ham united,West Ham United,490
+weymouth,Weymouth,492
+wigan athletic,Wigan Athletic,493
+willem ii,Willem II,494
+winterthur,Winterthur,582
+woking,Woking,495
+wolfsberger ac,Wolfsberger AC,512
+wolfsburg,Wolfsburg,496
+wolverhampton wanderers,Wolverhampton Wanderers,497
+wrexham,Wrexham,498
+wycombe wanderers,Wycombe Wanderers,499
+yeni malatyaspor,Yeni Malatyaspor,500
+yeovil town,Yeovil Town,501
+york city,York City,502
+young boys,Young Boys,531
+yverdon sport,Yverdon Sport,584
+zulte-waregem,Zulte-Waregem,484
+zürich,Zürich,532
+ümraniyespor,Umraniyespor,465
