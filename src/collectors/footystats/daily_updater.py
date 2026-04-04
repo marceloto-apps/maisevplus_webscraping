@@ -68,25 +68,28 @@ class FootyStatsDailyUpdater:
 
         logger.info("footystats_daily_start", active_seasons=len(active_seasons))
 
-        total_upserted = 0
+        # Processamento CONCORRENTE — mesma estratégia do FootyStatsBackfill
+        semaphore = asyncio.Semaphore(5)
 
-        for season in active_seasons:
-            league_code = season["league_code"]
-            fs_season_id = season["footystats_season_id"]
+        async def _fetch_and_process(season):
+            async with semaphore:
+                league_code = season["league_code"]
+                fs_season_id = season["footystats_season_id"]
+                logger.info("footystats_daily_season_start", league=league_code, fs_season_id=fs_season_id)
+                try:
+                    matches_data = await self.api_client.fetch_season_matches(fs_season_id)
+                    if not matches_data:
+                        logger.warning("footystats_daily_empty_response", league=league_code)
+                        return 0
+                    upserted = await self._process_season(matches_data, dict(season))
+                    logger.info("footystats_daily_season_done", league=league_code, upserted=upserted)
+                    return upserted
+                except Exception as e:
+                    logger.error("footystats_daily_season_error", league=league_code, error=str(e))
+                    return 0
 
-            logger.info("footystats_daily_season_start", league=league_code, fs_season_id=fs_season_id)
-            try:
-                matches_data = await self.api_client.fetch_season_matches(fs_season_id)
-                if not matches_data:
-                    logger.warning("footystats_daily_empty_response", league=league_code)
-                    continue
-
-                upserted = await self._process_season(matches_data, dict(season))
-                total_upserted += upserted
-                logger.info("footystats_daily_season_done", league=league_code, upserted=upserted)
-
-            except Exception as e:
-                logger.error("footystats_daily_season_error", league=league_code, error=str(e))
+        results = await asyncio.gather(*[_fetch_and_process(s) for s in active_seasons])
+        total_upserted = sum(r for r in results if isinstance(r, int))
 
         # Avalia encerramento automático de temporadas
         seasons_closed = await self._autoclose_seasons()
