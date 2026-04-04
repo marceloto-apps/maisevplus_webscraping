@@ -1,45 +1,43 @@
-"""Fix VPS: Encontrar pares duplicados (football-data vs footystats) e mesclar"""
+"""Fix: encontrar matches 'fantasma' criados pelo backfill e mesclar com os originais"""
 import asyncio
 from src.db.pool import get_pool
 
 async def main():
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # Encontrar pares: match do football-data (sem stats) + match do footystats (com stats)
-        # Mesmo league_id, mesmos times, data +-1 dia
-        pairs = await conn.fetch("""
-            SELECT 
-                o.match_id AS fd_match_id,
-                f.match_id AS fs_match_id,
-                f.footystats_id,
-                o.kickoff AS fd_kickoff,
-                f.kickoff AS fs_kickoff
-            FROM matches o
-            JOIN matches f ON o.league_id = f.league_id
+        # Matches fantasma: têm footystats_id MAS o match real (composite) é diferente
+        # Encontrar: para cada match com footystats_id, verificar se existe outro match
+        # com mesmos times + data que NÃO tem footystats_id
+        ghosts = await conn.fetch("""
+            SELECT f.match_id AS ghost_id, f.footystats_id, f.kickoff AS ghost_kickoff,
+                   o.match_id AS real_id, o.kickoff AS real_kickoff,
+                   f.league_id,
+                   f.home_team_id, f.away_team_id
+            FROM matches f
+            JOIN matches o ON o.league_id = f.league_id
                           AND o.home_team_id = f.home_team_id
                           AND o.away_team_id = f.away_team_id
                           AND ABS(o.kickoff::date - f.kickoff::date) <= 1
                           AND o.match_id != f.match_id
-            WHERE o.footystats_id IS NULL
-              AND f.footystats_id IS NOT NULL
+            WHERE f.footystats_id IS NOT NULL
+              AND o.footystats_id IS NULL
               AND o.status = 'finished'
-              AND NOT EXISTS (SELECT 1 FROM match_stats ms WHERE ms.match_id = o.match_id AND ms.source = 'footystats')
-              AND EXISTS (SELECT 1 FROM match_stats ms WHERE ms.match_id = f.match_id AND ms.source = 'footystats')
         """)
         
-        print(f"Pares duplicados encontrados: {len(pairs)}")
+        print(f"Matches fantasma encontrados: {len(ghosts)}")
         
         merged = 0
-        for p in pairs:
-            fd_id = p['fd_match_id']   # match original (football-data) — manter
-            fs_id = p['fs_match_id']   # match duplicado (footystats) — deletar
+        for g in ghosts:
+            ghost_id = g['ghost_id']
+            real_id = g['real_id']
             
-            # 1. Mover stats do duplicado para o original
-            moved = await conn.execute("""
-                UPDATE match_stats SET match_id = $1 WHERE match_id = $2
-            """, fd_id, fs_id)
+            # 1. Mover stats do fantasma para o real
+            await conn.execute(
+                "UPDATE match_stats SET match_id = $1 WHERE match_id = $2",
+                real_id, ghost_id
+            )
             
-            # 2. Copiar footystats_id e HT scores para o original
+            # 2. Copiar footystats_id e HT para o real
             await conn.execute("""
                 UPDATE matches SET 
                     footystats_id = $1,
@@ -47,10 +45,11 @@ async def main():
                     ht_away = COALESCE(ht_away, (SELECT ht_away FROM matches WHERE match_id = $3)),
                     updated_at = NOW()
                 WHERE match_id = $2
-            """, p['footystats_id'], fd_id, fs_id)
+            """, g['footystats_id'], real_id, ghost_id)
             
-            # 3. Deletar match duplicado
-            await conn.execute("DELETE FROM matches WHERE match_id = $1", fs_id)
+            # 3. Deletar fantasma
+            await conn.execute("DELETE FROM match_stats WHERE match_id = $1", ghost_id)
+            await conn.execute("DELETE FROM matches WHERE match_id = $1", ghost_id)
             merged += 1
         
         # Resultado
