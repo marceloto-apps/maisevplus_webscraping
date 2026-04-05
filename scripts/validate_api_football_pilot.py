@@ -174,7 +174,7 @@ async def main(match_id_override: str = None):
 
     print(f"  ✓ Events  : {ev_ok} inseridos | {ev_skip} sem team_map")
 
-    # ── 5. Inserir LINEUPS ────────────────────────────────────
+    # ── 5. Inserir LINEUPS (normalizado: 1 linha por jogador/técnico) ─
     lineups_parsed = parse_lineups(mid, raw["lineups"])
     ln_ok = ln_skip = 0
     async with pool.acquire() as conn:
@@ -185,17 +185,27 @@ async def main(match_id_override: str = None):
                 continue
             await conn.execute(
                 """
-                INSERT INTO lineups (match_id, team_id, formation, players_json, is_home, source)
-                VALUES ($1, $2, $3, $4::jsonb, $5, $6)
-                ON CONFLICT (match_id, team_id, source)
-                DO UPDATE SET formation=EXCLUDED.formation, players_json=EXCLUDED.players_json
+                INSERT INTO lineups (
+                    match_id, team_id, is_home, formation,
+                    fixture_position, player_id, player_name,
+                    player_number, player_pos, player_grid, source
+                ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+                ON CONFLICT ON CONSTRAINT lineups_unique_player_key
+                DO UPDATE SET
+                    player_name = EXCLUDED.player_name,
+                    player_pos  = EXCLUDED.player_pos,
+                    player_grid = EXCLUDED.player_grid,
+                    formation   = EXCLUDED.formation
                 """,
-                match_id, db_team,
-                ln["formation"], ln["players_json"], ln["is_home"], "api_football"
+                match_id, db_team, ln["is_home"], ln["formation"],
+                ln["fixture_position"], ln["player_id"], ln["player_name"],
+                ln["player_number"], ln["player_pos"], ln["player_grid"],
+                "api_football"
             )
             ln_ok += 1
 
-    print(f"  ✓ Lineups : {ln_ok} inseridos | {ln_skip} sem team_map")
+    print(f"  ✓ Lineups : {ln_ok} jogadores/técnicos | {ln_skip} sem team_map")
+
 
     # ── 6. Inserir PLAYER STATS ───────────────────────────────
     players_parsed = parse_players(mid, raw["players"])
@@ -251,19 +261,27 @@ async def main(match_id_override: str = None):
     print("  Contagem no banco pós-inserção:")
     async with pool.acquire() as conn:
         ev_count  = await conn.fetchval("SELECT COUNT(*) FROM match_events WHERE match_id=$1", match_id)
-        ln_count  = await conn.fetchval("SELECT COUNT(*) FROM lineups WHERE match_id=$1 AND source='api_football'", match_id)
+        ln_total  = await conn.fetchval("SELECT COUNT(*) FROM lineups WHERE match_id=$1 AND source='api_football'", match_id)
+        ln_coach  = await conn.fetchval("SELECT COUNT(*) FROM lineups WHERE match_id=$1 AND source='api_football' AND fixture_position='coach'", match_id)
+        ln_start  = await conn.fetchval("SELECT COUNT(*) FROM lineups WHERE match_id=$1 AND source='api_football' AND fixture_position='startXI'", match_id)
+        ln_subs   = await conn.fetchval("SELECT COUNT(*) FROM lineups WHERE match_id=$1 AND source='api_football' AND fixture_position='substitutes'", match_id)
         pl_count  = await conn.fetchval("SELECT COUNT(*) FROM match_player_stats WHERE match_id=$1", match_id)
-    print(f"    match_events        : {ev_count}")
-    print(f"    lineups (api_fb)    : {ln_count}")
-    print(f"    match_player_stats  : {pl_count}")
+    print(f"    match_events              : {ev_count}")
+    print(f"    lineups (total api_fb)    : {ln_total}")
+    print(f"      └─ coach               : {ln_coach}")
+    print(f"      └─ startXI             : {ln_start}")
+    print(f"      └─ substitutes         : {ln_subs}")
+    print(f"    match_player_stats        : {pl_count}")
     print()
 
     if ev_count >= len(events_parsed) - ev_skip \
-            and ln_count == len(lineups_parsed) - ln_skip \
+            and ln_total == len(lineups_parsed) - ln_skip \
             and pl_count >= len(players_parsed) - pl_skip:
         print("  ✅ Pipeline OK — todos os dados inseridos corretamente!")
     else:
         print("  ⚠  Contagem divergente — verificar logs acima.")
+
+
 
     print("="*55 + "\n")
 
