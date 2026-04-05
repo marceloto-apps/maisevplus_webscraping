@@ -74,5 +74,5 @@ class PlayersCollector(BaseCollector):
             return CollectResult(
                 source=self.source_name, job_type="players", job_id=job_id,
                 status=CollectStatus.FAILED, started_at=started_at, finished_at=datetime.now(timezone.utc),
-                error_message=str(e), records=[], records_collected=0, records_new=0
+                errors=[str(e)], records=[], records_collected=0, records_new=0
             )

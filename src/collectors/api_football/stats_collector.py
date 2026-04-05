@@ -57,8 +57,7 @@ class StatsCollector(BaseCollector):
                         passes_pct_home = EXCLUDED_COLS.passes_pct_home,
                         passes_pct_away = EXCLUDED_COLS.passes_pct_away,
                         expected_goals_home = EXCLUDED_COLS.expected_goals_home,
-                        expected_goals_away = EXCLUDED_COLS.expected_goals_away,
-                        updated_at = NOW()
+                        expected_goals_away = EXCLUDED_COLS.expected_goals_away
                     FROM (VALUES (
                         $2::SMALLINT, $3::SMALLINT, $4::SMALLINT, $5::SMALLINT, 
                         $6::SMALLINT, $7::SMALLINT, $8::SMALLINT, $9::SMALLINT, 
@@ -97,5 +96,5 @@ class StatsCollector(BaseCollector):
             return CollectResult(
                 source=self.source_name, job_type="statistics", job_id=job_id,
                 status=CollectStatus.FAILED, started_at=started_at, finished_at=datetime.now(timezone.utc),
-                error_message=str(e), records=[], records_collected=0, records_new=0
+                errors=[str(e)], records=[], records_collected=0, records_new=0
             )
