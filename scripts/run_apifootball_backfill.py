@@ -66,11 +66,15 @@ async def get_active_leagues(pool) -> list:
     
     return bra + others
 
-async def match_already_collected(pool, match_id: str) -> bool:
-    """Retorna True se os status deste jogo já existem (e portanto ñ gastamos cotas com ele)."""
+async def get_match_status(pool, match_id: str) -> dict:
+    """Retorna o status de coleta de cada parte para não gastar cotas em duplicidade."""
+    status = {"stats": False, "events": False, "lineups": False, "players": False}
     async with pool.acquire() as conn:
-        val = await conn.fetchval("SELECT 1 FROM match_stats WHERE match_id = $1 AND source='api_football' LIMIT 1", match_id)
-    return bool(val)
+        status["stats"] = bool(await conn.fetchval("SELECT 1 FROM match_stats WHERE match_id = $1 AND source='api_football' LIMIT 1", match_id))
+        status["events"] = bool(await conn.fetchval("SELECT 1 FROM match_events WHERE match_id = $1 AND source='api_football' LIMIT 1", match_id))
+        status["lineups"] = bool(await conn.fetchval("SELECT 1 FROM match_lineups WHERE match_id = $1 AND source='api_football' LIMIT 1", match_id))
+        status["players"] = bool(await conn.fetchval("SELECT 1 FROM match_player_stats WHERE match_id = $1 AND source='api_football' LIMIT 1", match_id))
+    return status
 
 async def resolve_fixture_to_match(pool, fixture: dict, league_id: int) -> dict | None:
     fi_date_str = fixture["fixture"]["date"]
@@ -132,7 +136,7 @@ async def resolve_fixture_to_match(pool, fixture: dict, league_id: int) -> dict 
         "kickoff_brt": kickoff_brt
     }
 
-async def process_match(m: dict, stats_c, events_c, lineups_c, players_c, pool) -> int:
+async def process_match(m: dict, status: dict, stats_c, events_c, lineups_c, players_c, pool) -> int:
     mid = str(m["match_id"])
     fid = m["api_football_id"]
     team_map = {
@@ -141,30 +145,35 @@ async def process_match(m: dict, stats_c, events_c, lineups_c, players_c, pool) 
     }
     
     req_count = 0
-    try:
-        await stats_c.collect(mid, fid, team_map)
-        req_count += 1
-    except Exception as e:
-        logger.error(f"stats_err", match_id=mid, error=str(e))
-        
-    try:
-        await events_c.collect(mid, fid, team_map)
-        req_count += 1
-    except Exception as e:
-        logger.error(f"events_err", match_id=mid, error=str(e))
-        
-    try:
-        await lineups_c.collect(mid, fid, team_map)
-        req_count += 1
-    except Exception as e:
-        logger.error(f"lineups_err", match_id=mid, error=str(e))
-        
-    try:
-        await players_c.collect(mid, fid, team_map)
-        req_count += 1
-    except Exception as e:
-        logger.error(f"players_err", match_id=mid, error=str(e))
-        
+    
+    if not status["stats"]:
+        try:
+            await stats_c.collect(mid, fid, team_map)
+            req_count += 1
+        except Exception as e:
+            logger.error(f"stats_err", match_id=mid, error=str(e))
+            
+    if not status["events"]:
+        try:
+            await events_c.collect(mid, fid, team_map)
+            req_count += 1
+        except Exception as e:
+            logger.error(f"events_err", match_id=mid, error=str(e))
+            
+    if not status["lineups"]:
+        try:
+            await lineups_c.collect(mid, fid, team_map)
+            req_count += 1
+        except Exception as e:
+            logger.error(f"lineups_err", match_id=mid, error=str(e))
+            
+    if not status["players"]:
+        try:
+            await players_c.collect(mid, fid, team_map)
+            req_count += 1
+        except Exception as e:
+            logger.error(f"players_err", match_id=mid, error=str(e))
+            
     async with pool.acquire() as conn:
         await conn.execute("UPDATE matches SET api_football_id = $1 WHERE match_id = $2", fid, m["match_id"])
 
@@ -255,8 +264,8 @@ async def run_backfill(is_cron=False):
             mid = m["match_id"]
             label = f"{m['home_name']} x {m['away_name']} ({m['kickoff_brt'].strftime('%d/%m')} )"
             
-            already_done = await match_already_collected(pool, mid)
-            if already_done:
+            status = await get_match_status(pool, mid)
+            if all(status.values()):
                 # Skips spending quotas
                 state["last_processed_fixture_id"] = f_id
                 continue
@@ -264,7 +273,7 @@ async def run_backfill(is_cron=False):
             sys.stdout.write(f"    ➜ Coletando: {label}...")
             sys.stdout.flush()
             
-            cost = await process_match(m, stats_c, events_c, lineups_c, players_c, pool)
+            cost = await process_match(m, status, stats_c, events_c, lineups_c, players_c, pool)
             reqs_used_this_run += cost
             print(f" OK (+{cost} req) | Total: {reqs_used_this_run}/{MAX_REQUESTS_PER_RUN}")
             
