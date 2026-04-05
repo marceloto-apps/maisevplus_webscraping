@@ -69,7 +69,7 @@ async def get_active_leagues(pool) -> list:
 async def match_already_collected(pool, match_id: str) -> bool:
     """Retorna True se os status deste jogo já existem (e portanto ñ gastamos cotas com ele)."""
     async with pool.acquire() as conn:
-        val = await conn.fetchval("SELECT 1 FROM match_stats WHERE match_id = $1 AND source='api_football' LIMIT 1")
+        val = await conn.fetchval("SELECT 1 FROM match_stats WHERE match_id = $1 AND source='api_football' LIMIT 1", match_id)
     return bool(val)
 
 async def resolve_fixture_to_match(pool, fixture: dict, league_id: int) -> dict | None:
