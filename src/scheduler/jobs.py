@@ -237,6 +237,17 @@ async def football_data_daily():
     return {"provider": "football_data", "mode": "daily-update", "total": result.records_collected}
 
 
+@safe_job
+async def apifootball_backfill():
+    """
+    Trigger: `0 2 * * *` BRT
+    Objetivo: Backfill reversivo das temporadas atuais (a partir de 03/04).
+    Lê estado local e consome até ~650 requisições diárias.
+    """
+    from scripts.run_apifootball_backfill import run_backfill
+    await run_backfill(is_cron=True)
+    return {"provider": "api_football", "job": "backfill_daily"}
+
 # ---------------------------------------------------------------------------
 @safe_job
 async def odds_prematch_30(): pass

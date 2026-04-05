@@ -15,6 +15,7 @@ from src.scheduler.jobs import (
     fixtures_weekly,
     footystats_daily,
     football_data_daily,
+    apifootball_backfill,
     reset_daily_keys,
     reset_monthly_keys,
     schedule_gameday_jobs,
@@ -98,6 +99,15 @@ class AppOrchestrator:
             'cron',
             hour=5, minute=15,
             id="football_data_daily",
+            misfire_grace_time=7200
+        )
+
+        # 6b. API-Football Backfill — 02:00 BRT (consome cotas para preencher histórico retroativo)
+        self.scheduler.add_job(
+            apifootball_backfill,
+            'cron',
+            hour=2, minute=0,
+            id="apifootball_backfill",
             misfire_grace_time=7200
         )
 
