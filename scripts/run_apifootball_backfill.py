@@ -71,9 +71,9 @@ async def get_match_status(pool, match_id: str) -> dict:
     status = {"stats": False, "events": False, "lineups": False, "players": False}
     async with pool.acquire() as conn:
         status["stats"] = bool(await conn.fetchval("SELECT 1 FROM match_stats WHERE match_id = $1 AND source='api_football' LIMIT 1", match_id))
-        status["events"] = bool(await conn.fetchval("SELECT 1 FROM match_events WHERE match_id = $1 AND source='api_football' LIMIT 1", match_id))
-        status["lineups"] = bool(await conn.fetchval("SELECT 1 FROM match_lineups WHERE match_id = $1 AND source='api_football' LIMIT 1", match_id))
-        status["players"] = bool(await conn.fetchval("SELECT 1 FROM match_player_stats WHERE match_id = $1 AND source='api_football' LIMIT 1", match_id))
+        status["events"] = bool(await conn.fetchval("SELECT 1 FROM match_events WHERE match_id = $1 LIMIT 1", match_id))
+        status["lineups"] = bool(await conn.fetchval("SELECT 1 FROM lineups WHERE match_id = $1 LIMIT 1", match_id))
+        status["players"] = bool(await conn.fetchval("SELECT 1 FROM match_player_stats WHERE match_id = $1 LIMIT 1", match_id))
     return status
 
 async def resolve_fixture_to_match(pool, fixture: dict, league_id: int) -> dict | None:
