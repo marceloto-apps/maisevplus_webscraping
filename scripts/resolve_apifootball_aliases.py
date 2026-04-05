@@ -46,7 +46,7 @@ async def get_existing_aliases(pool) -> dict:
 async def get_active_leagues(pool, filter_code=None) -> list:
     async with pool.acquire() as conn:
         rows = await conn.fetch('''
-            SELECT l.league_id, l.code, l.name, l.api_football_league_id, s.year 
+            SELECT l.league_id, l.code, l.name, l.api_football_league_id, CAST(LEFT(s.label, 4) AS INTEGER) AS year 
             FROM seasons s 
             JOIN leagues l ON s.league_id = l.league_id 
             WHERE s.is_current = TRUE AND l.api_football_league_id IS NOT NULL
