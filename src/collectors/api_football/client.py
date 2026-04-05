@@ -21,7 +21,7 @@ class ApiFootballClient:
     _request_times = []
     
     BASE_URL = "https://v3.football.api-sports.io"
-    RATE_LIMIT_PER_MINUTE = 10
+    RATE_LIMIT_PER_MINUTE = 300
     
     @classmethod
     async def _wait_for_rate_limit(cls):

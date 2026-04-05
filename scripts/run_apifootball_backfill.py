@@ -34,7 +34,7 @@ BRT = ZoneInfo("America/Sao_Paulo")
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 STATE_FILE = os.path.join(DATA_DIR, "apifootball_backfill_state.json")
 
-MAX_REQUESTS_PER_RUN = 650
+MAX_REQUESTS_PER_RUN = 7000  # VIP plan: 7500/dia, margem de segurança
 
 def load_state() -> dict:
     if os.path.exists(STATE_FILE):
