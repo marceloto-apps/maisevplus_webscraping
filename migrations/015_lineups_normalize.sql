@@ -39,10 +39,16 @@ ALTER TABLE lineups
   ADD COLUMN IF NOT EXISTS player_grid      VARCHAR(20);
 
 -- 5. Constraint única nomeada (necessária para ON CONFLICT ON CONSTRAINT)
---    player_id = coach_id para técnicos, sempre preenchido pela API-Football
-ALTER TABLE lineups
-  ADD CONSTRAINT lineups_unique_player_key
-  UNIQUE(match_id, team_id, source, fixture_position, player_id);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'lineups_unique_player_key'
+  ) THEN
+    ALTER TABLE lineups
+      ADD CONSTRAINT lineups_unique_player_key
+      UNIQUE(match_id, team_id, source, fixture_position, player_id);
+  END IF;
+END $$;
 
 -- 6. Índices de busca
 CREATE INDEX IF NOT EXISTS idx_lineups_player_id        ON lineups(player_id)        WHERE player_id IS NOT NULL;
