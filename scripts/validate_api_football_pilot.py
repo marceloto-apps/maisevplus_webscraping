@@ -20,7 +20,10 @@ import asyncio
 import json
 import os
 import sys
-from datetime import date
+from datetime import date, timedelta
+from zoneinfo import ZoneInfo
+
+BRT = ZoneInfo("America/Sao_Paulo")
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -38,7 +41,28 @@ SAMPLE_JSON = os.path.join(
 )
 
 
-async def main():
+async def resolve_match(pool, home_db_id, away_db_id, kickoff_d, league_id) -> str | None:
+    """Busca o match_id com janela de ±1 dia para tolerar diferenças de fuso."""
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT match_id FROM matches
+            WHERE home_team_id = $1
+              AND away_team_id = $2
+              AND kickoff::date BETWEEN $3 AND $4
+              AND league_id = $5
+            ORDER BY kickoff
+            LIMIT 1
+            """,
+            home_db_id, away_db_id,
+            kickoff_d - timedelta(days=1),
+            kickoff_d + timedelta(days=1),
+            league_id
+        )
+    return row["match_id"] if row else None
+
+
+async def main(match_id_override: str = None):
     print("\n" + "="*55)
     print("  API-Football Pilot Validator (offline — JSON local)")
     print("="*55 + "\n")
@@ -48,9 +72,15 @@ async def main():
         raw = json.load(f)
 
     fi          = raw["fixture_info"]
-    fixture_id  = fi["fixture"]["id"]
-    kickoff_str = fi["fixture"]["date"][:10]
-    kickoff_d   = date.fromisoformat(kickoff_str)
+    fixture_id  = fi["fixture"]["id"]          # int
+    # Converte a data UTC da API para BRT no momento da captura
+    # Evita que jogos às 22h/23h UTC apaream como D+1
+    import datetime as _dt
+    raw_dt = _dt.datetime.fromisoformat(fi["fixture"]["date"])
+    kickoff_brt = raw_dt.astimezone(BRT)
+    kickoff_str = kickoff_brt.strftime("%Y-%m-%d")
+    kickoff_d   = kickoff_brt.date()
+
     home_name   = fi["teams"]["home"]["name"]
     away_name   = fi["teams"]["away"]["name"]
     home_api_id = fi["teams"]["home"]["id"]
@@ -92,31 +122,24 @@ async def main():
     team_map = {home_api_id: home_db_id, away_api_id: away_db_id}
 
     # ── 3. Resolver match_id no banco ─────────────────────────
-    async with pool.acquire() as conn:
-        match_id = await conn.fetchval(
-            """
-            SELECT match_id FROM matches
-            WHERE home_team_id = $1
-              AND away_team_id = $2
-              AND kickoff::date = $3
-              AND league_id = $4
-            LIMIT 1
-            """,
-            home_db_id, away_db_id, kickoff_d, league_id
-        )
+    if match_id_override:
+        match_id = match_id_override
+        print(f"  ✓ match_id (override) = {match_id}\n")
+    else:
+        match_id = await resolve_match(pool, home_db_id, away_db_id, kickoff_d, league_id)
 
     if not match_id:
-        print(f"  ⚠ Match não encontrado no banco para {home_name} x {away_name} em {kickoff_d}.")
-        print("    Verifique se o daily_updater já processou o BRA_SA para esta data.")
+        print(f"  ⚠ Match não encontrado no banco para {home_name} x {away_name} em {kickoff_d} (±1 dia).")
+        print("    Use --match-id <uuid> para passar o match_id diretamente.")
         return
 
     print(f"  ✓ match_id = {match_id}\n")
 
-    # Atualiza api_football_id no match
+    # Atualiza api_football_id no match (INTEGER, não string)
     async with pool.acquire() as conn:
         await conn.execute(
             "UPDATE matches SET api_football_id = $1 WHERE match_id = $2",
-            str(fixture_id), match_id
+            fixture_id, match_id  # fixture_id já é int
         )
     print(f"  ✓ api_football_id={fixture_id} salvo no match\n")
 
@@ -246,4 +269,8 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--match-id", default=None, help="UUID do match no banco (override)")
+    args = parser.parse_args()
+    asyncio.run(main(match_id_override=args.match_id))
