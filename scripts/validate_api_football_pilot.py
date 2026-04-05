@@ -206,7 +206,38 @@ async def main(match_id_override: str = None):
 
     print(f"  ✓ Lineups : {ln_ok} jogadores/técnicos | {ln_skip} sem team_map")
 
-
+    # ── 5.5. Inserir TEAM STATS (novo bloco) ──────────────────────────
+    from src.collectors.api_football.stats_parser import parse_statistics
+    stats_parsed = parse_statistics(mid, raw["statistics"])
+    
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """
+            UPDATE match_stats SET
+                shots_off_goal_home = $2::SMALLINT, shots_off_goal_away = $3::SMALLINT,
+                blocked_shots_home = $4::SMALLINT, blocked_shots_away = $5::SMALLINT,
+                shots_insidebox_home = $6::SMALLINT, shots_insidebox_away = $7::SMALLINT,
+                shots_outsidebox_home = $8::SMALLINT, shots_outsidebox_away = $9::SMALLINT,
+                goalkeeper_saves_home = $10::SMALLINT, goalkeeper_saves_away = $11::SMALLINT,
+                total_passes_home = $12::INTEGER, total_passes_away = $13::INTEGER,
+                passes_accurate_home = $14::INTEGER, passes_accurate_away = $15::INTEGER,
+                passes_pct_home = $16::NUMERIC, passes_pct_away = $17::NUMERIC,
+                expected_goals_home = $18::NUMERIC, expected_goals_away = $19::NUMERIC
+            WHERE match_id = $1
+            """,
+            stats_parsed.get('match_id'),
+            stats_parsed.get('shots_off_goal_home'), stats_parsed.get('shots_off_goal_away'),
+            stats_parsed.get('blocked_shots_home'), stats_parsed.get('blocked_shots_away'),
+            stats_parsed.get('shots_insidebox_home'), stats_parsed.get('shots_insidebox_away'),
+            stats_parsed.get('shots_outsidebox_home'), stats_parsed.get('shots_outsidebox_away'),
+            stats_parsed.get('goalkeeper_saves_home'), stats_parsed.get('goalkeeper_saves_away'),
+            stats_parsed.get('total_passes_home'), stats_parsed.get('total_passes_away'),
+            stats_parsed.get('passes_accurate_home'), stats_parsed.get('passes_accurate_away'),
+            stats_parsed.get('passes_pct_home'), stats_parsed.get('passes_pct_away'),
+            stats_parsed.get('expected_goals_home'), stats_parsed.get('expected_goals_away')
+        )
+    print(f"  ✓ Team Stats: 1 registro atualizado com novos campos (API)")
+    
     # ── 6. Inserir PLAYER STATS ───────────────────────────────
     players_parsed = parse_players(mid, raw["players"])
     pl_ok = pl_skip = 0
