@@ -31,32 +31,66 @@ class StatsCollector(BaseCollector):
                     records=[], records_collected=0, records_new=0
                 )
                 
-            parsed_records = parse_statistics(match_id, data)
+            parsed_record = parse_statistics(match_id, data)
             
             pool = await get_pool()
             inserted = 0
             async with pool.acquire() as conn:
-                for rec in parsed_records:
-                    db_team_id = team_map.get(rec['team_api_id'])
-                    if not db_team_id:
-                        continue
-                    
-                    # Upsert na table match_stats existente 
-                    await conn.execute(
-                        """
-                        INSERT INTO match_stats (match_id, team_id, is_home, stats_json, source)
-                        VALUES ($1, $2, (SELECT home_team_id = $2 FROM matches WHERE match_id = $1), $3::jsonb, 'api_football')
-                        ON CONFLICT (match_id, team_id, source)
-                        DO UPDATE SET stats_json = EXCLUDED.stats_json, updated_at = NOW()
-                        """,
-                        match_id, db_team_id, rec['stats_json']
+                # Um único UPDATE na row respectiva a este match_id
+                await conn.execute(
+                    """
+                    UPDATE match_stats SET
+                        shots_off_goal_home = EXCLUDED_COLS.shots_off_goal_home,
+                        shots_off_goal_away = EXCLUDED_COLS.shots_off_goal_away,
+                        blocked_shots_home = EXCLUDED_COLS.blocked_shots_home,
+                        blocked_shots_away = EXCLUDED_COLS.blocked_shots_away,
+                        shots_insidebox_home = EXCLUDED_COLS.shots_insidebox_home,
+                        shots_insidebox_away = EXCLUDED_COLS.shots_insidebox_away,
+                        shots_outsidebox_home = EXCLUDED_COLS.shots_outsidebox_home,
+                        shots_outsidebox_away = EXCLUDED_COLS.shots_outsidebox_away,
+                        goalkeeper_saves_home = EXCLUDED_COLS.goalkeeper_saves_home,
+                        goalkeeper_saves_away = EXCLUDED_COLS.goalkeeper_saves_away,
+                        total_passes_home = EXCLUDED_COLS.total_passes_home,
+                        total_passes_away = EXCLUDED_COLS.total_passes_away,
+                        passes_accurate_home = EXCLUDED_COLS.passes_accurate_home,
+                        passes_accurate_away = EXCLUDED_COLS.passes_accurate_away,
+                        passes_pct_home = EXCLUDED_COLS.passes_pct_home,
+                        passes_pct_away = EXCLUDED_COLS.passes_pct_away,
+                        expected_goals_home = EXCLUDED_COLS.expected_goals_home,
+                        expected_goals_away = EXCLUDED_COLS.expected_goals_away,
+                        updated_at = NOW()
+                    FROM (VALUES (
+                        $2::SMALLINT, $3::SMALLINT, $4::SMALLINT, $5::SMALLINT, 
+                        $6::SMALLINT, $7::SMALLINT, $8::SMALLINT, $9::SMALLINT, 
+                        $10::SMALLINT, $11::SMALLINT, $12::INTEGER, $13::INTEGER, 
+                        $14::INTEGER, $15::INTEGER, $16::NUMERIC, $17::NUMERIC, 
+                        $18::NUMERIC, $19::NUMERIC
+                    )) AS EXCLUDED_COLS(
+                        shots_off_goal_home, shots_off_goal_away, blocked_shots_home, blocked_shots_away,
+                        shots_insidebox_home, shots_insidebox_away, shots_outsidebox_home, shots_outsidebox_away,
+                        goalkeeper_saves_home, goalkeeper_saves_away, total_passes_home, total_passes_away,
+                        passes_accurate_home, passes_accurate_away, passes_pct_home, passes_pct_away,
+                        expected_goals_home, expected_goals_away
                     )
-                    inserted += 1
+                    WHERE match_stats.match_id = $1
+                    """,
+                    parsed_record.get('match_id'),
+                    parsed_record.get('shots_off_goal_home'), parsed_record.get('shots_off_goal_away'),
+                    parsed_record.get('blocked_shots_home'), parsed_record.get('blocked_shots_away'),
+                    parsed_record.get('shots_insidebox_home'), parsed_record.get('shots_insidebox_away'),
+                    parsed_record.get('shots_outsidebox_home'), parsed_record.get('shots_outsidebox_away'),
+                    parsed_record.get('goalkeeper_saves_home'), parsed_record.get('goalkeeper_saves_away'),
+                    parsed_record.get('total_passes_home'), parsed_record.get('total_passes_away'),
+                    parsed_record.get('passes_accurate_home'), parsed_record.get('passes_accurate_away'),
+                    parsed_record.get('passes_pct_home'), parsed_record.get('passes_pct_away'),
+                    parsed_record.get('expected_goals_home'), parsed_record.get('expected_goals_away')
+                )
+                inserted = 1
             
             return CollectResult(
                 source=self.source_name, job_type="statistics", job_id=job_id,
                 status=CollectStatus.SUCCESS, started_at=started_at, finished_at=datetime.now(timezone.utc),
-                records=parsed_records, records_collected=len(parsed_records), records_new=inserted
+                records=[parsed_record], records_collected=1, records_new=inserted
             )
         except Exception as e:
             logger.error("stats_collector_error", match_id=match_id, error=str(e))
