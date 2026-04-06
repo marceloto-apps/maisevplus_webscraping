@@ -159,63 +159,84 @@ class FlashscoreOddsCollector(BaseCollector):
                     logger.warning(f"[Flashscore] Erro no mercado {m_key} para {flashscore_id}: {e}")
                     is_first_market = False  # Garante progressão mesmo com erro
                     
-            # 5. Coletar Estatísticas (xG, xGOT, xA, Crosses)
+            # 5. Coletar Estatísticas via interceptação do feed interno df_st_1_
             logger.debug(f"[Flashscore] Buscando estatísticas para {flashscore_id}")
-            stats_url = f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary/match-statistics/0"
             try:
-                # Viewport grande para IntersectionObserver renderizar todas as seções
-                await page.set_viewport_size({"width": 1920, "height": 4000})
+                stats_feed_data = None
                 
-                await page.goto(stats_url, wait_until="domcontentloaded", timeout=15000)
-                await page.wait_for_timeout(3000)  # Tempo para SPA renderizar
+                async def capture_stats_feed(response):
+                    nonlocal stats_feed_data
+                    if f"df_st_1_{flashscore_id}" in response.url:
+                        try:
+                            stats_feed_data = await response.text()
+                            logger.debug(f"[Flashscore] Feed df_st_1 capturado: {len(stats_feed_data)} chars")
+                        except Exception:
+                            pass
                 
-                # Remover cookie overlay do DOM (bloqueia IntersectionObserver)
-                await page.evaluate("""
-                    document.querySelectorAll('#onetrust-banner-sdk, #onetrust-consent-sdk, [class*="onetrust"], .ot-sdk-container').forEach(el => el.remove());
-                    document.body.style.overflow = 'auto';
-                    document.documentElement.style.overflow = 'auto';
-                """)
-                await page.wait_for_timeout(500)
+                page.on("response", capture_stats_feed)
                 
-                # Scroll nativo via mouse.wheel — dispara IntersectionObserver real
-                for _ in range(15):
-                    await page.mouse.wheel(0, 600)
-                    await page.wait_for_timeout(400)
+                # Clicar na aba "Statistics" para disparar o feed df_st_1_
+                try:
+                    stats_tab = page.locator("a:has-text('Statistics'), a:has-text('Stats'), button:has-text('Statistics'), button:has-text('Stats')")
+                    if await stats_tab.count() > 0:
+                        await stats_tab.first.click()
+                        await page.wait_for_timeout(5000)
+                except Exception:
+                    # Fallback: navegar via URL
+                    stats_url = f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary/match-statistics/0"
+                    await page.goto(stats_url, wait_until="domcontentloaded", timeout=15000)
+                    await page.wait_for_timeout(5000)
                 
-                html = await page.content()
-                soup = BeautifulSoup(html, "lxml")
+                page.remove_listener("response", capture_stats_feed)
                 
-                # Usar data-testid estáveis do Flashscore WCL
-                stat_rows = soup.find_all("div", attrs={"data-testid": "wcl-statistics"})
-                logger.debug(f"[Flashscore] Encontrou {len(stat_rows)} linhas de estatísticas")
-                
-                xg_home = xg_away = xgot_home = xgot_away = xa_home = xa_away = crosses_home = crosses_away = None
-                
-                for row in stat_rows:
-                    cat_el = row.find(attrs={"data-testid": "wcl-statistics-category"})
-                    value_els = row.find_all(attrs={"data-testid": "wcl-statistics-value"})
+                if not stats_feed_data:
+                    logger.debug(f"[Flashscore] Feed df_st_1 não capturado para {flashscore_id}")
+                else:
+                    # Parser do formato proprietário Flashscore
+                    # Formato: SE÷Match¬~SF÷Shots¬~SD÷499¬SG÷xG on target (xGOT)¬SH÷0.29¬SI÷2.10¬~
+                    # SG÷ = nome da stat, SH÷ = valor home, SI÷ = valor away
+                    # SE÷ = período (Match, 1st Half, 2nd Half)
+                    xg_home = xg_away = xgot_home = xgot_away = None
+                    xa_home = xa_away = crosses_home = crosses_away = None
                     
-                    if cat_el and len(value_els) >= 2:
-                        cat_text = cat_el.get_text(strip=True).lower()
-                        # Primeiro value = home, segundo = away
-                        home_val = value_els[0].get_text(" ", strip=True)
-                        away_val = value_els[1].get_text(" ", strip=True)
+                    current_period = ""
+                    records = stats_feed_data.split("~")
+                    
+                    for record in records:
+                        fields = record.split("¬")
+                        parsed = {}
+                        for field in fields:
+                            if "÷" in field:
+                                key, val = field.split("÷", 1)
+                                parsed[key] = val
                         
-                        logger.debug(f"[Flashscore] STAT: '{cat_text}' | HOME='{home_val}' | AWAY='{away_val}'")
+                        # Track period — só queremos "Match" (overall)
+                        if "SE" in parsed:
+                            current_period = parsed["SE"]
+                        
+                        if current_period != "Match":
+                            continue
+                        
+                        stat_name = parsed.get("SG", "").lower()
+                        home_val = parsed.get("SH", "")
+                        away_val = parsed.get("SI", "")
+                        
+                        if not stat_name or not home_val:
+                            continue
                         
                         try:
-                            if "(xg)" in cat_text and "(xgot)" not in cat_text:
+                            if "(xg)" in stat_name and "(xgot)" not in stat_name:
                                 xg_home = float(home_val)
                                 xg_away = float(away_val)
-                            elif "(xgot)" in cat_text:
+                            elif "(xgot)" in stat_name:
                                 xgot_home = float(home_val)
                                 xgot_away = float(away_val)
-                            elif "(xa)" in cat_text:
+                            elif "(xa)" in stat_name:
                                 xa_home = float(home_val)
                                 xa_away = float(away_val)
-                            elif "crosses" in cat_text or "cruzamentos" in cat_text:
+                            elif stat_name == "crosses" or stat_name == "cruzamentos":
                                 def parse_crosses(val):
-                                    """Extrai o denominador do formato '25% (9/36)' → 36"""
+                                    """Extrai o total do formato '25% (9/36)' → 36"""
                                     if "/" in val:
                                         parts = val.split("/")
                                         return int(''.join(filter(str.isdigit, parts[-1])))
@@ -224,32 +245,34 @@ class FlashscoreOddsCollector(BaseCollector):
                                 crosses_away = parse_crosses(away_val)
                         except ValueError:
                             pass
-                
-                if any(v is not None for v in [xg_home, xgot_home, xa_home, crosses_home]):
-                    await conn.execute("""
-                        INSERT INTO match_stats (
-                            match_id, 
-                            xg_fs_home, xg_fs_away, 
-                            xgot_fs_home, xgot_fs_away,
-                            xa_fs_home, xa_fs_away,
-                            crosses_fs_home, crosses_fs_away,
-                            collected_at
-                        ) VALUES (
-                            $1, 
-                            $2, $3, $4, $5, $6, $7, $8, $9, NOW()
-                        )
-                        ON CONFLICT (match_id) DO UPDATE SET
-                            xg_fs_home = EXCLUDED.xg_fs_home,
-                            xg_fs_away = EXCLUDED.xg_fs_away,
-                            xgot_fs_home = EXCLUDED.xgot_fs_home,
-                            xgot_fs_away = EXCLUDED.xgot_fs_away,
-                            xa_fs_home = EXCLUDED.xa_fs_home,
-                            xa_fs_away = EXCLUDED.xa_fs_away,
-                            crosses_fs_home = EXCLUDED.crosses_fs_home,
-                            crosses_fs_away = EXCLUDED.crosses_fs_away,
-                            collected_at = EXCLUDED.collected_at
-                    """, match_id_uuid, xg_home, xg_away, xgot_home, xgot_away, xa_home, xa_away, crosses_home, crosses_away)
-                    logger.debug(f"[Flashscore] Estatísticas avançadas salvas para {flashscore_id}")
+                    
+                    logger.debug(f"[Flashscore] Stats parsed: xG={xg_home}/{xg_away} xGOT={xgot_home}/{xgot_away} xA={xa_home}/{xa_away} Crosses={crosses_home}/{crosses_away}")
+                    
+                    if any(v is not None for v in [xg_home, xgot_home, xa_home, crosses_home]):
+                        await conn.execute("""
+                            INSERT INTO match_stats (
+                                match_id, 
+                                xg_fs_home, xg_fs_away, 
+                                xgot_fs_home, xgot_fs_away,
+                                xa_fs_home, xa_fs_away,
+                                crosses_fs_home, crosses_fs_away,
+                                collected_at
+                            ) VALUES (
+                                $1, 
+                                $2, $3, $4, $5, $6, $7, $8, $9, NOW()
+                            )
+                            ON CONFLICT (match_id) DO UPDATE SET
+                                xg_fs_home = EXCLUDED.xg_fs_home,
+                                xg_fs_away = EXCLUDED.xg_fs_away,
+                                xgot_fs_home = EXCLUDED.xgot_fs_home,
+                                xgot_fs_away = EXCLUDED.xgot_fs_away,
+                                xa_fs_home = EXCLUDED.xa_fs_home,
+                                xa_fs_away = EXCLUDED.xa_fs_away,
+                                crosses_fs_home = EXCLUDED.crosses_fs_home,
+                                crosses_fs_away = EXCLUDED.crosses_fs_away,
+                                collected_at = EXCLUDED.collected_at
+                        """, match_id_uuid, xg_home, xg_away, xgot_home, xgot_away, xa_home, xa_away, crosses_home, crosses_away)
+                        logger.debug(f"[Flashscore] Estatísticas avançadas salvas para {flashscore_id}")
             except Exception as e:
                 logger.warning(f"[Flashscore] Falha ao coletar/salvar estatísticas para {flashscore_id}: {e}")
 
