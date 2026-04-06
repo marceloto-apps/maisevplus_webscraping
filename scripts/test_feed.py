@@ -40,14 +40,14 @@ async def main():
             // Fetch Interceptor
             const originalFetch = window.fetch;
             window.fetch = async function(...args) {
-                const response = await originalFetch.apply(this, args);
-                const url = typeof args[0] === 'string' ? args[0] : (args[0] ? args[0].url : '');
-                if (url && url.includes('df_st_1_')) {
-                    try {
+                const response = await originalFetch.call(window, ...args);
+                try {
+                    const url = typeof args[0] === 'string' ? args[0] : (args[0] ? args[0].url : '');
+                    if (url && url.includes('df_st_1_')) {
                         const clone = response.clone();
-                        clone.text().then(text => { window._flashscore_stats_feed = text; });
-                    } catch(e) {}
-                }
+                        clone.text().then(text => { window._flashscore_stats_feed = text; }).catch(e => {});
+                    }
+                } catch(e) {}
                 return response;
             };
         """)
