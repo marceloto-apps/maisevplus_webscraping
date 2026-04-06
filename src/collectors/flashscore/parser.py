@@ -20,13 +20,21 @@ class FlashscoreParser:
         soup = BeautifulSoup(html, "html.parser")
         
         # O Flashscore tipicamente renderiza as linhas em divs com classes terminadas em 'row'
-        rows = soup.find_all("div", class_=lambda c: c and "ui-table__row" in c)
+        rows = soup.find_all("div", class_=lambda c: c and ("row" in c.lower() or "participant" in c.lower()))
+        
+        if not rows:
+            logger.debug("No rows found. Dumping full HTML element with odds to see structure:")
+            odds_wrapper = soup.find("div", id="detail")
+            if odds_wrapper:
+                logger.debug(odds_wrapper.prettify()[:1000])
         
         results = []
         sys_market = market_config["sys_market"]
         period = market_config["period"]
         
-        for row in rows:
+        for index, row in enumerate(rows):
+            if index == 0:
+                logger.debug(f"FIRST ODDS ROW DOM:\n{row.prettify()}")
             # 1. Tenta identificar o bookmaker
             bm_title = None
             bm_img = row.find("img")

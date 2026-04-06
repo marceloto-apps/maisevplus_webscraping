@@ -60,6 +60,7 @@ class FlashscoreOddsCollector(BaseCollector):
                     
                     # Parse HTML
                     odds_entries = FlashscoreParser.parse_odds_table(html, m_config, FLASHSCORE_BOOKMAKER_MAP)
+                    logger.debug(f"[Flashscore] {m_key}: parsou {len(odds_entries)} linhas de odds")
                     
                     for entry in odds_entries:
                         our_bm_key = entry["bookmaker"]
