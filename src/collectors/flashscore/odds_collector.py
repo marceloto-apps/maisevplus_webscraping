@@ -1,6 +1,7 @@
 import asyncio
 from datetime import datetime, timezone
 from typing import List, Dict
+from bs4 import BeautifulSoup
 
 from camoufox.async_api import AsyncCamoufox
 
@@ -158,6 +159,79 @@ class FlashscoreOddsCollector(BaseCollector):
                     logger.warning(f"[Flashscore] Erro no mercado {m_key} para {flashscore_id}: {e}")
                     is_first_market = False  # Garante progressão mesmo com erro
                     
+            # 5. Coletar Estatísticas (xG, xGOT, xA, Crosses)
+            logger.debug(f"[Flashscore] Buscando estatísticas para {flashscore_id}")
+            stats_url = f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary/match-statistics/0"
+            try:
+                await page.goto(stats_url, wait_until="domcontentloaded", timeout=15000)
+                await page.wait_for_timeout(3000)  # Tempo para SPA renderizar
+                
+                html = await page.content()
+                soup = BeautifulSoup(html, "lxml")
+                stat_rows = soup.find_all("div", attrs={"class": lambda c: c and ("stat" in c.lower() or "row" in c.lower())})
+                
+                xg_home = xg_away = xgot_home = xgot_away = xa_home = xa_away = crosses_home = crosses_away = None
+                
+                for row in stat_rows:
+                    cat_tag = row.find(class_=lambda c: c and "category" in str(c).lower())
+                    home_tag = row.find(class_=lambda c: c and "home" in str(c).lower())
+                    away_tag = row.find(class_=lambda c: c and "away" in str(c).lower())
+                    
+                    if cat_tag and home_tag and away_tag:
+                        cat_val = cat_tag.get_text(strip=True).lower()
+                        # Extract all text from home/away in case it has multiple spans
+                        home_val = home_tag.get_text(" ", strip=True) 
+                        away_val = away_tag.get_text(" ", strip=True)
+                        
+                        try:
+                            if "(xg)" in cat_val:
+                                xg_home = float(home_val)
+                                xg_away = float(away_val)
+                            elif "(xgot)" in cat_val:
+                                xgot_home = float(home_val)
+                                xgot_away = float(away_val)
+                            elif "(xa)" in cat_val:
+                                xa_home = float(home_val)
+                                xa_away = float(away_val)
+                            elif "crosses" in cat_val or "cruzamentos" in cat_val:
+                                def parse_crosses(val):
+                                    if "/" in val:
+                                        parts = val.split("/")
+                                        return int(''.join(filter(str.isdigit, parts[1])))
+                                    return int(''.join(filter(str.isdigit, val)))
+                                crosses_home = parse_crosses(home_val)
+                                crosses_away = parse_crosses(away_val)
+                        except ValueError:
+                            pass
+                
+                if any(v is not None for v in [xg_home, xgot_home, xa_home, crosses_home]):
+                    await conn.execute("""
+                        INSERT INTO match_stats (
+                            match_id, source, 
+                            xg_fs_home, xg_fs_away, 
+                            xgot_fs_home, xgot_fs_away,
+                            xa_fs_home, xa_fs_away,
+                            crosses_fs_home, crosses_fs_away,
+                            collected_at
+                        ) VALUES (
+                            $1, 'flashscore', 
+                            $2, $3, $4, $5, $6, $7, $8, $9, NOW()
+                        )
+                        ON CONFLICT (match_id, source) DO UPDATE SET
+                            xg_fs_home = EXCLUDED.xg_fs_home,
+                            xg_fs_away = EXCLUDED.xg_fs_away,
+                            xgot_fs_home = EXCLUDED.xgot_fs_home,
+                            xgot_fs_away = EXCLUDED.xgot_fs_away,
+                            xa_fs_home = EXCLUDED.xa_fs_home,
+                            xa_fs_away = EXCLUDED.xa_fs_away,
+                            crosses_fs_home = EXCLUDED.crosses_fs_home,
+                            crosses_fs_away = EXCLUDED.crosses_fs_away,
+                            collected_at = EXCLUDED.collected_at
+                    """, match_id_uuid, xg_home, xg_away, xgot_home, xgot_away, xa_home, xa_away, crosses_home, crosses_away)
+                    logger.debug(f"[Flashscore] Estatísticas avançadas salvas para {flashscore_id}")
+            except Exception as e:
+                logger.warning(f"[Flashscore] Falha ao coletar/salvar estatísticas para {flashscore_id}: {e}")
+
         finally:
             await page.close()
             
