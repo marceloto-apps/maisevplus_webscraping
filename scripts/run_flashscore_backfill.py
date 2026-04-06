@@ -48,6 +48,14 @@ async def get_target_matches(pool, limit: int = 50):
     async with pool.acquire() as conn:
         # Tenta se adaptar caso a coluna exista ou não (nós sempre adicionamos dinamicamente acima, mas por garantia):
         try:
+            # -- DIAGNÓSTICO ENVIADO PARA O CONSOLE --
+            c_total = await conn.fetchval("SELECT count(*) FROM matches WHERE league_id = 71 AND kickoff >= '2026-01-01'")
+            c_ft = await conn.fetchval("SELECT count(*) FROM matches WHERE league_id = 71 AND kickoff >= '2026-01-01' AND status IN ('FT', 'AET', 'PEN')")
+            c_fs = await conn.fetchval("SELECT count(*) FROM matches WHERE league_id = 71 AND kickoff >= '2026-01-01' AND status IN ('FT', 'AET', 'PEN') AND flashscore_id IS NOT NULL")
+            print(f"[DIAGNÓSTICO] Partidas de BRA_SA encontradas (2026): {c_total}")
+            print(f"[DIAGNÓSTICO] Dessas partidas de BRA_SA, quantas estão finalizadas (FT/AET/PEN)? {c_ft}")
+            print(f"[DIAGNÓSTICO] Dessas partidas finalizadas, quantas possuem 'flashscore_id' preenchido no BD? {c_fs}")
+            
             query = """
                 SELECT match_id, flashscore_id, kickoff 
                 FROM matches 
