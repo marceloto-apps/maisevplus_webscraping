@@ -47,13 +47,49 @@ class FlashscoreOddsCollector(BaseCollector):
         
         page = await browser.new_page()
         try:
+            # 1. Obter a URL base da partida para o JS resolver o slug real (SEO friendly)
+            base_url = f"https://www.flashscore.com/match/{flashscore_id}/"
+            logger.debug(f"[Flashscore] Resolvendo slug em {base_url}")
+            
+            try:
+                await page.goto(base_url, wait_until="commit", timeout=self.config.page_timeout_ms)
+            except Exception as e:
+                logger.warning(f"[Flashscore] Timeout resolvendo base url para {flashscore_id}, tentando extrair: {e}")
+                
+            await page.wait_for_timeout(self.config.render_wait_ms)
+            html_summary = await page.content()
+            
+            # Extrai o href aba odds
+            from bs4 import BeautifulSoup
+            soup_summary = BeautifulSoup(html_summary, "html.parser")
+            odds_href = None
+            for a in soup_summary.find_all("a"):
+                href = str(a.get("href", ""))
+                if "/odds/" in href and flashscore_id in href:
+                    odds_href = href
+                    break
+                    
+            if not odds_href:
+                logger.warning(f"[Flashscore] Aba 'Odds' não encontrada para {flashscore_id}. Partida pode estar fechada sem odds ou muito no futuro.")
+                return 0
+                
+            # Limpa o link para base. Ex: /match/football/gremio-X/remo-Y/odds/
+            base_odds_path = odds_href.split("?")[0]
+            if not base_odds_path.endswith("/"):
+                base_odds_path += "/"
+
             for m_key, m_config in self.markets_to_scrape.items():
-                url = f"https://www.flashscore.com/match/{flashscore_id}/{m_config['hash']}"
-                logger.debug(f"[Flashscore] Coletando {m_key} em {url}")
+                # O hash velho era: #/odds-comparison/1x2-odds/full-time
+                # Precisamos: /1x2-odds/full-time
+                market_path = m_config["hash"].replace("#/odds-comparison/", "")
+                if market_path.startswith("/"):
+                    market_path = market_path[1:]
+                    
+                target_url = f"https://www.flashscore.com{base_odds_path}{market_path}/?mid={flashscore_id}"
+                logger.debug(f"[Flashscore] Coletando {m_key} em {target_url}")
                 
                 try:
-                    await page.goto(url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
-                    # Esperar tempo para Playwright / JS preencher os dados
+                    await page.goto(target_url, wait_until="commit", timeout=self.config.page_timeout_ms)
                     await page.wait_for_timeout(self.config.render_wait_ms)
                     
                     html = await page.content()
