@@ -1,7 +1,7 @@
 import asyncio
 import time
 import functools
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from apscheduler.triggers.date import DateTrigger
 
