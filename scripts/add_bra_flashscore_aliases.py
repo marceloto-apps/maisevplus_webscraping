@@ -42,7 +42,7 @@ async def main():
             
             if team_id:
                 await conn.execute("""
-                    INSERT INTO team_aliases (team_id, source, alias)
+                    INSERT INTO team_aliases (team_id, source, alias_name)
                     VALUES ($1, 'flashscore', $2)
                     ON CONFLICT DO NOTHING
                 """, team_id, fs_name)
