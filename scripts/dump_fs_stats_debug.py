@@ -31,11 +31,8 @@ async def main():
     
     print(f"\n[1] Navegando para {url}")
 
-    browser_config = FlashscoreConfig.get_camoufox_config()
-    
-    # Optional setup for stats URL if needed
     try:
-        async with AsyncCamoufox(**browser_config) as browser:
+        async with AsyncCamoufox(headless=False, os="linux") as browser:
             page = await browser.new_page()
             
             # Route interception to avoid unnecessary loads
