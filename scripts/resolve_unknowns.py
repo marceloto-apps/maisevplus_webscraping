@@ -30,27 +30,32 @@ async def run():
             ("Twente", "twente"),
             ("Huesca", "huesca"),
             ("Nacional", "nacional"),
+            ("Lecce", "lecce"),
+            ("Gil-Vicente-FC", "gil vicente"),
+            ("PSV", "psv"),
+            ("Altrincham", "altrincham"),
+            ("Boreham-Wood", "boreham"),
         ]
 
         for label, term in searches:
             rows = await conn.fetch(
-                "SELECT t.team_id, t.canonical_name FROM teams t "
-                "WHERE LOWER(t.canonical_name) LIKE '%' || $1 || '%'",
+                "SELECT t.team_id, t.name_canonical FROM teams t "
+                "WHERE LOWER(t.name_canonical) LIKE '%' || $1 || '%'",
                 term,
             )
             print(f"--- {label} ---")
             for r in rows:
-                print(f"  {r['team_id']:5d} | {r['canonical_name']}")
+                print(f"  {r['team_id']:5d} | {r['name_canonical']}")
 
             if not rows:
                 rows2 = await conn.fetch(
-                    "SELECT ta.team_id, t.canonical_name, ta.alias_name "
+                    "SELECT ta.team_id, t.name_canonical, ta.alias_name "
                     "FROM team_aliases ta JOIN teams t ON t.team_id = ta.team_id "
                     "WHERE LOWER(ta.alias_name) LIKE '%' || $1 || '%' LIMIT 5",
                     term,
                 )
                 for r in rows2:
-                    print(f"  {r['team_id']:5d} | {r['canonical_name']} (alias: {r['alias_name']})")
+                    print(f"  {r['team_id']:5d} | {r['name_canonical']} (alias: {r['alias_name']})")
 
             if not rows:
                 print("  (nenhum candidato encontrado)")
