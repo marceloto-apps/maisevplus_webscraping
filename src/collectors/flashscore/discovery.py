@@ -51,6 +51,9 @@ class FlashscoreDiscovery(BaseCollector):
         soup = BeautifulSoup(html, "html.parser")
         match_divs = soup.find_all("div", id=re.compile(r"^g_1_"))
         
+        if not match_divs:
+            logger.warning(f"No match divs found in HTML for {league_code}. Check DOM selectors.")
+            
         updated_count = 0
         
         # Pega a season atual
@@ -67,6 +70,7 @@ class FlashscoreDiscovery(BaseCollector):
                 time_elem = div.find("div", class_=lambda c: c and "event__time" in c)
                 
                 if not home_elem or not away_elem or not time_elem:
+                    logger.debug(f"Missing elems: home={bool(home_elem)}, away={bool(away_elem)}, time={bool(time_elem)}")
                     continue
                     
                 home_team = home_elem.get_text(strip=True)
@@ -74,12 +78,9 @@ class FlashscoreDiscovery(BaseCollector):
                 time_text = time_elem.get_text(strip=True)
                 
                 # Formato temporal flashscore: "14.05. 16:00" ou "24.08.2025 15:30" (menos comum)
-                # Na verdade só o dia e mês ajudam a montar o object date. Assumimos o ano atual/próximo
-                # MatchResolver é resiliente à data, basta estarmos no mesmo mês/dia aprox.
-                # A forma mais robusta é usar REGEX e combinar com o ano atual
-                
                 day_month = re.search(r"(\d{2})\.(\d{2})\.", time_text)
                 if not day_month:
+                    logger.debug(f"Regex failed for time format: {time_text}")
                     continue
                     
                 day = int(day_month.group(1))
@@ -94,6 +95,8 @@ class FlashscoreDiscovery(BaseCollector):
                     year += 1 # fim da season no ano que vem
                     
                 match_date = datetime(year, month, day).date()
+                
+                logger.info(f"Trying to resolve: {home_team} vs {away_team} at {match_date}")
                 
                 # Resolve
                 match_uuid = await MatchResolver.resolve(league_id, home_team, away_team, match_date, "flashscore")
