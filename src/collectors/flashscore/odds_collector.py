@@ -163,6 +163,9 @@ class FlashscoreOddsCollector(BaseCollector):
             logger.debug(f"[Flashscore] Buscando estatísticas para {flashscore_id}")
             stats_url = f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary/match-statistics/0"
             try:
+                # Viewport grande para IntersectionObserver renderizar todas as seções
+                await page.set_viewport_size({"width": 1920, "height": 4000})
+                
                 await page.goto(stats_url, wait_until="domcontentloaded", timeout=15000)
                 await page.wait_for_timeout(3000)  # Tempo para SPA renderizar
                 
@@ -175,8 +178,8 @@ class FlashscoreOddsCollector(BaseCollector):
                 await page.wait_for_timeout(500)
                 
                 # Scroll nativo via mouse.wheel — dispara IntersectionObserver real
-                for _ in range(20):
-                    await page.mouse.wheel(0, 400)
+                for _ in range(15):
+                    await page.mouse.wheel(0, 600)
                     await page.wait_for_timeout(400)
                 
                 html = await page.content()
