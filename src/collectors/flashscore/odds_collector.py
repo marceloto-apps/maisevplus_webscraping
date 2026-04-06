@@ -166,10 +166,22 @@ class FlashscoreOddsCollector(BaseCollector):
                 await page.goto(stats_url, wait_until="domcontentloaded", timeout=15000)
                 await page.wait_for_timeout(3000)
                 
+                # O banner de privacidade "I Accept" bloqueia o scroll e/ou a renderização da Virtualização!
+                try:
+                    accept_btn = page.locator('button#onetrust-accept-btn-handler')
+                    if await accept_btn.count() > 0:
+                        await accept_btn.click(timeout=3000)
+                except Exception:
+                    pass
+                
                 # O Xvfb limita as dimensões da viewport, engessando o "set_viewport_size(10000px)"
                 # Portanto, precisamos realmente fazer scroll-down para forçar o IntersectionObserver
                 # da SPA do Flashscore a renderizar as sessões virtualizadas (Shots, Passes, etc).
                 await page.evaluate('''async () => {
+                    // Force hide any remaining overlays that might prevent intersection
+                    let ot = document.getElementById('onetrust-consent-sdk');
+                    if(ot) ot.style.display = 'none';
+
                     for(let i=0; i<15; i++) {
                         window.scrollBy({ top: window.innerHeight * 0.8, behavior: 'smooth' });
                         await new Promise(r => setTimeout(r, 250));
