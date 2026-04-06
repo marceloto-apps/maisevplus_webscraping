@@ -150,8 +150,8 @@ class OddsApiCollector(BaseCollector):
             # Odds API ID extra para gravar se necessário
             # odds_api_id = event['id']
             
-            # Match params pass date as "YYYY-MM-DD"
-            kickoff_date = kickoff_str.split('T')[0]
+            # Match params pass date as date object (asyncpg requer date, não str)
+            kickoff_date = datetime.fromisoformat(kickoff_str.replace('Z', '+00:00')).date()
             
             league_id = await conn.fetchval("SELECT league_id FROM leagues WHERE code = $1", league_code)
             if not league_id: continue
