@@ -12,6 +12,8 @@ from src.scheduler.key_manager import KeyManager, NoKeysAvailableError
 from src.normalizer.team_resolver import TeamResolver
 from src.collectors.odds_api.api_collector import OddsApiCollector
 from src.collectors.api_football.api_collector import ApiFootballCollector
+from src.collectors.flashscore.odds_collector import FlashscoreOddsCollector
+from src.collectors.flashscore.discovery import FlashscoreDiscovery
 
 logger = get_logger(__name__)
 
@@ -108,6 +110,75 @@ async def fixtures_weekly():
     collector = ApiFootballCollector()
     result = await collector.collect(mode="discovery", date_from=date_from, date_to=date_to)
     return {"provider": "api_football", "job": "fixtures_weekly", "total": result.records_collected}
+
+
+# ====================================================================
+# FLASHSCORE JOBS
+# ====================================================================
+
+@safe_job
+async def flashscore_discovery():
+    """
+    Trigger: 04:00 BRT
+    Descobre os Flashscore IDs (jogos da semana e resultados recentes).
+    """
+    collector = FlashscoreDiscovery()
+    # Busca IDs dos jogos passados que terminaram
+    r1 = await collector.collect(mode="results")
+    # Busca IDs dos fixtures futuros 
+    r2 = await collector.collect(mode="fixtures")
+    
+    return {"discovery_results": r1.records_new, "discovery_fixtures": r2.records_new}
+
+
+@safe_job
+async def flashscore_odds_standard():
+    """
+    Trigger: 07:00, 11:00, 15:00, 21:00 BRT
+    Busca odds completas via Flashscore para jogos da próxima semana.
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch('''
+            SELECT match_id, flashscore_id 
+            FROM matches 
+            WHERE kickoff > now() AND kickoff < now() + interval '7 days'
+            AND flashscore_id IS NOT NULL
+        ''')
+        
+    match_ids = [{"match_id": r['match_id'], "flashscore_id": r['flashscore_id']} for r in rows]
+    
+    if match_ids:
+        collector = FlashscoreOddsCollector()
+        res = await collector.collect(match_ids=match_ids)
+        return {"total_collected": res.records_collected, "new": res.records_new}
+    return {"total_collected": 0, "new": 0}
+
+    
+@safe_job
+async def flashscore_closing_odds():
+    """
+    Trigger: 01:00 BRT
+    Busca closing odds de todos os jogos que finalizaram ontem.
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch('''
+            SELECT match_id, flashscore_id 
+            FROM matches 
+            WHERE kickoff >= current_date - interval '1 day' 
+              AND kickoff < current_date
+            AND flashscore_id IS NOT NULL
+        ''')
+        
+    match_ids = [{"match_id": r['match_id'], "flashscore_id": r['flashscore_id']} for r in rows]
+    
+    if match_ids:
+        collector = FlashscoreOddsCollector()
+        res = await collector.collect(match_ids=match_ids, is_closing=True)
+        return {"total_closing": res.records_collected, "new": res.records_new}
+    return {"total_closing": 0, "new": 0}
+
 
 @safe_job
 async def odds_single_match(match_id: str, label: str):

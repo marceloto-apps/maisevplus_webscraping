@@ -19,6 +19,9 @@ from src.scheduler.jobs import (
     reset_daily_keys,
     reset_monthly_keys,
     schedule_gameday_jobs,
+    flashscore_discovery,
+    flashscore_odds_standard,
+    flashscore_closing_odds,
     set_scheduler
 )
 
@@ -118,6 +121,33 @@ class AppOrchestrator:
             day_of_week='mon', hour=5, minute=0,
             id="fixtures_weekly",
             misfire_grace_time=7200
+        )
+
+        # 8. Flashscore Discovery (04:00 BRT — descobre match IDs)
+        self.scheduler.add_job(
+            flashscore_discovery,
+            'cron',
+            hour=4, minute=0,
+            id="flashscore_discovery",
+            misfire_grace_time=7200
+        )
+
+        # 9. Flashscore Odds Standard (07:00, 11:00, 15:00, 21:00 BRT)
+        self.scheduler.add_job(
+            flashscore_odds_standard,
+            'cron',
+            hour='7,11,15,21', minute=0,
+            id="flashscore_odds_standard",
+            misfire_grace_time=3600
+        )
+
+        # 10. Flashscore Closing Odds (01:00 BRT — odds de fechamento de D-1)
+        self.scheduler.add_job(
+            flashscore_closing_odds,
+            'cron',
+            hour=1, minute=0,
+            id="flashscore_closing_odds",
+            misfire_grace_time=3600
         )
 
     async def _init_dependencies(self):
