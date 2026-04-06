@@ -166,44 +166,65 @@ class FlashscoreOddsCollector(BaseCollector):
                 await page.goto(stats_url, wait_until="domcontentloaded", timeout=15000)
                 await page.wait_for_timeout(3000)  # Tempo para SPA renderizar
                 
-                # Scroll até o final para forçar lazy-render de todas as categorias
-                for _ in range(3):
+                # Fechar cookie banner se existir (bloqueia lazy-render das seções abaixo)
+                try:
+                    cookie_btn = page.locator("#onetrust-accept-btn-handler")
+                    if await cookie_btn.is_visible(timeout=2000):
+                        await cookie_btn.click()
+                        await page.wait_for_timeout(1000)
+                except Exception:
+                    pass
+                
+                # Scroll agressivo para forçar lazy-render de SHOTS e PASSES
+                for _ in range(5):
                     await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                    await page.wait_for_timeout(1000)
+                    await page.wait_for_timeout(800)
+                
+                # Voltar ao topo e scrollar gradualmente
+                await page.evaluate("window.scrollTo(0, 0)")
+                await page.wait_for_timeout(500)
+                scroll_height = await page.evaluate("document.body.scrollHeight")
+                for i in range(10):
+                    await page.evaluate(f"window.scrollTo(0, {int(scroll_height * (i + 1) / 10)})")
+                    await page.wait_for_timeout(300)
                 
                 html = await page.content()
                 soup = BeautifulSoup(html, "lxml")
-                stat_rows = soup.find_all("div", attrs={"class": lambda c: c and ("stat" in c.lower() or "row" in c.lower())})
+                
+                # Usar data-testid estáveis do Flashscore WCL
+                stat_rows = soup.find_all("div", attrs={"data-testid": "wcl-statistics"})
+                logger.debug(f"[Flashscore] Encontrou {len(stat_rows)} linhas de estatísticas")
                 
                 xg_home = xg_away = xgot_home = xgot_away = xa_home = xa_away = crosses_home = crosses_away = None
                 
                 for row in stat_rows:
-                    cat_tag = row.find(class_=lambda c: c and "category" in str(c).lower())
-                    home_tag = row.find(class_=lambda c: c and "home" in str(c).lower())
-                    away_tag = row.find(class_=lambda c: c and "away" in str(c).lower())
+                    cat_el = row.find(attrs={"data-testid": "wcl-statistics-category"})
+                    value_els = row.find_all(attrs={"data-testid": "wcl-statistics-value"})
                     
-                    if cat_tag and home_tag and away_tag:
-                        cat_val = cat_tag.get_text(strip=True).lower()
-                        logger.debug(f"[DEBUG PARSER] Encontrou categoria: '{cat_val}'")
-                        # Extract all text from home/away in case it has multiple spans
-                        home_val = home_tag.get_text(" ", strip=True) 
-                        away_val = away_tag.get_text(" ", strip=True)
+                    if cat_el and len(value_els) >= 2:
+                        cat_text = cat_el.get_text(strip=True).lower()
+                        # Primeiro value = home, segundo = away
+                        home_val = value_els[0].get_text(" ", strip=True)
+                        away_val = value_els[1].get_text(" ", strip=True)
+                        
+                        logger.debug(f"[Flashscore] STAT: '{cat_text}' | HOME='{home_val}' | AWAY='{away_val}'")
                         
                         try:
-                            if "(xg)" in cat_val:
+                            if "(xg)" in cat_text and "(xgot)" not in cat_text:
                                 xg_home = float(home_val)
                                 xg_away = float(away_val)
-                            elif "(xgot)" in cat_val:
+                            elif "(xgot)" in cat_text:
                                 xgot_home = float(home_val)
                                 xgot_away = float(away_val)
-                            elif "(xa)" in cat_val:
+                            elif "(xa)" in cat_text:
                                 xa_home = float(home_val)
                                 xa_away = float(away_val)
-                            elif "crosses" in cat_val or "cruzamentos" in cat_val:
+                            elif "crosses" in cat_text or "cruzamentos" in cat_text:
                                 def parse_crosses(val):
+                                    """Extrai o denominador do formato '25% (9/36)' → 36"""
                                     if "/" in val:
                                         parts = val.split("/")
-                                        return int(''.join(filter(str.isdigit, parts[1])))
+                                        return int(''.join(filter(str.isdigit, parts[-1])))
                                     return int(''.join(filter(str.isdigit, val)))
                                 crosses_home = parse_crosses(home_val)
                                 crosses_away = parse_crosses(away_val)
