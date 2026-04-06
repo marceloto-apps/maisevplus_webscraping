@@ -162,11 +162,11 @@ class FlashscoreOddsCollector(BaseCollector):
             # 5. Coletar Estatísticas pelo DOM estendido
             logger.debug(f"[Flashscore] Buscando estatísticas para {flashscore_id}")
             try:
-                stats_url = f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary/match-statistics/0"
-                await page.goto(stats_url, wait_until="domcontentloaded", timeout=15000)
+                match_url = f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary"
+                await page.goto(match_url, wait_until="domcontentloaded", timeout=15000)
                 await page.wait_for_timeout(3000)
                 
-                # O banner de privacidade "I Accept" bloqueia o scroll e/ou a renderização da Virtualização!
+                # O banner de privacidade "I Accept" bloqueia o scroll e os cliques na aba
                 try:
                     accept_btn = page.locator('button#onetrust-accept-btn-handler')
                     if await accept_btn.count() > 0:
@@ -174,17 +174,40 @@ class FlashscoreOddsCollector(BaseCollector):
                 except Exception:
                     pass
                 
-                # O Xvfb limita as dimensões da viewport, engessando o "set_viewport_size(10000px)"
-                # Portanto, precisamos realmente fazer scroll-down para forçar o IntersectionObserver
-                # da SPA do Flashscore a renderizar as sessões virtualizadas (Shots, Passes, etc).
+                # Clica na aba Stats de fato, pois ir pela URL direto redireciona para a Summary (onde só há 3 Stats)
+                clicked = False
+                for href_pattern in [
+                    f'a[href="#/match-summary/match-statistics/0"]',
+                    f'a[href*="match-statistics/0"]',
+                    f'button:has-text("Stats")', 
+                    f'a:has-text("Stats")'
+                ]:
+                    try:
+                        tab = page.locator(href_pattern).first
+                        if await tab.count() > 0:
+                            await tab.click()
+                            clicked = True
+                            logger.debug(f"[Flashscore] Aba Statistics clicada com sucesso ({href_pattern})")
+                            break
+                    except Exception:
+                        pass
+                
+                if not clicked:
+                    logger.debug("[Flashscore] Fallback para navegação de URL de stats...")
+                    stats_url = f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary/match-statistics/0"
+                    await page.goto(stats_url, wait_until="domcontentloaded")
+                
+                await page.wait_for_timeout(2000)
+                
+                # O Xvfb engessa a viewport. Precisamos fazer scroll-down para forçar o IntersectionObserver
+                # da SPA do Flashscore a renderizar as sessões virtualizadas reais (Shots, Passes, etc).
                 await page.evaluate('''async () => {
-                    // Force hide any remaining overlays that might prevent intersection
                     let ot = document.getElementById('onetrust-consent-sdk');
                     if(ot) ot.style.display = 'none';
 
                     for(let i=0; i<15; i++) {
                         window.scrollBy({ top: window.innerHeight * 0.8, behavior: 'smooth' });
-                        await new Promise(r => setTimeout(r, 250));
+                        await new Promise(r => setTimeout(r, 200));
                     }
                 }''')
                 
