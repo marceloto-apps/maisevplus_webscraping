@@ -102,7 +102,7 @@ class ApiFootballCollector(BaseCollector):
             
             match_id = await MatchResolver.resolve(league_id_db, home_str, away_str, kickoff_date, "api_football")
             if match_id:
-                await conn.execute("UPDATE matches SET api_football_id = $1 WHERE match_id = $2", str(fixture_id), match_id)
+                await conn.execute("UPDATE matches SET api_football_id = $1 WHERE match_id = $2", fixture_id, match_id)
                 records += 1
                 
         return records
