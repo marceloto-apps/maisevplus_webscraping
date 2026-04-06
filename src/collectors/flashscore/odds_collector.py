@@ -26,6 +26,10 @@ class FlashscoreOddsCollector(BaseCollector):
             
         self.bm_ids = {}
 
+    async def health_check(self) -> bool:
+        """Sempre retornamos True para Flashscore porque não depende de quota de chaves de API restritas."""
+        return True
+
     async def _init_bm_ids(self, conn):
         if not self.bm_ids:
             # Busca todas as casas no banco para mapear strings para ints

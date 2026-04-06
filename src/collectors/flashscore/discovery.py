@@ -23,6 +23,10 @@ class FlashscoreDiscovery(BaseCollector):
         super().__init__("flashscore")
         self.config = FlashscoreConfig()
 
+    async def health_check(self) -> bool:
+        """Sempre retornamos True para Flashscore porque não depende de quota de chaves de API restritas."""
+        return True
+
     async def _scroll_page(self, page):
         """Scrolla a página para tentar carregar mais jogos dinamicamente no Flashscore."""
         for _ in range(self.config.discovery_max_scrolls):
