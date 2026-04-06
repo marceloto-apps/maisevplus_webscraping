@@ -75,11 +75,11 @@ async def main():
     
     matches = await get_target_matches(pool, limit=args.limit)
     if not matches:
-        logger.info("[Backfill Flashscore] Nehuma partida nova pendente encontrada no banco para coleta!")
+        print("[Backfill Flashscore] Nehuma partida nova pendente encontrada no banco para coleta!")
         await pool.close()
         return
         
-    logger.info(f"[Backfill Flashscore] {len(matches)} partidas encontradas. Inicializando scraper da Morte...")
+    print(f"[Backfill Flashscore] {len(matches)} partidas encontradas. Inicializando scraper da Morte...")
     
     collector = FlashscoreOddsCollector()
     
@@ -98,7 +98,7 @@ async def main():
             match_uuid = m["match_id"]
             fs_id = m["flashscore_id"]
             
-            logger.info(f"==> Processando {idx+1}/{len(matches)}: Flashscore ID {fs_id} (DB: {match_uuid})")
+            print(f"==> Processando {idx+1}/{len(matches)}: Flashscore ID {fs_id} (DB: {match_uuid})")
             
             try:
                 # Usamos um novo connection do pool internamente se a função requerer conexão fechada?
@@ -107,7 +107,7 @@ async def main():
                     # Rodamos nossa super função E2E
                     inserted = await collector.collect_match(browser, conn, str(match_uuid), fs_id, is_closing=True, job_id="backfill_bra_2026")
                     
-                    logger.info(f"    -> Coleta finalizada para {fs_id}. Odds Inseridas: {inserted}.")
+                    print(f"    -> Coleta finalizada para {fs_id}. Odds Inseridas: {inserted}.")
                     
                     # Se não deu crash no meio, marca como processada independentemente do número de registros inseridos 
                     # (já que algumas partidas podem realmente não ter stats).
@@ -115,15 +115,15 @@ async def main():
                     total_collected += 1
                     
             except Exception as e:
-                logger.error(f"[ERROR] Falha severa no match {fs_id}. Retrying no futuro. Erro: {e}")
+                print(f"[ERROR] Falha severa no match {fs_id}. Retrying no futuro. Erro: {e}")
                 total_errors += 1
                 
             # Random wait para não explodir rate limit ou block da CDN (2 a 4 segundos entre partidas completas)
             await asyncio.sleep(3)
             
-        logger.info(f"====== RESUMO BACKFILL ======")
-        logger.info(f"Completados com sucesso: {total_collected}")
-        logger.info(f"Erros encontrados: {total_errors}")
+        print(f"====== RESUMO BACKFILL ======")
+        print(f"Completados com sucesso: {total_collected}")
+        print(f"Erros encontrados: {total_errors}")
     
     finally:
         await browser.close()
@@ -133,4 +133,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        logger.warning("Backfill cancelado pelo usuário (KeyboardInterrupt).")
+        print("Backfill cancelado pelo usuário (KeyboardInterrupt).")
