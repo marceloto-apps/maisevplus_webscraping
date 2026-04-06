@@ -37,19 +37,34 @@ LEAGUE_FLASHSCORE_PATHS: Dict[str, str] = {
 # para o nosso canonical name (precisa bater exatamente com a tabela bookmakers)
 # A VPS deve rodar com NordVPN conectada ao Brasil para receber bookmakers BR.
 FLASHSCORE_BOOKMAKER_MAP: Dict[str, str] = {
+    # Casas principais (alvo)
     "bet365": "bet365",
-    "Pinnacle": "pinnacle",
     "Betfair": "betfair_ex",
-    "1xBet": "1xbet",
-    "Betano": "betano",
-    "Superbet": "superbet",
-    "Unibet": "unibet",
-    "Betway": "betway",
-    "bwin": "bwin",
-    "William Hill": "williamhill",
-    "Marathonbet": "marathonbet",
-    "Dafabet": "dafabet",
-    "888sport": "888sport",
+    "Betano.br": "betano",
+    "1xBet.br": "1xbet",
+    "Superbet.br": "superbet",
+    # Casas brasileiras adicionais
+    "Betnacional": "betnacional",
+    "KTO.br": "kto",
+    "Esportes da Sorte": "esportesdasorte",
+    "Estrelabet": "estrelabet",
+    "BetEsporte": "betesporte",
+    "Bet7k": "bet7k",
+    "BR4Bet": "br4bet",
+    "Casadeapostas": "casadeapostas",
+    "LuvaBet": "luvabet",
+    "BetdaSorte": "betdasorte",
+    "Betboom.br": "betboom",
+    "F12": "f12bet",
+    "Esportivabet": "esportivabet",
+    "SeguroBet": "segurobet",
+    "BrasilBet": "brasilbet",
+    "Brasildasorte": "brasildasorte",
+    "Goldebet": "goldebet",
+    "Jogo de Ouro": "jogodeouro",
+    "Lotogreen": "lotogreen",
+    "Multibet.br": "multibet",
+    "Alfabet": "alfabet",
 }
 
 
