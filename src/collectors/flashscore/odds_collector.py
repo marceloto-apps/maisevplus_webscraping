@@ -175,36 +175,11 @@ class FlashscoreOddsCollector(BaseCollector):
                 
                 page.on("response", capture_stats_feed)
                 
-                # Voltar à página do jogo e clicar na aba Statistics
-                # (o scraper pode estar na sub-aba de Odds, onde Statistics não é visível)
-                match_url = f"https://www.flashscore.com/match/{flashscore_id}/"
-                await page.goto(match_url, wait_until="domcontentloaded", timeout=15000)
-                await page.wait_for_timeout(3000)
-                
-                # Clicar na aba "Statistics" usando href (mais confiável que texto)
-                clicked = False
-                for selector in [
-                    f'a[href*="match-statistics"]',
-                    'a:has-text("Statistics")',
-                    'a:has-text("Stats")',
-                    'button:has-text("Statistics")',
-                ]:
-                    try:
-                        tab = page.locator(selector)
-                        if await tab.count() > 0:
-                            await tab.first.click()
-                            clicked = True
-                            logger.debug(f"[Flashscore] Cliquei na aba Statistics via '{selector}'")
-                            break
-                    except Exception:
-                        continue
-                
-                if not clicked:
-                    # Último fallback: navegar via URL
-                    stats_url = f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary/match-statistics/0"
-                    await page.goto(stats_url, wait_until="domcontentloaded", timeout=15000)
-                    logger.debug("[Flashscore] Fallback: navegou direto para URL de stats")
-                
+                # Disparar navegação SPA via hash change (sem reload de página)
+                # Isso simula exatamente o clique na aba "Stats" — o React Router
+                # detecta o hashchange e monta o componente de Statistics que faz fetch do df_st_1_
+                await page.evaluate('window.location.hash = "#/match-summary/match-statistics/0"')
+                logger.debug("[Flashscore] Hash change disparado para match-statistics")
                 await page.wait_for_timeout(5000)
                 
                 page.remove_listener("response", capture_stats_feed)
