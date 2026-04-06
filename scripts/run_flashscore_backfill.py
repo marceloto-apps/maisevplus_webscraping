@@ -51,7 +51,7 @@ async def get_target_matches(pool, limit: int = 50):
             query = """
                 SELECT match_id, flashscore_id, kickoff 
                 FROM matches 
-                WHERE league_id = 'BRA_SA' 
+                WHERE league_id = 71  -- 71 = BRA_SA (Brasileirão Série A)
                   AND date_utc >= '2026-01-01'
                   AND status IN ('FT', 'AET', 'PEN')
                   AND flashscore_id IS NOT NULL
