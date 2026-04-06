@@ -50,10 +50,10 @@ async def get_target_matches(pool, limit: int = 50):
         try:
             # -- DIAGNÓSTICO ENVIADO PARA O CONSOLE --
             c_total = await conn.fetchval("SELECT count(*) FROM matches WHERE league_id = 71 AND kickoff >= '2026-01-01'")
-            c_ft = await conn.fetchval("SELECT count(*) FROM matches WHERE league_id = 71 AND kickoff >= '2026-01-01' AND status IN ('FT', 'AET', 'PEN')")
-            c_fs = await conn.fetchval("SELECT count(*) FROM matches WHERE league_id = 71 AND kickoff >= '2026-01-01' AND status IN ('FT', 'AET', 'PEN') AND flashscore_id IS NOT NULL")
+            c_ft = await conn.fetchval("SELECT count(*) FROM matches WHERE league_id = 71 AND kickoff >= '2026-01-01' AND status = 'finished'")
+            c_fs = await conn.fetchval("SELECT count(*) FROM matches WHERE league_id = 71 AND kickoff >= '2026-01-01' AND status = 'finished' AND flashscore_id IS NOT NULL")
             print(f"[DIAGNÓSTICO] Partidas de BRA_SA encontradas (2026): {c_total}")
-            print(f"[DIAGNÓSTICO] Dessas partidas de BRA_SA, quantas estão finalizadas (FT/AET/PEN)? {c_ft}")
+            print(f"[DIAGNÓSTICO] Dessas partidas de BRA_SA, quantas estão finalizadas ('finished')? {c_ft}")
             print(f"[DIAGNÓSTICO] Dessas partidas finalizadas, quantas possuem 'flashscore_id' preenchido no BD? {c_fs}")
             
             query = """
@@ -61,7 +61,7 @@ async def get_target_matches(pool, limit: int = 50):
                 FROM matches 
                 WHERE league_id = 71  -- 71 = BRA_SA (Brasileirão Série A)
                   AND kickoff >= '2026-01-01'
-                  AND status IN ('FT', 'AET', 'PEN')
+                  AND status = 'finished'
                   AND flashscore_id IS NOT NULL
                   AND (scraping_flashscore IS NULL OR scraping_flashscore = false)
                 ORDER BY kickoff ASC
