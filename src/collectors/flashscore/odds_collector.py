@@ -164,25 +164,59 @@ class FlashscoreOddsCollector(BaseCollector):
             try:
                 stats_feed_data = None
                 
-                async def capture_stats_feed(response):
+                stats_feed_data = None
+                
+                async def intercept_stats_feed(route):
                     nonlocal stats_feed_data
-                    if f"df_st_1_{flashscore_id}" in response.url:
-                        try:
-                            stats_feed_data = await response.text()
-                            logger.debug(f"[Flashscore] Feed df_st_1 capturado: {len(stats_feed_data)} chars")
-                        except Exception:
-                            pass
+                    try:
+                        headers = {k: v for k, v in route.request.headers.items() if k.lower() != 'accept-encoding'}
+                        response = await route.fetch(headers=headers)
+                        body_bytes = await response.body()
+                        stats_feed_data = body_bytes.decode('utf-8', errors='ignore')
+                        logger.debug(f"[Flashscore] Feed df_st_1 capturado via route: {len(stats_feed_data)} chars")
+                        await route.fulfill(response=response)
+                    except Exception as e:
+                        logger.warning(f"[Flashscore] Route fetch error: {e}")
+                        await route.continue_()
                 
-                page.on("response", capture_stats_feed)
+                # Setup route interception
+                await page.route(f"**/df_st_1_{flashscore_id}*", intercept_stats_feed)
                 
-                # Disparar navegação SPA via hash change (sem reload de página)
-                # Isso simula exatamente o clique na aba "Stats" — o React Router
-                # detecta o hashchange e monta o componente de Statistics que faz fetch do df_st_1_
-                await page.evaluate('window.location.hash = "#/match-summary/match-statistics/0"')
-                logger.debug("[Flashscore] Hash change disparado para match-statistics")
+                # Voltar à página do jogo (Match Summary) para garantir estado da SPA limpo
+                match_url = f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary/match-summary"
+                await page.goto(match_url, wait_until="domcontentloaded", timeout=15000)
+                await page.wait_for_timeout(3000)
+                
+                # Clicar na aba "Statistics" usando href (dispara a chamada de rede real)
+                clicked = False
+                try:
+                    stats_tab = page.locator('a[href*="match-statistics"]')
+                    if await stats_tab.count() > 0:
+                        await stats_tab.first.click()
+                        clicked = True
+                        logger.debug(f"[Flashscore] Cliquei na aba Statistics via href")
+                except Exception:
+                    pass
+                
+                if not clicked:
+                    try:
+                        stats_tab = page.locator("a:has-text('Stats'), a:has-text('Statistics')").first
+                        await stats_tab.click()
+                        logger.debug("[Flashscore] Cliquei na aba Statistics via text locator")
+                    except Exception:
+                        logger.warning("[Flashscore] Falha ao clicar na aba Statistics")
+                        # Fallback: tentar navegação direta, mas sabemos que a react SPA
+                        # pode não fazer o request de dados isolado se não for por evento interno
+                        stats_url = f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary/match-statistics/0"
+                        await page.goto(stats_url, wait_until="domcontentloaded", timeout=15000)
+
                 await page.wait_for_timeout(5000)
                 
-                page.remove_listener("response", capture_stats_feed)
+                # Limpar listener para evitar memory leak ou poluir request seguinte
+                try:
+                    await page.unroute(f"**/df_st_1_{flashscore_id}*")
+                except Exception:
+                    pass
                 
                 if not stats_feed_data:
                     logger.debug(f"[Flashscore] Feed df_st_1 não capturado para {flashscore_id}")
