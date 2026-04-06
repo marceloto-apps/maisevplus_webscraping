@@ -101,8 +101,7 @@ async def main():
     # Abre o navegador central
     async with AsyncCamoufox(
         headless=False,  # Deve rodar sob xvfb-run na VPS
-        enable_cache=True,
-        window_size=(1920, 1080)
+        enable_cache=True
     ) as browser:
         try:
             total_collected = 0
