@@ -55,25 +55,24 @@ class FlashscoreParser:
                 
             our_bm_key = bm_map.get(bm_title)
             if not our_bm_key:
+                if index < 3:  # Log apenas os primeiros para não poluir
+                    logger.debug(f"[FlashscoreParser] Bookmaker '{bm_title}' não está no map, pulando")
                 continue
                 
             # 2. Extrai os valores numéricos da linha
-            # Procuramos por spans com valores de odds ou textos diretos nos links
-            cells = row.find_all("a", class_=lambda c: c and ("odd" in c.lower() or "cell" in c.lower()))
+            # Pega todas as <a> com classe oddsCell__odd
+            cells = row.find_all("a", class_=lambda c: c and "oddsCell__odd" in c)
             
-            # Se não achou 'a' tags de cell, tenta pegar os spans (às vezes muda)
-            if not cells:
-                spans = row.find_all("span")
-                # Filtra apenas os spans que parecem ser odds (números do tipo 1.95)
-                vals = [s.get_text(strip=True) for s in spans if re.match(r'^\d+\.\d{2}$', s.get_text(strip=True))]
-            else:
-                # Extrai apenas os números internos ignorando setas de subida/descida (arrows)
-                vals = []
-                for cell in cells:
-                    inner_span = cell.find("span")
-                    val_text = inner_span.get_text(strip=True) if inner_span else cell.get_text(strip=True)
-                    if re.match(r'^\d+\.\d{2}$', val_text) or val_text == "-":
-                        vals.append(val_text)
+            vals = []
+            for cell in cells:
+                # O valor fica dentro de um <span> no link
+                # Pega todos os spans e filtra o que parece ser um número decimal
+                inner_spans = cell.find_all("span")
+                for span in inner_spans:
+                    text = span.get_text(strip=True)
+                    if text and re.match(r'^\d+\.?\d*$', text):
+                        vals.append(text)
+                        break  # Pega só o primeiro span numérico de cada cell
             
             # Substitui "-" por None e converte pra float
             parsed_vals = [float(v) if v != "-" else None for v in vals if v]

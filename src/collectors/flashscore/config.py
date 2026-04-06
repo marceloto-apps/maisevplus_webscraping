@@ -33,15 +33,34 @@ LEAGUE_FLASHSCORE_PATHS: Dict[str, str] = {
 }
 
 
-# Mapeamento de como a casa de apostas aparece no DOM (tooltip title) 
+# Mapeamento de como a casa de apostas aparece no DOM (title/alt do img) 
 # para o nosso canonical name (precisa bater exatamente com a tabela bookmakers)
+# O Flashscore serve casas diferentes conforme a localização geográfica do servidor.
 FLASHSCORE_BOOKMAKER_MAP: Dict[str, str] = {
+    # Internacionais / diretas
     "bet365": "bet365",
     "Pinnacle": "pinnacle",
     "Betfair": "betfair_ex",
     "1xBet": "1xbet",
     "Betano": "betano",
     "Superbet": "superbet",
+    "Unibet": "unibet",
+    "Betway": "betway",
+    "bwin": "bwin",
+    "William Hill": "williamhill",
+    "Marathonbet": "marathonbet",
+    "Dafabet": "dafabet",
+    "888sport": "888sport",
+    # Variantes regionais (VPS na França)
+    "Betclic.fr": "betclic",
+    "Unibet.fr": "unibet",
+    "Winamax": "winamax",
+    "PMU": "pmu",
+    "ZEbet": "zebet",
+    "Parions Sport": "parionssport",
+    "Betclic": "betclic",
+    "France Pari": "francepari",
+    "Vbet": "vbet",
 }
 
 
