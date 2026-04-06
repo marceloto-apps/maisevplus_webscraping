@@ -44,8 +44,29 @@ async def main():
         print("\n⏳ Inicializando Camoufox e disparando coleta...")
         async with AsyncCamoufox(headless=False, os="linux") as browser:
             print(f"▶️ Simulando coleta da fila para a partida específica...")
+            # Collect odds and stats
             inserted = await collector.collect_match(browser, conn, str(match_uuid), flashscore_id, True, "test_job_stats")
             print(f"✅ Entradas de odds inseridas: {inserted}")
+            
+            # Let's manually fetch the stats DOM to debug the xGOT missing problem
+            print("\n============================================================")
+            print("EXTRA DEBUG - INSPECTING DOM FOR STATS...")
+            from bs4 import BeautifulSoup
+            page = await browser.new_page()
+            await page.goto(f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary/match-statistics/0")
+            try:
+                await page.wait_for_selector(".stat__category", timeout=10000)
+                html = await page.content()
+                soup = BeautifulSoup(html, "html.parser")
+                rows = soup.find_all("div", class_=lambda c: c and ("row" in str(c).lower() or "stat" in str(c).lower()))
+                print(f"Encontrou {len(rows)} linhas candidatas. Mostrando as que tem 'category' e seus textos:")
+                for r in rows:
+                    cat = r.find(class_=lambda c: c and "category" in str(c).lower())
+                    if cat:
+                        print(f" -> CATEGORY TEXT: '{cat.get_text(strip=True)}'")
+            except Exception as e:
+                print(f"Falhou ao inspecionar dom: {e}")
+            await page.close()
             
         print("\n🔍 Checando a tabela 'match_stats' no banco de dados:")
         stats = await conn.fetchrow("SELECT xg_fs_home, xg_fs_away, xgot_fs_home, xa_fs_home, crosses_fs_home, crosses_fs_away FROM match_stats WHERE match_id = $1 AND source = 'flashscore'", match_uuid)
