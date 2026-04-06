@@ -133,11 +133,7 @@ class FlashscoreDiscovery(BaseCollector):
         
         pool = await get_pool()
         async with pool.acquire() as conn:
-            camoufox_kwargs = {"headless": self.config.headless, "os": "linux"}
-            proxy = self.config.proxy
-            if proxy:
-                camoufox_kwargs["proxy"] = proxy
-            async with AsyncCamoufox(**camoufox_kwargs) as browser:
+            async with AsyncCamoufox(headless=self.config.headless, os="linux") as browser:
                 page = await browser.new_page()
                 
                 for league_code in leagues_to_run:

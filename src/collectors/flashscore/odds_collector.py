@@ -187,21 +187,10 @@ class FlashscoreOddsCollector(BaseCollector):
         async with pool.acquire() as conn:
             await self._init_bm_ids(conn)
             
-            # Aqui inicia o browser inteiro num contexto
-            proxy = self.config.proxy
-            if proxy:
-                logger.info(f"[Flashscore] Usando proxy: {proxy['server']}")
-            else:
-                logger.warning("[Flashscore] Sem proxy configurado! Bookmakers podem ser regionais (não BR).")
-            
             logger.info(f"[Flashscore] Iniciando browser (Headless={self.config.headless}) para {len(match_ids)} matches")
             
             try:
-                # O wrapper AsyncCamoufox() precisa executar fetch internamente se não achar binário
-                camoufox_kwargs = {"headless": self.config.headless, "os": "linux"}
-                if proxy:
-                    camoufox_kwargs["proxy"] = proxy
-                async with AsyncCamoufox(**camoufox_kwargs) as browser:
+                async with AsyncCamoufox(headless=self.config.headless, os="linux") as browser:
                     for idx, m in enumerate(match_ids):
                         m_uuid = m["match_id"]
                         fs_id = m.get("flashscore_id")
