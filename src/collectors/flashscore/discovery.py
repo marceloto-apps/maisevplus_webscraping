@@ -69,12 +69,11 @@ class FlashscoreDiscovery(BaseCollector):
                 if index == 0:
                     logger.debug(f"FIRST MATCH DIV FULL DOM:\n{div.prettify()}")
                 
-                home_elem = div.find("div", class_=lambda c: c and "participant--home" in c)
-                away_elem = div.find("div", class_=lambda c: c and "participant--away" in c)
+                home_elem = div.find("div", class_=lambda c: c and ("participant--home" in c or "homeParticipant" in c))
+                away_elem = div.find("div", class_=lambda c: c and ("participant--away" in c or "awayParticipant" in c))
                 time_elem = div.find("div", class_=lambda c: c and "event__time" in c)
                 
                 if not home_elem or not away_elem or not time_elem:
-                    logger.debug(f"Missing elems: home={bool(home_elem)}, away={bool(away_elem)}, time={bool(time_elem)}")
                     continue
                     
                 home_team = home_elem.get_text(strip=True)
