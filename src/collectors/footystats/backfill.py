@@ -173,8 +173,7 @@ class FootyStatsBackfill:
                         home_ppg, away_ppg,
                         pre_match_home_ppg, pre_match_away_ppg,
                         pre_match_overall_ppg_home, pre_match_overall_ppg_away,
-                        xg_prematch_home, xg_prematch_away,
-                        source
+                        xg_prematch_home, xg_prematch_away
                     ) VALUES (
                         $1,
                         $2, $3, $4, $5, $6, $7, $8, $9, $10,
@@ -182,9 +181,9 @@ class FootyStatsBackfill:
                         $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
                         $31, $32, $33, $34, $35, $36, $37, $38, $39, $40,
                         $41, $42, $43, $44, $45, $46, $47, $48, $49, $50,
-                        $51, $52, $53, 'footystats'
+                        $51, $52, $53
                     )
-                    ON CONFLICT (match_id, source) DO UPDATE SET
+                    ON CONFLICT (match_id) DO UPDATE SET
                         xg_home = EXCLUDED.xg_home,
                         xg_away = EXCLUDED.xg_away,
                         total_goals_ft = EXCLUDED.total_goals_ft,

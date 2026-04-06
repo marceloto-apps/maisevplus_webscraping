@@ -179,6 +179,7 @@ class FlashscoreOddsCollector(BaseCollector):
                     
                     if cat_tag and home_tag and away_tag:
                         cat_val = cat_tag.get_text(strip=True).lower()
+                        logger.debug(f"[DEBUG PARSER] Encontrou categoria: '{cat_val}'")
                         # Extract all text from home/away in case it has multiple spans
                         home_val = home_tag.get_text(" ", strip=True) 
                         away_val = away_tag.get_text(" ", strip=True)
@@ -207,17 +208,17 @@ class FlashscoreOddsCollector(BaseCollector):
                 if any(v is not None for v in [xg_home, xgot_home, xa_home, crosses_home]):
                     await conn.execute("""
                         INSERT INTO match_stats (
-                            match_id, source, 
+                            match_id, 
                             xg_fs_home, xg_fs_away, 
                             xgot_fs_home, xgot_fs_away,
                             xa_fs_home, xa_fs_away,
                             crosses_fs_home, crosses_fs_away,
                             collected_at
                         ) VALUES (
-                            $1, 'flashscore', 
+                            $1, 
                             $2, $3, $4, $5, $6, $7, $8, $9, NOW()
                         )
-                        ON CONFLICT (match_id, source) DO UPDATE SET
+                        ON CONFLICT (match_id) DO UPDATE SET
                             xg_fs_home = EXCLUDED.xg_fs_home,
                             xg_fs_away = EXCLUDED.xg_fs_away,
                             xgot_fs_home = EXCLUDED.xgot_fs_home,

@@ -155,13 +155,13 @@ class UnderstatBackfill:
             await conn.execute(
                 """
                 INSERT INTO match_stats (
-                    match_id, source, xg_home, xg_away, raw_json, collected_at
+                    match_id, xga_home, xga_away, raw_json, collected_at
                 ) VALUES (
-                    $1, 'understat', $2, $3, $4, NOW()
+                    $1, $2, $3, $4, NOW()
                 )
-                ON CONFLICT (match_id, source) DO UPDATE SET
-                    xg_home = EXCLUDED.xg_home,
-                    xg_away = EXCLUDED.xg_away,
+                ON CONFLICT (match_id) DO UPDATE SET
+                    xga_home = EXCLUDED.xga_home,
+                    xga_away = EXCLUDED.xga_away,
                     raw_json = EXCLUDED.raw_json,
                     collected_at = EXCLUDED.collected_at
                 """,

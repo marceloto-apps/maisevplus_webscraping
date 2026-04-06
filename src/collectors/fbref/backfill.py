@@ -177,13 +177,13 @@ class FBRefBackfill:
     async def _upsert_match_stats(self, match_id: str, xg_home, xg_away, raw_json: dict):
         async with self._pool.acquire() as conn:
             await conn.execute("""
-                INSERT INTO match_stats (match_id, source, xg_home, xg_away, raw_json)
-                VALUES ($1, 'fbref', $2, $3, $4::jsonb)
-                ON CONFLICT (match_id, source) DO UPDATE 
-                SET xg_home = EXCLUDED.xg_home,
-                    xg_away = EXCLUDED.xg_away,
+                INSERT INTO match_stats (match_id, xga_home, xga_away, raw_json)
+                VALUES ($1, $2, $3, $4::jsonb)
+                ON CONFLICT (match_id) DO UPDATE 
+                SET xga_home = EXCLUDED.xga_home,
+                    xga_away = EXCLUDED.xga_away,
                     raw_json = EXCLUDED.raw_json,
-                    updated_at = NOW()
+                    collected_at = NOW()
             """, match_id, xg_home, xg_away, json.dumps(raw_json))
 
 
