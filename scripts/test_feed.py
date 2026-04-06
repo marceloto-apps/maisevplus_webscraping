@@ -1,5 +1,5 @@
 """
-Testing the exact mechanism to intercept the df_st_1 feed.
+Test intercepting via in-page JavaScript to bypass Playwright networking errors.
 """
 import sys, os, asyncio
 
@@ -9,47 +9,77 @@ async def main():
     flashscore_id = "IsSHKEbU"
     
     print("=" * 60)
-    print("TESTING EXACT FEED INTERCEPTION")
+    print("TESTING IN-PAGE JS INTERCEPTION")
     print("=" * 60)
-    
-    stats_feed_data = None
     
     async with AsyncCamoufox(headless=False, os="linux") as browser:
         page = await browser.new_page()
         
-        async def capture_stats_feed(response):
-            nonlocal stats_feed_data
-            if f"df_st_1_{flashscore_id}" in response.url:
-                try:
-                    stats_feed_data = await response.text()
-                    print(f"  📡 [SUCCESS] Feed df_st_1 capturado: {len(stats_feed_data)} chars")
-                except Exception as e:
-                    print(f"  ❌ Error capturing: {e}")
-        
-        page.on("response", capture_stats_feed)
-        
-        # SIMULAR O MESMO ESTADO DE odds_collector: 
-        # começa na página de odds
+        # 1. Start at odds page
         odds_url = f"https://www.flashscore.com/match/{flashscore_id}/#/odds-comparison/1x2-odds/full-time"
         print("[1] Navigating to odds page...")
         await page.goto(odds_url, wait_until="domcontentloaded")
         await page.wait_for_timeout(3000)
         
-        # AGORA, sequencia exata do diagnóstico
+        # 2. Inject interceptors BEFORE navigating to stats
+        print("[2] Injecting fetch/XHR interceptors...")
+        await page.evaluate("""
+            window._flashscore_stats_feed = null;
+            
+            // XHR Interceptor
+            const originalXHR = window.XMLHttpRequest.prototype.open;
+            window.XMLHttpRequest.prototype.open = function(method, url) {
+                this.addEventListener('load', function() {
+                    if (url && url.includes('df_st_1_')) {
+                        window._flashscore_stats_feed = this.responseText;
+                    }
+                });
+                return originalXHR.apply(this, arguments);
+            };
+            
+            // Fetch Interceptor
+            const originalFetch = window.fetch;
+            window.fetch = async function(...args) {
+                const response = await originalFetch.apply(this, args);
+                const url = typeof args[0] === 'string' ? args[0] : (args[0] ? args[0].url : '');
+                if (url && url.includes('df_st_1_')) {
+                    try {
+                        const clone = response.clone();
+                        clone.text().then(text => { window._flashscore_stats_feed = text; });
+                    } catch(e) {}
+                }
+                return response;
+            };
+        """)
+        
+        # 3. Navigate to match summary, then stats
+        print("[3] Navigating to stats page...")
         stats_url = f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary/match-statistics/0"
-        print("[2] Navigating to stats page directly...")
         await page.goto(stats_url, wait_until="domcontentloaded")
         await page.wait_for_timeout(3000)
         
-        print(f"[3] Clicking 'Stats' tab...")
+        print(f"[4] Clicking 'Stats' tab...")
         try:
             stats_link = page.locator("a:has-text('Stats'), a:has-text('Statistics')").first
             await stats_link.click()
-            await page.wait_for_timeout(3000)
         except Exception as e:
             print(f"Error clicking: {e}")
             
-        print(f"\nResult: {'SUCCESS' if stats_feed_data else 'FAILED'}")
+        print("[5] Waiting for interceptor to catch data...")
+        # Poll for window._flashscore_stats_feed
+        intercepted_data = None
+        for i in range(10):
+            await page.wait_for_timeout(1000)
+            data = await page.evaluate("window._flashscore_stats_feed")
+            if data:
+                intercepted_data = data
+                break
+                
+        print(f"\nResult: {'SUCCESS' if intercepted_data else 'FAILED'}")
+        if intercepted_data:
+            has_xgot = 'xGOT' in intercepted_data
+            print(f"Chars captured: {len(intercepted_data)}")
+            print(f"Contains xGOT: {has_xgot}")
         
         await page.close()
 
