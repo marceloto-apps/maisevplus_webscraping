@@ -37,65 +37,11 @@ class FlashscoreOddsCollector(BaseCollector):
             for row in rows:
                 self.bm_ids[row['name']] = row['bookmaker_id']
 
-    async def _resolve_odds_base_path(self, page, flashscore_id: str) -> str | None:
-        """
-        Navega até a página-resumo da partida e extrai o path base para a aba de odds.
-        Retorna algo como '/match/football/gremio-xxx/remo-yyy/odds/' ou None.
-        """
-        base_url = f"https://www.flashscore.com/match/{flashscore_id}/"
-        logger.debug(f"[Flashscore] Resolvendo slug em {base_url}")
-        
-        try:
-            await page.goto(base_url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
-        except Exception as e:
-            logger.warning(f"[Flashscore] Timeout resolvendo base url para {flashscore_id}: {e}")
-
-        # Espera as abas de navegação do match aparecerem (Summary, Odds, H2H, etc.)
-        try:
-            await page.wait_for_selector("a[href*='/odds/']", timeout=15000)
-        except Exception:
-            # Fallback: espera um tempo fixo generoso caso o seletor nunca apareça
-            await page.wait_for_timeout(5000)
-        
-        # Tenta extrair da URL final (Flashscore pode redirecionar)
-        final_url = page.url  # ex: https://www.flashscore.com/match/football/vitoria-xxx/sao-paulo-yyy/?mid=CxigkQ3L
-        
-        # Extrai o href via DOM
-        odds_link = await page.query_selector(f"a[href*='/odds/'][href*='{flashscore_id}']")
-        if odds_link:
-            odds_href = await odds_link.get_attribute("href")
-            if odds_href:
-                base_path = odds_href.split("?")[0]
-                if not base_path.endswith("/"):
-                    base_path += "/"
-                logger.debug(f"[Flashscore] Odds base path resolvido via DOM: {base_path}")
-                return base_path
-        
-        # Fallback: tenta qualquer link com /odds/
-        odds_link_any = await page.query_selector("a[href*='/odds/']")
-        if odds_link_any:
-            odds_href = await odds_link_any.get_attribute("href")
-            if odds_href:
-                base_path = odds_href.split("?")[0]
-                if not base_path.endswith("/"):
-                    base_path += "/"
-                logger.debug(f"[Flashscore] Odds base path resolvido via fallback DOM: {base_path}")
-                return base_path
-        
-        # Último fallback: construir a partir da URL final + /odds/
-        import re
-        match_path = re.search(r'(/match/football/[^?#]+)', final_url)
-        if match_path:
-            path = match_path.group(1).rstrip("/")
-            constructed = f"{path}/odds/"
-            logger.debug(f"[Flashscore] Odds base path construído da URL: {constructed}")
-            return constructed
-        
-        return None
-
     async def collect_match(self, browser, conn, match_id_uuid: str, flashscore_id: str, is_closing: bool, job_id: str) -> int:
         """
-        Para uma única partida, itera pelos mercados definidos e coleta as odds.
+        Para uma única partida, usa navegação SPA (cliques) para acessar a aba de odds.
+        Flashscore bloqueia renderização de odds em navegação direta (goto);
+        precisa simular clique real na aba Odds.
         Retorna quantidade de novos registros inseridos.
         """
         total_inserted = 0
@@ -103,36 +49,82 @@ class FlashscoreOddsCollector(BaseCollector):
         
         page = await browser.new_page()
         try:
-            # 1. Resolver o slug SEO-friendly
-            base_odds_path = await self._resolve_odds_base_path(page, flashscore_id)
+            # 1. Navegar para a página-resumo da partida
+            base_url = f"https://www.flashscore.com/match/{flashscore_id}/"
+            logger.debug(f"[Flashscore] Navegando para {base_url}")
             
-            if not base_odds_path:
-                logger.warning(f"[Flashscore] Aba 'Odds' não encontrada para {flashscore_id}. Partida pode estar fechada sem odds ou muito no futuro.")
-                return 0
+            try:
+                await page.goto(base_url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
+            except Exception as e:
+                logger.warning(f"[Flashscore] Timeout na página base de {flashscore_id}: {e}")
 
+            # 2. Esperar e CLICAR na aba "ODDS" (navegação SPA)
+            odds_tab = None
+            try:
+                await page.wait_for_selector("a[href*='/odds/']", timeout=15000)
+                odds_tab = await page.query_selector("a[href*='/odds/']")
+            except Exception:
+                logger.warning(f"[Flashscore] Aba Odds não encontrada para {flashscore_id}")
+                return 0
+            
+            if not odds_tab:
+                logger.warning(f"[Flashscore] Aba Odds não encontrada para {flashscore_id}")
+                return 0
+            
+            await odds_tab.click()
+            logger.debug(f"[Flashscore] Cliquei na aba Odds de {flashscore_id}")
+            
+            # 3. Esperar a tabela de odds do primeiro mercado (1x2 FT) renderizar
+            try:
+                await page.wait_for_selector("div.ui-table__row", timeout=15000)
+            except Exception:
+                # Tenta seletor alternativo
+                try:
+                    await page.wait_for_selector("a.oddsCell__odd", timeout=5000)
+                except Exception:
+                    logger.warning(f"[Flashscore] Tabela de odds não renderizou para {flashscore_id}")
+                    return 0
+            
+            # 4. Iterar pelos mercados — o primeiro (1x2_ft) já está carregado após o clique
+            is_first_market = True
             for m_key, m_config in self.markets_to_scrape.items():
-                # Converte hash antigo para path novo
-                # Hash: #/odds-comparison/1x2-odds/full-time  ->  Path: 1x2-odds/full-time
-                market_path = m_config["hash"].replace("#/odds-comparison/", "")
-                if market_path.startswith("/"):
-                    market_path = market_path[1:]
-                    
-                target_url = f"https://www.flashscore.com{base_odds_path}{market_path}/?mid={flashscore_id}"
-                logger.debug(f"[Flashscore] Coletando {m_key} em {target_url}")
+                logger.debug(f"[Flashscore] Coletando {m_key} para {flashscore_id}")
                 
                 try:
-                    await page.goto(target_url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
+                    if not is_first_market:
+                        # Para mercados subsequentes, clicar na sub-aba correspondente
+                        # Converte: #/odds-comparison/1x2-odds/full-time -> 1x2-odds, full-time
+                        market_parts = m_config["hash"].replace("#/odds-comparison/", "").split("/")
+                        market_type_slug = market_parts[0] if market_parts else ""  # ex: "over-under"
+                        period_slug = market_parts[1] if len(market_parts) > 1 else ""  # ex: "full-time"
+                        
+                        # Clicar na aba do tipo de mercado (ex: Over/Under, Asian Handicap, etc.)
+                        market_tab = await page.query_selector(f"a[href*='/{market_type_slug}/']")
+                        if not market_tab:
+                            # Tenta buscar pelo texto do link nas sub-abas
+                            logger.debug(f"[Flashscore] Sub-aba '{market_type_slug}' não encontrada, pulando {m_key}")
+                            continue
+                        
+                        await market_tab.click()
+                        await page.wait_for_timeout(500)
+                        
+                        # Se tem sub-período (full-time vs 1st-half), clicar nele também
+                        if period_slug and period_slug != "full-time":
+                            period_tab = await page.query_selector(f"a[href*='/{period_slug}']")
+                            if period_tab:
+                                await period_tab.click()
+                                await page.wait_for_timeout(500)
+                        
+                        # Esperar re-render da tabela
+                        try:
+                            await page.wait_for_selector("div.ui-table__row", timeout=8000)
+                        except Exception:
+                            await page.wait_for_timeout(2000)
                     
-                    # Espera a tabela de odds renderizar via JS
-                    try:
-                        await page.wait_for_selector("div.ui-table__row, a.oddsCell__odd", timeout=12000)
-                    except Exception:
-                        # Se timeout, tenta esperar mais um pouco - pode ser carregamento lento
-                        await page.wait_for_timeout(3000)
+                    is_first_market = False
                     
+                    # Capturar HTML e parsear
                     html = await page.content()
-                    
-                    # Parse HTML
                     odds_entries = FlashscoreParser.parse_odds_table(html, m_config, FLASHSCORE_BOOKMAKER_MAP)
                     logger.debug(f"[Flashscore] {m_key}: parsou {len(odds_entries)} linhas de odds")
                     
@@ -143,7 +135,6 @@ class FlashscoreOddsCollector(BaseCollector):
                         if not bm_db_id:
                             continue
                             
-                        # Insert deduplicado no DB
                         is_new = await insert_odds_if_new(
                             conn=conn,
                             match_id=match_id_uuid,
@@ -165,6 +156,7 @@ class FlashscoreOddsCollector(BaseCollector):
                             
                 except Exception as e:
                     logger.warning(f"[Flashscore] Erro no mercado {m_key} para {flashscore_id}: {e}")
+                    is_first_market = False  # Garante progressão mesmo com erro
                     
         finally:
             await page.close()

@@ -19,14 +19,19 @@ class FlashscoreParser:
         """
         soup = BeautifulSoup(html, "html.parser")
         
-        # O Flashscore tipicamente renderiza as linhas em divs com classes terminadas em 'row'
-        rows = soup.find_all("div", class_=lambda c: c and ("row" in c.lower() or "participant" in c.lower()))
+        # Seletor específico para as linhas de bookmakers na tabela de odds
+        # Confirmado no DOM real: div.ui-table__row contém bookmaker + odds cells
+        rows = soup.find_all("div", class_="ui-table__row")
         
         if not rows:
-            logger.debug("No rows found. Dumping full HTML element with odds to see structure:")
-            odds_wrapper = soup.find("div", id="detail")
-            if odds_wrapper:
-                logger.debug(odds_wrapper.prettify()[:1000])
+            # Fallback: tenta seletor alternativo
+            rows = soup.find_all("div", class_=lambda c: c and "oddsCell__bookmakerPart" in c)
+            if rows:
+                # Se achamos bookmakerPart, subimos pro parent (ui-table__row)
+                rows = [r.parent for r in rows if r.parent]
+        
+        if not rows:
+            logger.debug(f"No odds rows found in HTML ({len(html)} bytes). Odds table may not have rendered.")
         
         results = []
         sys_market = market_config["sys_market"]

@@ -48,7 +48,7 @@ FLASHSCORE_BOOKMAKER_MAP: Dict[str, str] = {
 @dataclass
 class FlashscoreConfig:
     # Camoufox/Browser setup
-    headless: bool = True
+    headless: bool = False  # Flashscore bloqueia odds em headless; rodar com xvfb-run na VPS
     page_timeout_ms: int = 40000
     render_wait_ms: int = 1500
     
