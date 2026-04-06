@@ -49,22 +49,29 @@ async def get_target_matches(pool, limit: int = 50):
         # Tenta se adaptar caso a coluna exista ou não (nós sempre adicionamos dinamicamente acima, mas por garantia):
         try:
             # -- DIAGNÓSTICO ENVIADO PARA O CONSOLE --
-            c_total = await conn.fetchval("SELECT count(*) FROM matches WHERE league_id = 71 AND kickoff >= '2026-01-01'")
-            c_ft = await conn.fetchval("SELECT count(*) FROM matches WHERE league_id = 71 AND kickoff >= '2026-01-01' AND status = 'finished'")
-            c_fs = await conn.fetchval("SELECT count(*) FROM matches WHERE league_id = 71 AND kickoff >= '2026-01-01' AND status = 'finished' AND flashscore_id IS NOT NULL")
+            c_total = await conn.fetchval(
+                "SELECT count(*) FROM matches m JOIN leagues l ON m.league_id = l.league_id WHERE l.code = 'BRA_SA' AND m.kickoff >= '2026-01-01'"
+            )
+            c_ft = await conn.fetchval(
+                "SELECT count(*) FROM matches m JOIN leagues l ON m.league_id = l.league_id WHERE l.code = 'BRA_SA' AND m.kickoff >= '2026-01-01' AND m.status = 'finished'"
+            )
+            c_fs = await conn.fetchval(
+                "SELECT count(*) FROM matches m JOIN leagues l ON m.league_id = l.league_id WHERE l.code = 'BRA_SA' AND m.kickoff >= '2026-01-01' AND m.status = 'finished' AND m.flashscore_id IS NOT NULL"
+            )
             print(f"[DIAGNÓSTICO] Partidas de BRA_SA encontradas (2026): {c_total}")
             print(f"[DIAGNÓSTICO] Dessas partidas de BRA_SA, quantas estão finalizadas ('finished')? {c_ft}")
             print(f"[DIAGNÓSTICO] Dessas partidas finalizadas, quantas possuem 'flashscore_id' preenchido no BD? {c_fs}")
             
             query = """
-                SELECT match_id, flashscore_id, kickoff 
-                FROM matches 
-                WHERE league_id = 71  -- 71 = BRA_SA (Brasileirão Série A)
-                  AND kickoff >= '2026-01-01'
-                  AND status = 'finished'
-                  AND flashscore_id IS NOT NULL
-                  AND (scraping_flashscore IS NULL OR scraping_flashscore = false)
-                ORDER BY kickoff ASC
+                SELECT m.match_id, m.flashscore_id, m.kickoff 
+                FROM matches m
+                JOIN leagues l ON m.league_id = l.league_id
+                WHERE l.code = 'BRA_SA'
+                  AND m.kickoff >= '2026-01-01'
+                  AND m.status = 'finished'
+                  AND m.flashscore_id IS NOT NULL
+                  AND (m.scraping_flashscore IS NULL OR m.scraping_flashscore = false)
+                ORDER BY m.kickoff ASC
                 LIMIT $1
             """
             return await conn.fetch(query, limit)
