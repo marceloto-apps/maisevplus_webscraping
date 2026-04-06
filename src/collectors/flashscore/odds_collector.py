@@ -218,12 +218,19 @@ class FlashscoreOddsCollector(BaseCollector):
                     for (let row of rows) {
                         let textContent = row.innerText || "";
                         let parts = textContent.split('\\n').map(p => p.trim()).filter(p => p.length > 0);
-                        if (parts.length >= 3) {
-                            let home = parts[0];
-                            let category = parts[1];
-                            // Em caso de ícones (como o de info 'i'), pegamos garantidamente o primeiro e último item numérico
-                            let away = parts[parts.length - 1]; 
-                            results[category.toLowerCase()] = { "home": home, "away": away };
+                        
+                        // Categoria possui texto e rejeita elementos puros como '25%' ou '(9/36)'
+                        let category = parts.find(p => /[A-Za-z]/.test(p) && !p.match(/^[\\d\\s/%()]+$/));
+                        if (!category) category = parts.find(p => /[A-Za-z]/.test(p));
+                        
+                        if (category) {
+                            let catIdx = parts.indexOf(category);
+                            if (catIdx > 0 && catIdx < parts.length - 1) {
+                                // Junta pedaços ignorados como '25%' e '(9/36)' numa unica string '25% (9/36)'
+                                let home = parts.slice(0, catIdx).join(' ');
+                                let away = parts.slice(catIdx + 1).join(' ');
+                                results[category.toLowerCase()] = { "home": home, "away": away };
+                            }
                         }
                     }
                     
