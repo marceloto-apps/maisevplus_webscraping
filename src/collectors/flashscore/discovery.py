@@ -99,7 +99,7 @@ class FlashscoreDiscovery(BaseCollector):
                     
                 match_date = datetime(year, month, day).date()
                 
-                logger.info(f"Trying to resolve: {home_team} vs {away_team} at {match_date}")
+                print(f"Tentando resolver: {home_team} vs {away_team} at {match_date}")
                 
                 # Resolve
                 match_uuid = await MatchResolver.resolve(league_id, home_team, away_team, match_date, "flashscore")
@@ -110,11 +110,12 @@ class FlashscoreDiscovery(BaseCollector):
                     if current_fs_id != fs_id:
                         await conn.execute("UPDATE matches SET flashscore_id = $1 WHERE match_id = $2", fs_id, match_uuid)
                         updated_count += 1
+                        print(f"  --> SUCESSO: Associado e atualizado (fs_id={fs_id})")
                 else:
-                    logger.debug(f"[FlashscoreDiscovery] Não resolvido: {home_team} x {away_team} em {match_date} ({fs_id})")
+                    print(f"[FlashscoreDiscovery] Não resolvido no BD: {home_team} x {away_team} em {match_date} ({fs_id})")
                     
             except Exception as e:
-                logger.warning(f"[FlashscoreDiscovery] Falha num HTML match node: {e}")
+                print(f"[FlashscoreDiscovery] Falha num HTML match node: {e}")
                 
         return updated_count
 
@@ -143,7 +144,7 @@ class FlashscoreDiscovery(BaseCollector):
                         
                     # Base URL: https://www.flashscore.com/football/england/premier-league/
                     url = f"https://www.flashscore.com/{path}/{mode}/"
-                    logger.info(f"[Flashscore] Discovery URL: {url}")
+                    print(f"\n[Flashscore] Discovery URL alvo: {url}")
                     
                     try:
                         await page.goto(url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
@@ -157,7 +158,7 @@ class FlashscoreDiscovery(BaseCollector):
                         # Process HTML e update BD
                         upd = await self._extract_matches_from_page(html, league_code, conn)
                         total_updated += upd
-                        logger.info(f"[Flashscore] {league_code}: {upd} flashscore_ids atualizados.")
+                        print(f"[Flashscore] {league_code}: {upd} novos flashscore_ids atualizados na base de dados.\n")
                         
                         await asyncio.sleep(2)
                         
