@@ -162,13 +162,19 @@ class FlashscoreOddsCollector(BaseCollector):
             # 5. Coletar Estatísticas pelo DOM estendido
             logger.debug(f"[Flashscore] Buscando estatísticas para {flashscore_id}")
             try:
-                # O Flashscore usa IntersectionObserver para renderizar estatísticas sob demanda/scroll.
-                # Abrimos uma janela massiva verticalmente forçando o React a injetar TODOS os "wcl-statistics" no DOM de uma vez
-                await page.set_viewport_size({"width": 1920, "height": 10000})
-                
                 stats_url = f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary/match-statistics/0"
                 await page.goto(stats_url, wait_until="domcontentloaded", timeout=15000)
                 await page.wait_for_timeout(3000)
+                
+                # O Xvfb limita as dimensões da viewport, engessando o "set_viewport_size(10000px)"
+                # Portanto, precisamos realmente fazer scroll-down para forçar o IntersectionObserver
+                # da SPA do Flashscore a renderizar as sessões virtualizadas (Shots, Passes, etc).
+                await page.evaluate('''async () => {
+                    for(let i=0; i<15; i++) {
+                        window.scrollBy({ top: window.innerHeight * 0.8, behavior: 'smooth' });
+                        await new Promise(r => setTimeout(r, 250));
+                    }
+                }''')
                 
                 # Executar a busca de TODAS as linhas wcl-statistics e stat__row (fallback)
                 stats_extracted = await page.evaluate('''() => {
@@ -180,7 +186,8 @@ class FlashscoreOddsCollector(BaseCollector):
                         if (parts.length >= 3) {
                             let home = parts[0];
                             let category = parts[1];
-                            let away = parts[parts.length - 1]; // ignora ícones/índices no meio
+                            // Em caso de ícones (como o de info 'i'), pegamos garantidamente o primeiro e último item numérico
+                            let away = parts[parts.length - 1]; 
                             results[category.toLowerCase()] = { "home": home, "away": away };
                         }
                     }
@@ -197,7 +204,7 @@ class FlashscoreOddsCollector(BaseCollector):
                     return results;
                 }''')
                 
-                logger.debug(f"[Flashscore] DOM extraído: {list(stats_extracted.keys())}")
+                logger.debug(f"[Flashscore] DOM extraído ({len(stats_extracted)} items): {list(stats_extracted.keys())}")
                 
                 xg_home = xg_away = xgot_home = xgot_away = None
                 xa_home = xa_away = crosses_home = crosses_away = None
@@ -208,19 +215,25 @@ class FlashscoreOddsCollector(BaseCollector):
                     except: return None
 
                 for cat, vals in stats_extracted.items():
+                    # xG: The actual label in Flashscore UI is 'Expected goals (xG)'
                     if "expected goals (xg)" in cat and "xgot" not in cat:
                         xg_home = parse_dom_val(vals["home"])
                         xg_away = parse_dom_val(vals["away"])
+                    # xGOT: 'xG on target (xGOT)'
                     elif "xgot" in cat or "goals on target (xgot)" in cat or "expected goals on target" in cat:
                         xgot_home = parse_dom_val(vals["home"])
                         xgot_away = parse_dom_val(vals["away"])
+                    # xA: 'Expected assists (xA)'
                     elif "expected assists" in cat or "(xa)" in cat:
                         xa_home = parse_dom_val(vals["home"])
                         xa_away = parse_dom_val(vals["away"])
+                    # Crosses: 'Crosses'
                     elif "crosses" in cat or "cruzamentos" in cat:
                         def parse_crosses(v):
                             if not v: return None
                             v_str = str(v)
+                            # Remove parentheses for strings like '4/12 (33%)'
+                            v_str = v_str.split('(')[0].strip()
                             if '/' in v_str:
                                 return int(''.join(filter(str.isdigit, v_str.split('/')[-1])))
                             return int(''.join(filter(str.isdigit, v_str)))
