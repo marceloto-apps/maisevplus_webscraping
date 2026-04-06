@@ -168,26 +168,36 @@ class FlashscoreOddsCollector(BaseCollector):
                 
                 stats_feed_data = None
                 
-                async def capture_stats_feed(response):
-                    nonlocal stats_feed_data
-                    if f"df_st_1_{flashscore_id}" in response.url:
-                        try:
-                            # We just grab the body. It shouldn't crash if we don't close the browser too soon.
-                            text = await response.text()
-                            stats_feed_data = text
-                            logger.debug(f"[Flashscore] Feed df_st_1 capturado: {len(stats_feed_data)} chars")
-                        except Exception as e:
-                            logger.debug(f"[Flashscore] Ignorando erro de resposta: {e}")
-                
-                page.on("response", capture_stats_feed)
+                # Injeta um script de pré-carregamento na página para interceptar a API internamente
+                # Isso dribla o erro 0x804b001b (NS_ERROR_INVALID_CONTENT_ENCODING) do Playwright
+                # ao tentar ler respostas Brotli de Websockets/XHR no CDP.
+                await page.add_init_script("""
+                    if (!window._fetch_hook_installed) {
+                        const originalFetch = window.fetch;
+                        window.fetch = async function(...args) {
+                            const response = await originalFetch.call(window, ...args);
+                            try {
+                                const url = typeof args[0] === 'string' ? args[0] : (args[0] ? args[0].url : '');
+                                if (url && url.includes('df_st_1_')) {
+                                    const clone = response.clone();
+                                    clone.text().then(text => { window._flashscore_stats_feed = text; }).catch(e => {});
+                                }
+                            } catch(e) {}
+                            return response;
+                        };
+                        window._fetch_hook_installed = true;
+                    }
+                """)
                 
                 # Para garantir que o SPA limpe as abas e mostre a navegação correta:
                 match_url = f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary"
                 await page.goto(match_url, wait_until="domcontentloaded", timeout=15000)
                 await page.wait_for_timeout(2000)
                 
+                # Zera a variável injetada antes de disparar o clique
+                await page.evaluate("window._flashscore_stats_feed = null;")
+                
                 # As abas de navegação do Flashscore usam essas classes/hrefs:
-                # O botão é normalmente a[href="#/match-summary/match-statistics/0"]
                 clicked = False
                 for href_pattern in [
                     f'a[href="#/match-summary/match-statistics/0"]',
@@ -210,11 +220,15 @@ class FlashscoreOddsCollector(BaseCollector):
                     stats_url = f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary/match-statistics/0"
                     await page.goto(stats_url, wait_until="domcontentloaded")
                 
-                # AGUARDE o tempo suficiente para a resposta chegar e ser decodificada, 
-                # e para caso a página use lazy load
-                await page.wait_for_timeout(5000)
-                
-                page.remove_listener("response", capture_stats_feed)
+                # Faz polling na variável do browser para buscar o feed interceptado
+                logger.debug("[Flashscore] Aguardando feed ser preenchido via fetch hook...")
+                for _ in range(10):
+                    await page.wait_for_timeout(1000)
+                    feed = await page.evaluate("window._flashscore_stats_feed")
+                    if feed:
+                        stats_feed_data = feed
+                        logger.debug(f"[Flashscore] Feed df_st_1 capturado internamente: {len(stats_feed_data)} chars")
+                        break
                 
                 if not stats_feed_data:
                     logger.debug(f"[Flashscore] Feed df_st_1 não capturado para {flashscore_id}")
