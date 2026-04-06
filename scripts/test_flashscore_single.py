@@ -37,7 +37,7 @@ async def main():
         match_uuid = row['match_id']
         print(f"✅ Encontrado DB ID para {flashscore_id}: {match_uuid}")
 
-        # Limitamos ao mercado principal para ser mais rápido (ele raspará a tab Odds e depios as Estatísticas)
+        # Limitamos ao mercado principal para ser mais rápido
         collector = FlashscoreOddsCollector(["1x2_ft"])
         await collector._init_bm_ids(conn)
         
@@ -48,28 +48,49 @@ async def main():
             inserted = await collector.collect_match(browser, conn, str(match_uuid), flashscore_id, True, "test_job_stats")
             print(f"✅ Entradas de odds inseridas: {inserted}")
             
-            # Let's manually fetch the stats DOM to debug the xGOT missing problem
+            # Debug extra: abrir a aba stats com scroll e listar TUDO
             print("\n============================================================")
-            print("EXTRA DEBUG - INSPECTING DOM FOR STATS...")
+            print("EXTRA DEBUG - INSPECTING DOM FOR STATS WITH SCROLL...")
             from bs4 import BeautifulSoup
             page = await browser.new_page()
             await page.goto(f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary/match-statistics/0")
-            try:
-                await page.wait_for_selector(".stat__category", timeout=10000)
-                html = await page.content()
-                soup = BeautifulSoup(html, "html.parser")
-                rows = soup.find_all("div", class_=lambda c: c and ("row" in str(c).lower() or "stat" in str(c).lower()))
-                print(f"Encontrou {len(rows)} linhas candidatas. Mostrando as que tem 'category' e seus textos:")
-                for r in rows:
-                    cat = r.find(class_=lambda c: c and "category" in str(c).lower())
-                    if cat:
-                        print(f" -> CATEGORY TEXT: '{cat.get_text(strip=True)}'")
-            except Exception as e:
-                print(f"Falhou ao inspecionar dom: {e}")
+            await page.wait_for_timeout(4000)
+            
+            # Scroll 5x para forçar lazy-render
+            for i in range(5):
+                await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                await page.wait_for_timeout(1000)
+            
+            html = await page.content()
+            soup = BeautifulSoup(html, "html.parser")
+            
+            # Primeiro: listar TODAS as classes de divs que tenham "stat" no nome
+            all_stat_divs = soup.find_all("div", class_=lambda c: c and "stat" in str(c).lower())
+            print(f"\nTotal divs com 'stat' na classe: {len(all_stat_divs)}")
+            seen_classes = set()
+            for d in all_stat_divs:
+                cls = " ".join(d.get("class", []))
+                if cls not in seen_classes:
+                    seen_classes.add(cls)
+                    print(f"  CLASS: '{cls}'")
+            
+            # Segundo: encontrar categorias
+            rows = soup.find_all("div", class_=lambda c: c and ("row" in str(c).lower() or "stat" in str(c).lower()))
+            print(f"\nTotal linhas candidatas (row|stat): {len(rows)}")
+            print("Categorias encontradas:")
+            for r in rows:
+                cat = r.find(class_=lambda c: c and "category" in str(c).lower())
+                if cat:
+                    full_text = cat.get_text(strip=True)
+                    print(f"  -> '{full_text}'")
+            
             await page.close()
             
         print("\n🔍 Checando a tabela 'match_stats' no banco de dados:")
-        stats = await conn.fetchrow("SELECT xg_fs_home, xg_fs_away, xgot_fs_home, xa_fs_home, crosses_fs_home, crosses_fs_away FROM match_stats WHERE match_id = $1 AND source = 'flashscore'", match_uuid)
+        stats = await conn.fetchrow(
+            "SELECT xg_fs_home, xg_fs_away, xgot_fs_home, xgot_fs_away, xa_fs_home, xa_fs_away, crosses_fs_home, crosses_fs_away FROM match_stats WHERE match_id = $1", 
+            match_uuid
+        )
         
         if stats:
             print(f"  📊 ESTATÍSTICAS NATIVAS DO FLASHSCORE CONFIRMADAS NO BANCO:")

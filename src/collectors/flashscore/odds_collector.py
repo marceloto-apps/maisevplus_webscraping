@@ -166,6 +166,11 @@ class FlashscoreOddsCollector(BaseCollector):
                 await page.goto(stats_url, wait_until="domcontentloaded", timeout=15000)
                 await page.wait_for_timeout(3000)  # Tempo para SPA renderizar
                 
+                # Scroll até o final para forçar lazy-render de todas as categorias
+                for _ in range(3):
+                    await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                    await page.wait_for_timeout(1000)
+                
                 html = await page.content()
                 soup = BeautifulSoup(html, "lxml")
                 stat_rows = soup.find_all("div", attrs={"class": lambda c: c and ("stat" in c.lower() or "row" in c.lower())})

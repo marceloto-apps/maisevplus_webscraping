@@ -125,7 +125,7 @@ class FBRefBackfill:
               AND l.xg_source = 'fbref'
               AND NOT EXISTS (
                   SELECT 1 FROM match_stats ms 
-                  WHERE ms.match_id = m.match_id AND ms.source = 'fbref'
+                  WHERE ms.match_id = m.match_id AND ms.xga_home IS NOT NULL
               )
             ORDER BY m.kickoff DESC
         """
