@@ -51,7 +51,7 @@ async def get_target_matches(pool, limit: int = 50):
             query = """
                 SELECT match_id, flashscore_id, kickoff 
                 FROM matches 
-                WHERE league = 'BRA_SA' 
+                WHERE league_id = 'BRA_SA' 
                   AND date_utc >= '2026-01-01'
                   AND status IN ('FT', 'AET', 'PEN')
                   AND flashscore_id IS NOT NULL
@@ -61,8 +61,9 @@ async def get_target_matches(pool, limit: int = 50):
             """
             return await conn.fetch(query, limit)
         except asyncpg.exceptions.UndefinedColumnError:
-            logger.warning("Coluna 'scraping_flashscore' ausente, criando em runtime...")
+            print("Coluna 'scraping_flashscore' ausente, criando em runtime...")
             await conn.execute("ALTER TABLE matches ADD COLUMN IF NOT EXISTS scraping_flashscore boolean DEFAULT false;")
+            # Must re-run the query after altering the table!
             return await conn.fetch(query, limit)
 
 async def main():
