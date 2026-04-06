@@ -261,8 +261,8 @@ class FlashscoreOddsCollector(BaseCollector):
                     if "expected goals (xg)" in cat and "xgot" not in cat:
                         xg_home = parse_dom_val(vals["home"])
                         xg_away = parse_dom_val(vals["away"])
-                    # xGOT: 'xG on target (xGOT)'
-                    elif "xgot" in cat or "goals on target (xgot)" in cat or "expected goals on target" in cat:
+                    # xGOT: 'xG on target (xGOT)' - Excluindo 'xGOT faced' dos goleiros que tem os valores invertidos
+                    elif ("xgot" in cat or "goals on target (xgot)" in cat or "expected goals on target" in cat) and "faced" not in cat:
                         xgot_home = parse_dom_val(vals["home"])
                         xgot_away = parse_dom_val(vals["away"])
                     # xA: 'Expected assists (xA)'
@@ -274,8 +274,8 @@ class FlashscoreOddsCollector(BaseCollector):
                         def parse_crosses(v):
                             if not v: return None
                             v_str = str(v)
-                            # Remove parentheses for strings like '4/12 (33%)'
-                            v_str = v_str.split('(')[0].strip()
+                            # Se tiver no formato '25% (9/36)', queremos o 36. 
+                            # O split('/') dividirá em ["25% (9", "36)"] e o filter pegará apenas "36" do último elemento.
                             if '/' in v_str:
                                 return int(''.join(filter(str.isdigit, v_str.split('/')[-1])))
                             return int(''.join(filter(str.isdigit, v_str)))
