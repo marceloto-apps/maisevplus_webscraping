@@ -11,8 +11,14 @@ async def main():
         # Url of a single odds match
         url = "https://www.flashscore.com/match/IsSHKEbU/#/odds-comparison/1x2-odds/full-time"
         print(f"Navigating to {url}")
-        await page.goto(url, wait_until="domcontentloaded")
-        await page.wait_for_timeout(3000) # delay to let odds load
+        try:
+            await page.goto(url, timeout=60000, wait_until="commit")
+        except Exception as e:
+            print(f"Goto timeout or error, trying to continue anyway: {e}")
+        
+        print("Waiting 10s for JavaScript to inject odds...")
+        await page.wait_for_timeout(10000) # delay to let odds load
+        
         html = await page.content()
         with open("flashscore_odds_dump.html", "w", encoding="utf-8") as f:
             f.write(html)
