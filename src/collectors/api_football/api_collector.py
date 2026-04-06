@@ -96,7 +96,7 @@ class ApiFootballCollector(BaseCollector):
         
         for f in fixtures:
             fixture_id = f["fixture"]["id"]
-            kickoff_date = f["fixture"]["date"].split('T')[0]
+            kickoff_date = datetime.fromisoformat(f["fixture"]["date"].split('T')[0]).date()
             home_str = f["teams"]["home"]["name"]
             away_str = f["teams"]["away"]["name"]
             
