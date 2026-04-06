@@ -61,9 +61,13 @@ class FlashscoreDiscovery(BaseCollector):
         if not league_id:
             return 0
 
-        for div in match_divs:
+        for index, div in enumerate(match_divs):
             try:
                 fs_id = div['id'].replace("g_1_", "")
+                
+                # Debug logging for the very first div
+                if index == 0:
+                    logger.debug(f"FIRST MATCH DIV FULL DOM:\n{div.prettify()}")
                 
                 home_elem = div.find("div", class_=lambda c: c and "participant--home" in c)
                 away_elem = div.find("div", class_=lambda c: c and "participant--away" in c)
