@@ -309,6 +309,9 @@ class OddsApiCollector(BaseCollector):
         job_id = self.generate_job_id(f"odds_api_{mode}")
         started_at = datetime.now(timezone.utc)
         
+        # Garante que o cache de aliases está carregado (inclusive novos aliases recém-inseridos)
+        await TeamResolver.load_cache()
+        
         pool = await get_pool()
         async with pool.acquire() as conn:
             tier = await self._get_budget_tier()
