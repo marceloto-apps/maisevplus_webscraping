@@ -1,27 +1,22 @@
 -- Adiciona bookmakers brasileiros que aparecem no Flashscore (VPS via NordVPN BR)
--- Rode na VPS: psql -U maisev -d maisev -f scripts/sql/add_flashscore_bookmakers.sql
+-- Rode: psql -U maisevplus -d maisevplus_db -f scripts/sql/add_flashscore_bookmakers.sql
 
-INSERT INTO bookmakers (name, display_name, country)
+INSERT INTO bookmakers (name, display_name, type)
 VALUES 
-    ('betnacional', 'Betnacional', 'BR'),
-    ('kto', 'KTO', 'BR'),
-    ('esportesdasorte', 'Esportes da Sorte', 'BR'),
-    ('estrelabet', 'EstrelaBet', 'BR'),
-    ('betesporte', 'BetEsporte', 'BR'),
-    ('bet7k', 'Bet7k', 'BR'),
-    ('br4bet', 'BR4Bet', 'BR'),
-    ('casadeapostas', 'Casa de Apostas', 'BR'),
-    ('luvabet', 'LuvaBet', 'BR'),
-    ('betdasorte', 'BetdaSorte', 'BR'),
-    ('betboom', 'BetBoom', 'BR'),
-    ('f12bet', 'F12 Bet', 'BR'),
-    ('esportivabet', 'EsportivaBet', 'BR'),
-    ('segurobet', 'SeguroBet', 'BR'),
-    ('brasilbet', 'BrasilBet', 'BR'),
-    ('brasildasorte', 'Brasil da Sorte', 'BR'),
-    ('goldebet', 'GoldeBet', 'BR'),
-    ('jogodeouro', 'Jogo de Ouro', 'BR'),
-    ('lotogreen', 'LotoGreen', 'BR'),
-    ('multibet', 'MultiBet', 'BR'),
-    ('alfabet', 'AlfaBet', 'BR')
+    ('esportesdasorte', 'Esportes da Sorte', 'br_retail'),
+    ('betesporte', 'BetEsporte', 'br_retail'),
+    ('bet7k', 'Bet7k', 'br_retail'),
+    ('br4bet', 'BR4Bet', 'br_retail'),
+    ('casadeapostas', 'Casa de Apostas', 'br_retail'),
+    ('luvabet', 'LuvaBet', 'br_retail'),
+    ('betdasorte', 'BetdaSorte', 'br_retail'),
+    ('betboom', 'BetBoom', 'br_retail'),
+    ('esportivabet', 'EsportivaBet', 'br_retail'),
+    ('segurobet', 'SeguroBet', 'br_retail'),
+    ('brasilbet', 'BrasilBet', 'br_retail'),
+    ('brasildasorte', 'Brasil da Sorte', 'br_retail'),
+    ('goldebet', 'GoldeBet', 'br_retail'),
+    ('jogodeouro', 'Jogo de Ouro', 'br_retail'),
+    ('lotogreen', 'LotoGreen', 'br_retail'),
+    ('alfabet', 'AlfaBet', 'br_retail')
 ON CONFLICT (name) DO NOTHING;

@@ -43,11 +43,13 @@ FLASHSCORE_BOOKMAKER_MAP: Dict[str, str] = {
     "Betano.br": "betano",
     "1xBet.br": "1xbet",
     "Superbet.br": "superbet",
-    # Casas brasileiras adicionais
+    # Casas brasileiras
     "Betnacional": "betnacional",
     "KTO.br": "kto",
+    "Estrelabet": "estrela_bet",
+    "F12": "f12",
+    "Multibet.br": "multibet",
     "Esportes da Sorte": "esportesdasorte",
-    "Estrelabet": "estrelabet",
     "BetEsporte": "betesporte",
     "Bet7k": "bet7k",
     "BR4Bet": "br4bet",
@@ -55,7 +57,6 @@ FLASHSCORE_BOOKMAKER_MAP: Dict[str, str] = {
     "LuvaBet": "luvabet",
     "BetdaSorte": "betdasorte",
     "Betboom.br": "betboom",
-    "F12": "f12bet",
     "Esportivabet": "esportivabet",
     "SeguroBet": "segurobet",
     "BrasilBet": "brasilbet",
@@ -63,7 +64,6 @@ FLASHSCORE_BOOKMAKER_MAP: Dict[str, str] = {
     "Goldebet": "goldebet",
     "Jogo de Ouro": "jogodeouro",
     "Lotogreen": "lotogreen",
-    "Multibet.br": "multibet",
     "Alfabet": "alfabet",
 }
 
