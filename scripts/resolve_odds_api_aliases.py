@@ -205,8 +205,8 @@ async def main():
             scored.sort(key=lambda x: x[1], reverse=True)
             top = scored[:5]
 
-            # Auto-accept se score >= 0.85
-            if top[0][1] >= 0.85:
+            # Auto-accept se score >= 0.90
+            if top[0][1] >= 0.90:
                 best = top[0][0]
                 await save_alias(pool, best["team_id"], api_name)
                 existing_aliases[api_name.lower()] = best["team_id"]
