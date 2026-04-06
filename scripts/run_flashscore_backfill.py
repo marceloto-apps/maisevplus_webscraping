@@ -4,10 +4,14 @@ Destinado a coletar as partidas do Brasileirão 2026 (status finalizado).
 """
 import asyncio
 import os
+import sys
 import argparse
 from datetime import datetime
 from dotenv import load_dotenv
 import asyncpg
+
+# Adiciona o diretório raiz ao PYTHONPATH para permitir imports do módulo src
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Configurar diretório de dados do Camoufox ANTES da importação principal
 os.environ["CAMOUFOX_DATA_DIR"] = os.path.join(os.getcwd(), ".camoufox_profile")
