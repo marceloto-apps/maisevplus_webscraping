@@ -51,23 +51,21 @@ async def main():
             stat_rows = soup.find_all("div", attrs={"class": lambda c: c and ("stat" in c.lower() or "row" in c.lower())})
             print(f"    Encontradas {len(stat_rows)} divs candidatas para 'row' ou 'stat'.")
             
-            print("\n[3] Buscando os textos desejados diretamente nas Tags:")
+            print("\n[3] Listando TODAS as estatísticas encontradas na tela:")
             
-            # Uma abordagem bruta: varrer todo o texto tentando achar 'xG'
-            found_any = False
-            for div in soup.find_all(string=True):
-                text = div.strip()
-                if text in ["Expected Goals (xG)", "xG", "Expected Goals on target (xGOT)", "xGOT", "Crosses", "Expected Assists (xA)", "xA"]:
-                    parent = div.parent
-                    grandparent = parent.parent if parent else None
-                    print(f"    !! ACHOU -> '{text}'")
-                    if grandparent:
-                        print(f"       Grandpa Class: '{grandparent.get('class')}'")
-                        print(f"       Conteúdo completo: {grandparent.get_text(' | ', strip=True)}")
-                    found_any = True
-
-            if not found_any:
-                print("    🔴 Nenhuma das palavras exatas (xG, xGOT, etc) foi encontrada textualmente no DOM.")
+            for row in stat_rows:
+                # Flashscore usually uses something like .stat__categoryName for the label
+                # and .stat__homeValue / .stat__awayValue for values
+                cat_tag = row.find(class_=lambda c: c and "category" in str(c).lower())
+                
+                # if not found, it might be inside strong or a generic div, but let's try to get all text 
+                # if we have exactly 3 text elements (home, cat, away) in the row
+                texts = [t.strip() for t in row.find_all(string=True) if t.strip()]
+                
+                if len(texts) >= 3:
+                    print(f"    -> {texts[1]}: Home={texts[0]}, Away={texts[-1]}")
+                elif cat_tag:
+                    print(f"    -> {cat_tag.get_text(strip=True)} (Formato diferente: {texts})")
             
             print("\n[4] Salvando HTML para debug local ('flashscore_stats_dump.html')")
             with open("flashscore_stats_dump.html", "w", encoding="utf-8") as f:
