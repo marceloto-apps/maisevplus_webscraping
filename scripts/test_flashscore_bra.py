@@ -48,7 +48,8 @@ async def main():
             JOIN leagues l ON l.league_id = m.league_id
             WHERE l.code = 'BRA_SA' 
               AND m.flashscore_id IS NOT NULL
-            ORDER BY m.kickoff DESC
+              AND m.kickoff > NOW()
+            ORDER BY m.kickoff ASC
             LIMIT 3
         ''')
         
