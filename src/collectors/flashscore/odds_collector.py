@@ -166,57 +166,55 @@ class FlashscoreOddsCollector(BaseCollector):
                 
                 stats_feed_data = None
                 
-                async def intercept_stats_feed(route):
+                stats_feed_data = None
+                
+                async def capture_stats_feed(response):
                     nonlocal stats_feed_data
-                    try:
-                        headers = {k: v for k, v in route.request.headers.items() if k.lower() != 'accept-encoding'}
-                        response = await route.fetch(headers=headers)
-                        body_bytes = await response.body()
-                        stats_feed_data = body_bytes.decode('utf-8', errors='ignore')
-                        logger.debug(f"[Flashscore] Feed df_st_1 capturado via route: {len(stats_feed_data)} chars")
-                        await route.fulfill(response=response)
-                    except Exception as e:
-                        logger.warning(f"[Flashscore] Route fetch error: {e}")
-                        await route.continue_()
+                    if f"df_st_1_{flashscore_id}" in response.url:
+                        try:
+                            # We just grab the body. It shouldn't crash if we don't close the browser too soon.
+                            text = await response.text()
+                            stats_feed_data = text
+                            logger.debug(f"[Flashscore] Feed df_st_1 capturado: {len(stats_feed_data)} chars")
+                        except Exception as e:
+                            logger.debug(f"[Flashscore] Ignorando erro de resposta: {e}")
                 
-                # Setup route interception
-                await page.route(f"**/df_st_1_{flashscore_id}*", intercept_stats_feed)
+                page.on("response", capture_stats_feed)
                 
-                # Voltar à página do jogo (Match Summary) para garantir estado da SPA limpo
-                match_url = f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary/match-summary"
+                # Para garantir que o SPA limpe as abas e mostre a navegação correta:
+                match_url = f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary"
                 await page.goto(match_url, wait_until="domcontentloaded", timeout=15000)
-                await page.wait_for_timeout(3000)
+                await page.wait_for_timeout(2000)
                 
-                # Clicar na aba "Statistics" usando href (dispara a chamada de rede real)
+                # As abas de navegação do Flashscore usam essas classes/hrefs:
+                # O botão é normalmente a[href="#/match-summary/match-statistics/0"]
                 clicked = False
-                try:
-                    stats_tab = page.locator('a[href*="match-statistics"]')
-                    if await stats_tab.count() > 0:
-                        await stats_tab.first.click()
-                        clicked = True
-                        logger.debug(f"[Flashscore] Cliquei na aba Statistics via href")
-                except Exception:
-                    pass
+                for href_pattern in [
+                    f'a[href="#/match-summary/match-statistics/0"]',
+                    f'a[href*="match-statistics/0"]',
+                    f'button:has-text("Stats")', 
+                    f'a:has-text("Stats")'
+                ]:
+                    try:
+                        tab = page.locator(href_pattern).first
+                        if await tab.count() > 0:
+                            await tab.click()
+                            clicked = True
+                            logger.debug(f"[Flashscore] Clique na aba Statistics ({href_pattern}) com sucesso")
+                            break
+                    except Exception:
+                        pass
                 
                 if not clicked:
-                    try:
-                        stats_tab = page.locator("a:has-text('Stats'), a:has-text('Statistics')").first
-                        await stats_tab.click()
-                        logger.debug("[Flashscore] Cliquei na aba Statistics via text locator")
-                    except Exception:
-                        logger.warning("[Flashscore] Falha ao clicar na aba Statistics")
-                        # Fallback: tentar navegação direta, mas sabemos que a react SPA
-                        # pode não fazer o request de dados isolado se não for por evento interno
-                        stats_url = f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary/match-statistics/0"
-                        await page.goto(stats_url, wait_until="domcontentloaded", timeout=15000)
-
+                    logger.debug("[Flashscore] Fallback para navegação direta de URL")
+                    stats_url = f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary/match-statistics/0"
+                    await page.goto(stats_url, wait_until="domcontentloaded")
+                
+                # AGUARDE o tempo suficiente para a resposta chegar e ser decodificada, 
+                # e para caso a página use lazy load
                 await page.wait_for_timeout(5000)
                 
-                # Limpar listener para evitar memory leak ou poluir request seguinte
-                try:
-                    await page.unroute(f"**/df_st_1_{flashscore_id}*")
-                except Exception:
-                    pass
+                page.remove_listener("response", capture_stats_feed)
                 
                 if not stats_feed_data:
                     logger.debug(f"[Flashscore] Feed df_st_1 não capturado para {flashscore_id}")
