@@ -51,6 +51,9 @@ class FootballDataCollector(BaseCollector):
         self._bookmaker_ids['bet365'] = await fetch_val(
             "SELECT bookmaker_id FROM bookmakers WHERE name='bet365'"
         )
+        self._bookmaker_ids['betfair_ex'] = await fetch_val(
+            "SELECT bookmaker_id FROM bookmakers WHERE name='betfair_ex'"
+        )
 
         # Load yaml config
         yaml_path = os.path.join(os.path.dirname(__file__), "..", "..", "config", "leagues.yaml")
@@ -255,8 +258,17 @@ class FootballDataCollector(BaseCollector):
         if df.empty or 'HomeTeam' not in df.columns or 'AwayTeam' not in df.columns:
             return set() if mode == 'seed-aliases' else 0
 
-        # Uniformiza coluna B365
-        for b_col in ['B365>2.5', 'B365<2.5', 'P>2.5', 'P<2.5']:
+        # Uniformiza colunas de closing odds (garante existência)
+        closing_cols = [
+            'B365CH', 'B365CD', 'B365CA', 'B365C>2.5', 'B365C<2.5',
+            'PSCH', 'PSCD', 'PSCA', 'PC>2.5', 'PC<2.5',
+            'BFECH', 'BFECD', 'BFECA', 'BFEC>2.5', 'BFEC<2.5',
+            # Extra leagues (não têm colunas 'C', usam as normais = closing)
+            'B365H', 'B365D', 'B365A', 'B365>2.5', 'B365<2.5',
+            'PSH', 'PSD', 'PSA', 'P>2.5', 'P<2.5',
+            'BFH', 'BFD', 'BFA',
+        ]
+        for b_col in closing_cols:
             if b_col not in df.columns:
                 df[b_col] = None
 
@@ -347,55 +359,87 @@ class FootballDataCollector(BaseCollector):
 
                 inserted_count += 1
 
-                # Inserção de Odds! (Is both opening and closing natively)
+                # ===========================================================
+                # Inserção de Closing Odds (football-data.co.uk)
+                # Main leagues: colunas com 'C' (B365CH, PSCH, BFECH...)
+                # Extra leagues: colunas normais já são closing
+                # ===========================================================
                 pin_id = self._bookmaker_ids.get('pinnacle')
                 bet_id = self._bookmaker_ids.get('bet365')
+                bfe_id = self._bookmaker_ids.get('betfair_ex')
 
                 def parse_odd(val):
                     return float(val) if pd.notna(val) and val != "" else None
 
-                # 1. Pinnacle 1X2
-                if 'PSH' in df.columns:
-                    p1 = parse_odd(row.get('PSH'))
-                    px = parse_odd(row.get('PSD'))
-                    p2 = parse_odd(row.get('PSA'))
-                    if p1 and px and p2:
-                        await insert_odds_if_new(
-                            conn=conn, match_id=match_id, bookmaker_id=pin_id, market_type='1x2',
-                            line=None, period='ft', odds_1=p1, odds_x=px, odds_2=p2,
-                            source=self.source_name, collect_job_id='fd_backfill', is_opening=True, time=kickoff_dt
-                        )
+                is_extra = meta.get('type') == 'extra'
 
-                # 2. Pinnacle OU 2.5
-                p_over = parse_odd(row.get('P>2.5'))
-                p_under = parse_odd(row.get('P<2.5'))
-                if p_over and p_under:
+                # --- 1. Bet365 1x2 Closing ---
+                b1 = parse_odd(row.get('B365H' if is_extra else 'B365CH'))
+                bx = parse_odd(row.get('B365D' if is_extra else 'B365CD'))
+                b2 = parse_odd(row.get('B365A' if is_extra else 'B365CA'))
+                if b1 and bx and b2:
                     await insert_odds_if_new(
-                        conn=conn, match_id=match_id, bookmaker_id=pin_id, market_type='ou',
-                        line=2.5, period='ft', odds_1=p_over, odds_x=None, odds_2=p_under,
-                        source=self.source_name, collect_job_id='fd_backfill', is_opening=True, time=kickoff_dt
+                        conn=conn, match_id=match_id, bookmaker_id=bet_id, market_type='1x2',
+                        line=None, period='ft', odds_1=b1, odds_x=bx, odds_2=b2,
+                        source=self.source_name, collect_job_id='fd_closing',
+                        is_closing=True, time=kickoff_dt
                     )
 
-                # 3. Bet365 1X2
-                if 'B365H' in df.columns:
-                    b1 = parse_odd(row.get('B365H'))
-                    bx = parse_odd(row.get('B365D'))
-                    b2 = parse_odd(row.get('B365A'))
-                    if b1 and bx and b2:
-                        await insert_odds_if_new(
-                            conn=conn, match_id=match_id, bookmaker_id=bet_id, market_type='1x2',
-                            line=None, period='ft', odds_1=b1, odds_x=bx, odds_2=b2,
-                            source=self.source_name, collect_job_id='fd_backfill', is_opening=True, time=kickoff_dt
-                        )
-
-                # 4. Bet365 OU 2.5
-                b_over = parse_odd(row.get('B365>2.5'))
-                b_under = parse_odd(row.get('B365<2.5'))
+                # --- 2. Bet365 OU 2.5 Closing ---
+                b_over = parse_odd(row.get('B365>2.5' if is_extra else 'B365C>2.5'))
+                b_under = parse_odd(row.get('B365<2.5' if is_extra else 'B365C<2.5'))
                 if b_over and b_under:
                     await insert_odds_if_new(
                         conn=conn, match_id=match_id, bookmaker_id=bet_id, market_type='ou',
                         line=2.5, period='ft', odds_1=b_over, odds_x=None, odds_2=b_under,
-                        source=self.source_name, collect_job_id='fd_backfill', is_opening=True, time=kickoff_dt
+                        source=self.source_name, collect_job_id='fd_closing',
+                        is_closing=True, time=kickoff_dt
+                    )
+
+                # --- 3. Pinnacle 1x2 Closing ---
+                p1 = parse_odd(row.get('PSH' if is_extra else 'PSCH'))
+                px = parse_odd(row.get('PSD' if is_extra else 'PSCD'))
+                p2 = parse_odd(row.get('PSA' if is_extra else 'PSCA'))
+                if p1 and px and p2:
+                    await insert_odds_if_new(
+                        conn=conn, match_id=match_id, bookmaker_id=pin_id, market_type='1x2',
+                        line=None, period='ft', odds_1=p1, odds_x=px, odds_2=p2,
+                        source=self.source_name, collect_job_id='fd_closing',
+                        is_closing=True, time=kickoff_dt
+                    )
+
+                # --- 4. Pinnacle OU 2.5 Closing ---
+                p_over = parse_odd(row.get('P>2.5' if is_extra else 'PC>2.5'))
+                p_under = parse_odd(row.get('P<2.5' if is_extra else 'PC<2.5'))
+                if p_over and p_under:
+                    await insert_odds_if_new(
+                        conn=conn, match_id=match_id, bookmaker_id=pin_id, market_type='ou',
+                        line=2.5, period='ft', odds_1=p_over, odds_x=None, odds_2=p_under,
+                        source=self.source_name, collect_job_id='fd_closing',
+                        is_closing=True, time=kickoff_dt
+                    )
+
+                # --- 5. Betfair Exchange 1x2 Closing ---
+                f1 = parse_odd(row.get('BFH' if is_extra else 'BFECH'))
+                fx = parse_odd(row.get('BFD' if is_extra else 'BFECD'))
+                f2 = parse_odd(row.get('BFA' if is_extra else 'BFECA'))
+                if f1 and fx and f2 and bfe_id:
+                    await insert_odds_if_new(
+                        conn=conn, match_id=match_id, bookmaker_id=bfe_id, market_type='1x2',
+                        line=None, period='ft', odds_1=f1, odds_x=fx, odds_2=f2,
+                        source=self.source_name, collect_job_id='fd_closing',
+                        is_closing=True, time=kickoff_dt
+                    )
+
+                # --- 6. Betfair Exchange OU 2.5 Closing ---
+                f_over = parse_odd(row.get('BF>2.5' if is_extra else 'BFEC>2.5'))
+                f_under = parse_odd(row.get('BF<2.5' if is_extra else 'BFEC<2.5'))
+                if f_over and f_under and bfe_id:
+                    await insert_odds_if_new(
+                        conn=conn, match_id=match_id, bookmaker_id=bfe_id, market_type='ou',
+                        line=2.5, period='ft', odds_1=f_over, odds_x=None, odds_2=f_under,
+                        source=self.source_name, collect_job_id='fd_closing',
+                        is_closing=True, time=kickoff_dt
                     )
 
         return inserted_count

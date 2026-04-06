@@ -72,6 +72,7 @@ async def insert_odds_if_new(
     source: str,
     collect_job_id: str,
     is_opening: bool = False,
+    is_closing: bool = False,
     time,               # datetime aware (UTC)
 ) -> bool:
     """
@@ -120,13 +121,13 @@ async def insert_odds_if_new(
              odds_1, odds_x, odds_2, overround,
              is_opening, is_closing, source, collect_job_id, content_hash)
         VALUES
-            ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, FALSE, $12, $13, $14)
+            ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         ON CONFLICT (match_id, bookmaker_id, market_type,
                      COALESCE(line, -9999), period, content_hash, time)
         DO NOTHING
         """,
         time, match_id, bookmaker_id, market_type, line, period,
         odds_1, odds_x, odds_2, overround,
-        is_opening, source, collect_job_id, content_hash,
+        is_opening, is_closing, source, collect_job_id, content_hash,
     )
     return True
