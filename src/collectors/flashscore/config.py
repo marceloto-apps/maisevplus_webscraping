@@ -1,5 +1,6 @@
+import os
 from dataclasses import dataclass, field
-from typing import Dict
+from typing import Dict, Optional
 
 # Mapeamento do código interno da liga para o path do Flashscore
 # Usado para compor as URLs de fixtures e results
@@ -35,9 +36,8 @@ LEAGUE_FLASHSCORE_PATHS: Dict[str, str] = {
 
 # Mapeamento de como a casa de apostas aparece no DOM (title/alt do img) 
 # para o nosso canonical name (precisa bater exatamente com a tabela bookmakers)
-# O Flashscore serve casas diferentes conforme a localização geográfica do servidor.
 FLASHSCORE_BOOKMAKER_MAP: Dict[str, str] = {
-    # Internacionais / diretas
+    # Casas internacionais / alvo principal (visíveis no Brasil)
     "bet365": "bet365",
     "Pinnacle": "pinnacle",
     "Betfair": "betfair_ex",
@@ -51,16 +51,10 @@ FLASHSCORE_BOOKMAKER_MAP: Dict[str, str] = {
     "Marathonbet": "marathonbet",
     "Dafabet": "dafabet",
     "888sport": "888sport",
-    # Variantes regionais (VPS na França)
+    # Variantes regionais (manter para fallback)
     "Betclic.fr": "betclic",
     "Unibet.fr": "unibet",
-    "Winamax": "winamax",
-    "PMU": "pmu",
-    "ZEbet": "zebet",
-    "Parions Sport": "parionssport",
     "Betclic": "betclic",
-    "France Pari": "francepari",
-    "Vbet": "vbet",
 }
 
 
@@ -73,6 +67,31 @@ class FlashscoreConfig:
     
     # Scraping limits
     discovery_max_scrolls: int = 3
+    
+    # Proxy NordVPN SOCKS5 (lê do .env para simular localização brasileira)
+    proxy_server: Optional[str] = None
+    proxy_username: Optional[str] = None
+    proxy_password: Optional[str] = None
+    
+    def __post_init__(self):
+        # Carrega proxy do .env se não foi passado explicitamente
+        if not self.proxy_server:
+            self.proxy_server = os.getenv("NORDVPN_PROXY_SERVER")
+        if not self.proxy_username:
+            self.proxy_username = os.getenv("NORDVPN_PROXY_USER")
+        if not self.proxy_password:
+            self.proxy_password = os.getenv("NORDVPN_PROXY_PASS")
+    
+    @property
+    def proxy(self) -> Optional[dict]:
+        """Retorna dict de proxy para Camoufox/Playwright, ou None se não configurado."""
+        if self.proxy_server and self.proxy_username and self.proxy_password:
+            return {
+                "server": self.proxy_server,
+                "username": self.proxy_username,
+                "password": self.proxy_password,
+            }
+        return None
     
     # Estrutura de endpoints (hashes) para acessar as abas de odds na match page
     markets: Dict[str, dict] = field(default_factory=lambda: {
