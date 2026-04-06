@@ -99,50 +99,48 @@ async def main():
     collector = FlashscoreOddsCollector()
     
     # Abre o navegador central
-    browser = await AsyncCamoufox(
+    async with AsyncCamoufox(
         headless=False,  # Deve rodar sob xvfb-run na VPS
         enable_cache=True,
         window_size=(1920, 1080)
-    )
-    
-    try:
-        total_collected = 0
-        total_errors = 0
-        
-        for idx, m in enumerate(matches):
-            match_uuid = m["match_id"]
-            fs_id = m["flashscore_id"]
+    ) as browser:
+        try:
+            total_collected = 0
+            total_errors = 0
             
-            print(f"==> Processando {idx+1}/{len(matches)}: Flashscore ID {fs_id} (DB: {match_uuid})")
-            
-            try:
-                # Usamos um novo connection do pool internamente se a função requerer conexão fechada?
-                # odds_collector recebe o connection!
-                async with pool.acquire() as conn:
-                    # Rodamos nossa super função E2E
-                    inserted = await collector.collect_match(browser, conn, str(match_uuid), fs_id, is_closing=True, job_id="backfill_bra_2026")
-                    
-                    print(f"    -> Coleta finalizada para {fs_id}. Odds Inseridas: {inserted}.")
-                    
-                    # Se não deu crash no meio, marca como processada independentemente do número de registros inseridos 
-                    # (já que algumas partidas podem realmente não ter stats).
-                    await mark_match_as_scraped(pool, match_uuid)
-                    total_collected += 1
-                    
-            except Exception as e:
-                print(f"[ERROR] Falha severa no match {fs_id}. Retrying no futuro. Erro: {e}")
-                total_errors += 1
+            for idx, m in enumerate(matches):
+                match_uuid = m["match_id"]
+                fs_id = m["flashscore_id"]
                 
-            # Random wait para não explodir rate limit ou block da CDN (2 a 4 segundos entre partidas completas)
-            await asyncio.sleep(3)
-            
-        print(f"====== RESUMO BACKFILL ======")
-        print(f"Completados com sucesso: {total_collected}")
-        print(f"Erros encontrados: {total_errors}")
-    
-    finally:
-        await browser.close()
-        await pool.close()
+                print(f"==> Processando {idx+1}/{len(matches)}: Flashscore ID {fs_id} (DB: {match_uuid})")
+                
+                try:
+                    # Usamos um novo connection do pool internamente se a função requerer conexão fechada?
+                    # odds_collector recebe o connection!
+                    async with pool.acquire() as conn:
+                        # Rodamos nossa super função E2E
+                        inserted = await collector.collect_match(browser, conn, str(match_uuid), fs_id, is_closing=True, job_id="backfill_bra_2026")
+                        
+                        print(f"    -> Coleta finalizada para {fs_id}. Odds Inseridas: {inserted}.")
+                        
+                        # Se não deu crash no meio, marca como processada independentemente do número de registros inseridos 
+                        # (já que algumas partidas podem realmente não ter stats).
+                        await mark_match_as_scraped(pool, match_uuid)
+                        total_collected += 1
+                        
+                except Exception as e:
+                    print(f"[ERROR] Falha severa no match {fs_id}. Retrying no futuro. Erro: {e}")
+                    total_errors += 1
+                    
+                # Random wait para não explodir rate limit ou block da CDN (2 a 4 segundos entre partidas completas)
+                await asyncio.sleep(3)
+                
+            print(f"====== RESUMO BACKFILL ======")
+            print(f"Completados com sucesso: {total_collected}")
+            print(f"Erros encontrados: {total_errors}")
+        
+        finally:
+            await pool.close()
 
 if __name__ == "__main__":
     try:
