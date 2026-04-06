@@ -166,27 +166,18 @@ class FlashscoreOddsCollector(BaseCollector):
                 await page.goto(stats_url, wait_until="domcontentloaded", timeout=15000)
                 await page.wait_for_timeout(3000)  # Tempo para SPA renderizar
                 
-                # Fechar cookie banner se existir (bloqueia lazy-render das seções abaixo)
-                try:
-                    cookie_btn = page.locator("#onetrust-accept-btn-handler")
-                    if await cookie_btn.is_visible(timeout=2000):
-                        await cookie_btn.click()
-                        await page.wait_for_timeout(1000)
-                except Exception:
-                    pass
-                
-                # Scroll agressivo para forçar lazy-render de SHOTS e PASSES
-                for _ in range(5):
-                    await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                    await page.wait_for_timeout(800)
-                
-                # Voltar ao topo e scrollar gradualmente
-                await page.evaluate("window.scrollTo(0, 0)")
+                # Remover cookie overlay do DOM (bloqueia IntersectionObserver)
+                await page.evaluate("""
+                    document.querySelectorAll('#onetrust-banner-sdk, #onetrust-consent-sdk, [class*="onetrust"], .ot-sdk-container').forEach(el => el.remove());
+                    document.body.style.overflow = 'auto';
+                    document.documentElement.style.overflow = 'auto';
+                """)
                 await page.wait_for_timeout(500)
-                scroll_height = await page.evaluate("document.body.scrollHeight")
-                for i in range(10):
-                    await page.evaluate(f"window.scrollTo(0, {int(scroll_height * (i + 1) / 10)})")
-                    await page.wait_for_timeout(300)
+                
+                # Scroll nativo via mouse.wheel — dispara IntersectionObserver real
+                for _ in range(20):
+                    await page.mouse.wheel(0, 400)
+                    await page.wait_for_timeout(400)
                 
                 html = await page.content()
                 soup = BeautifulSoup(html, "lxml")
