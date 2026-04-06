@@ -137,7 +137,6 @@ class FlashscoreDiscovery(BaseCollector):
             proxy = self.config.proxy
             if proxy:
                 camoufox_kwargs["proxy"] = proxy
-                camoufox_kwargs["geoip"] = True
             async with AsyncCamoufox(**camoufox_kwargs) as browser:
                 page = await browser.new_page()
                 

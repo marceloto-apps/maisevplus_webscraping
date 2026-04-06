@@ -201,7 +201,6 @@ class FlashscoreOddsCollector(BaseCollector):
                 camoufox_kwargs = {"headless": self.config.headless, "os": "linux"}
                 if proxy:
                     camoufox_kwargs["proxy"] = proxy
-                    camoufox_kwargs["geoip"] = True
                 async with AsyncCamoufox(**camoufox_kwargs) as browser:
                     for idx, m in enumerate(match_ids):
                         m_uuid = m["match_id"]

@@ -26,7 +26,6 @@ async def main():
             "username": proxy_user,
             "password": proxy_pass,
         }
-        camoufox_kwargs["geoip"] = True
         print(f"✅ Proxy configurado: {proxy_server}")
     else:
         print("⚠️  Sem proxy! Bookmakers serão regionais (FR).")
