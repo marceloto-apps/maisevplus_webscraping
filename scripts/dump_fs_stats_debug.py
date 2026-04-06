@@ -2,11 +2,8 @@ import sys
 import os
 import asyncio
 from bs4 import BeautifulSoup
-from lxml import etree
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from src.collectors.flashscore.config import FlashscoreConfig
 
 async def try_import_camoufox():
     try:
@@ -35,72 +32,43 @@ async def main():
         async with AsyncCamoufox(headless=False, os="linux") as browser:
             page = await browser.new_page()
             
-            # Route interception to avoid unnecessary loads
-            await page.route("**/*", lambda route: 
-                route.continue_() if route.request.resource_type in ["document", "script", "xhr", "fetch"] 
-                else route.abort()
-            )
-
+            # No route interception to ensure full SPA load
             await page.goto(url, wait_until="domcontentloaded", timeout=30000)
             
-            print("    ✅ DOM carregado! Esperando seletor de estatísticas...")
+            print("    ✅ DOM carregado! Esperando renderização do SPA (5 segs)...")
+            await page.wait_for_timeout(5000)
             
-            # The general category wrapper often is .stat__category or .section
-            try:
-                # wait for stat rows to appear
-                await page.wait_for_selector(".stat__category", timeout=15000)
-                print("    ✅ Estatísticas renderizadas!")
-            except Exception as e:
-                print(f"    ⚠️ Falha ao esperar estatísticas: {e}")
+            # Screenshot to check what is rendered
+            await page.screenshot(path="flashscore_stats_screenshot.png")
+            print("    📸 Screenshot salvo como flashscore_stats_screenshot.png")
 
+            # Busca divs contendo o texto 'xG' ou qualquer estatística para descobrir a classe
             html = await page.content()
             
             print("\n[2] Analisando o HTML...")
             soup = BeautifulSoup(html, "lxml")
             
-            stat_rows = soup.find_all("div", class_="stat__category")
-            print(f"    Encontradas {len(stat_rows)} linhas de estatísticas.")
+            stat_rows = soup.find_all("div", attrs={"class": lambda c: c and ("stat" in c.lower() or "row" in c.lower())})
+            print(f"    Encontradas {len(stat_rows)} divs candidatas para 'row' ou 'stat'.")
             
-            stats_dict = {}
-
-            for row in stat_rows:
-                category_name_tag = row.find("div", class_="wld--category") or row.find("div", class_="stat__categoryName")
-                if not category_name_tag:
-                    continue
-                    
-                category_name = category_name_tag.text.strip()
-                
-                # Usually home is first, away is second OR class specific
-                home_val_tag = row.find("div", class_="stat__homeValue") or row.find("div", class_="stat__value stat__value--home")
-                away_val_tag = row.find("div", class_="stat__awayValue") or row.find("div", class_="stat__value stat__value--away")
-                
-                # Try generic finding if classes are slightly different
-                if not home_val_tag or not away_val_tag:
-                    values = row.find_all("div", class_="stat__value")
-                    if len(values) >= 2:
-                        home_val_tag = values[0]
-                        away_val_tag = values[1]
-
-                if home_val_tag and away_val_tag:
-                    home_val = home_val_tag.text.strip()
-                    away_val = away_val_tag.text.strip()
-                    print(f"    -> {category_name}: {home_val} (Home) / {away_val} (Away)")
-                    stats_dict[category_name] = {"home": home_val, "away": away_val}
-
-            print("\n[3] Buscando estatísticas requeridas:")
-            required = ["Expected Goals (xG)", "xG", "Expected Goals on target (xGOT)", "xGOT", "Crosses", "Expected Assists (xA)", "xA"]
+            print("\n[3] Buscando os textos desejados diretamente nas Tags:")
             
-            for req in required:
-                # Attempt to find exactly or partially
-                matched = False
-                for cat, vals in stats_dict.items():
-                    if req.lower() in cat.lower():
-                        print(f"    🟢 Encontrado '{req}' (na página: '{cat}'): Home={vals['home']}, Away={vals['away']}")
-                        matched = True
-                        break
-                if not matched:
-                    print(f"    🔴 Não encontrado: '{req}'")
+            # Uma abordagem bruta: varrer todo o texto tentando achar 'xG'
+            found_any = False
+            for div in soup.find_all(string=True):
+                text = div.strip()
+                if text in ["Expected Goals (xG)", "xG", "Expected Goals on target (xGOT)", "xGOT", "Crosses", "Expected Assists (xA)", "xA"]:
+                    parent = div.parent
+                    grandparent = parent.parent if parent else None
+                    print(f"    !! ACHOU -> '{text}'")
+                    if grandparent:
+                        print(f"       Grandpa Class: '{grandparent.get('class')}'")
+                        print(f"       Conteúdo completo: {grandparent.get_text(' | ', strip=True)}")
+                    found_any = True
 
+            if not found_any:
+                print("    🔴 Nenhuma das palavras exatas (xG, xGOT, etc) foi encontrada textualmente no DOM.")
+            
             print("\n[4] Salvando HTML para debug local ('flashscore_stats_dump.html')")
             with open("flashscore_stats_dump.html", "w", encoding="utf-8") as f:
                 f.write(soup.prettify())
