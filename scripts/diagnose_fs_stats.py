@@ -1,9 +1,8 @@
 """
-Diagnóstico CIRÚRGICO para entender por que SHOTS/PASSES não renderizam.
-Salva HTML completo e busca textualmente por 'xGOT', 'Crosses', 'xA'.
-Tenta scrollar containers internos.
+Intercept network requests from Flashscore stats page 
+to find the internal API endpoint for statistics data.
 """
-import sys, os, asyncio
+import sys, os, asyncio, json
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 async def main():
@@ -11,106 +10,74 @@ async def main():
     
     flashscore_id = "IsSHKEbU"
     stats_url = f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary/match-statistics/0"
+
+    print("=" * 60)
+    print("INTERCEPT NETWORK — FLASHSCORE STATS API")
+    print("=" * 60)
     
-    print("=" * 60)
-    print("DIAGNÓSTICO CIRÚRGICO — FLASHSCORE DOM")
-    print("=" * 60)
+    captured_responses = []
     
     async with AsyncCamoufox(headless=False, os="linux") as browser:
         page = await browser.new_page()
-        await page.set_viewport_size({"width": 1920, "height": 1080})
+        
+        # Interceptar TODAS as respostas de rede
+        async def on_response(response):
+            url = response.url
+            # Filtrar CSS, imagens, fontes
+            if any(ext in url for ext in ['.css', '.png', '.jpg', '.svg', '.woff', '.gif', '.ico']):
+                return
+            try:
+                status = response.status
+                content_type = response.headers.get('content-type', '')
+                body_preview = ""
+                if 'json' in content_type or 'text' in content_type or 'javascript' not in content_type:
+                    try:
+                        body = await response.text()
+                        # Check if body contains stats keywords
+                        has_xgot = 'xGOT' in body or 'xgot' in body
+                        has_crosses = 'Crosses' in body or 'crosses' in body
+                        has_xa = 'Expected assists' in body or 'xA)' in body
+                        if has_xgot or has_crosses or has_xa:
+                            body_preview = f" *** CONTAINS STATS! xGOT={has_xgot} Crosses={has_crosses} xA={has_xa} ***"
+                            # Save full body
+                            safe_name = url.split('/')[-1][:50].replace('?', '_')
+                            with open(f"captured_stats_{safe_name}.txt", "w", encoding="utf-8") as f:
+                                f.write(f"URL: {url}\n\n{body}")
+                        elif len(body) > 500:
+                            body_preview = f" ({len(body)} chars)"
+                    except:
+                        body_preview = " (binary)"
+                
+                captured_responses.append({
+                    'url': url[:120], 'status': status, 'type': content_type[:30], 'note': body_preview
+                })
+            except:
+                pass
+        
+        page.on('response', on_response)
         
         print(f"\n[1] Navegando para {stats_url}")
         await page.goto(stats_url, wait_until="domcontentloaded", timeout=20000)
-        await page.wait_for_timeout(5000)
+        await page.wait_for_timeout(8000)
         
-        # Remover cookie
-        await page.evaluate("""
-            document.querySelectorAll('#onetrust-banner-sdk, #onetrust-consent-sdk, [class*="onetrust"], .ot-sdk-container').forEach(el => el.remove());
-            document.body.style.overflow = 'auto';
-            document.documentElement.style.overflow = 'auto';
-        """)
-        await page.wait_for_timeout(1000)
-        
-        # Diagnóstico 1: buscar "xGOT" no HTML bruto ANTES de scroll
-        html_before = await page.content()
-        print(f"\n[2] HTML total ANTES do scroll: {len(html_before)} chars")
-        print(f"    'xGOT' no HTML? {'SIM ✅' if 'xGOT' in html_before else 'NÃO ❌'}")
-        print(f"    'Crosses' no HTML? {'SIM ✅' if 'Crosses' in html_before else 'NÃO ❌'}")
-        print(f"    'xA)' no HTML? {'SIM ✅' if 'xA)' in html_before else 'NÃO ❌'}")
-        print(f"    'Shots' (seção) no HTML? {'SIM ✅' if '>Shots<' in html_before else 'NÃO ❌'}")
-        print(f"    'Passes' (seção) no HTML? {'SIM ✅' if '>Passes<' in html_before else 'NÃO ❌'}")
-        
-        # Diagnóstico 2: Encontrar containers com scroll
-        scrollable_info = await page.evaluate("""
-            const results = [];
-            document.querySelectorAll('*').forEach(el => {
-                const style = getComputedStyle(el);
-                if ((style.overflow === 'auto' || style.overflow === 'scroll' || 
-                     style.overflowY === 'auto' || style.overflowY === 'scroll') &&
-                    el.scrollHeight > el.clientHeight + 50) {
-                    const cls = el.className ? el.className.substring(0, 80) : '';
-                    const tag = el.tagName;
-                    results.push({
-                        tag, cls, 
-                        scrollH: el.scrollHeight, 
-                        clientH: el.clientHeight,
-                        id: el.id || ''
-                    });
-                }
-            });
-            return results;
-        """)
-        
-        print(f"\n[3] Containers com scroll interno: {len(scrollable_info)}")
-        for sc in scrollable_info:
-            print(f"    <{sc['tag']}> id='{sc['id']}' class='{sc['cls'][:60]}' scrollH={sc['scrollH']} clientH={sc['clientH']}")
-        
-        # Diagnóstico 3: Scrollar TODOS os containers internos
-        await page.evaluate("""
-            document.querySelectorAll('*').forEach(el => {
-                const style = getComputedStyle(el);
-                if ((style.overflow === 'auto' || style.overflow === 'scroll' || 
-                     style.overflowY === 'auto' || style.overflowY === 'scroll') &&
-                    el.scrollHeight > el.clientHeight + 50) {
-                    el.scrollTo(0, el.scrollHeight);
-                }
-            });
-        """)
-        await page.wait_for_timeout(3000)
-        
-        # Também mouse.wheel
+        # Scroll para tentar disparar mais requests
         for _ in range(10):
             await page.mouse.wheel(0, 500)
-            await page.wait_for_timeout(300)
+            await page.wait_for_timeout(500)
         
-        # Diagnóstico 4: buscar "xGOT" no HTML DEPOIS de scroll
-        html_after = await page.content()
-        print(f"\n[4] HTML total DEPOIS do scroll: {len(html_after)} chars")
-        print(f"    'xGOT' no HTML? {'SIM ✅' if 'xGOT' in html_after else 'NÃO ❌'}")
-        print(f"    'Crosses' no HTML? {'SIM ✅' if 'Crosses' in html_after else 'NÃO ❌'}")  
-        print(f"    'xA)' no HTML? {'SIM ✅' if 'xA)' in html_after else 'NÃO ❌'}")
-        print(f"    'Shots' (seção) no HTML? {'SIM ✅' if '>Shots<' in html_after else 'NÃO ❌'}")
-        print(f"    'Passes' (seção) no HTML? {'SIM ✅' if '>Passes<' in html_after else 'NÃO ❌'}")
+        await page.wait_for_timeout(3000)
         
-        # Contar wcl-statistics
-        from bs4 import BeautifulSoup
-        soup = BeautifulSoup(html_after, "lxml")
-        stats = soup.find_all("div", attrs={"data-testid": "wcl-statistics"})
-        print(f"\n[5] Total data-testid='wcl-statistics': {len(stats)}")
-        for s in stats:
-            cat = s.find(attrs={"data-testid": "wcl-statistics-category"})
-            if cat:
-                print(f"    -> '{cat.get_text(strip=True)}'")
+        print(f"\n[2] Total de respostas capturadas: {len(captured_responses)}")
+        print("\nRespostas relevantes (não-triviais):")
+        for r in captured_responses:
+            note = r['note']
+            if note:  # only show non-empty notes
+                print(f"  [{r['status']}] {r['url']}")
+                print(f"       type={r['type']} {note}")
         
-        # Salvar HTML para inspeção
-        with open("flashscore_stats_full_dump.html", "w", encoding="utf-8") as f:
-            f.write(html_after)
-        print("\n[6] HTML salvo em flashscore_stats_full_dump.html")
-        
-        # Screenshot
-        await page.screenshot(path="flashscore_stats_diagnostic.png", full_page=True)
-        print("[7] Screenshot salvo em flashscore_stats_diagnostic.png")
+        print("\n\nTODAS as URLs capturadas:")
+        for r in captured_responses:
+            print(f"  [{r['status']}] {r['url']}")
         
         await page.close()
 
