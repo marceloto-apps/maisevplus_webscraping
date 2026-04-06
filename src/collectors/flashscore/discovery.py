@@ -127,6 +127,9 @@ class FlashscoreDiscovery(BaseCollector):
         job_id = self.generate_job_id(f"flashscore_discovery_{mode}")
         started_at = datetime.now(timezone.utc)
         
+        from src.normalizer.team_resolver import TeamResolver
+        await TeamResolver.load_cache()
+        
         leagues_to_run = specific_leagues or list(LEAGUE_FLASHSCORE_PATHS.keys())
         
         total_updated = 0
