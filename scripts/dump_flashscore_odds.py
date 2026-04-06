@@ -9,7 +9,7 @@ async def main():
     async with AsyncCamoufox(headless=True) as browser:
         page = await browser.new_page()
         # Url of a single odds match
-        url = "https://www.flashscore.com/match/0hUJ5FOr/#/odds-comparison/1x2-odds/full-time"
+        url = "https://www.flashscore.com/match/IsSHKEbU/#/odds-comparison/1x2-odds/full-time"
         print(f"Navigating to {url}")
         await page.goto(url, wait_until="domcontentloaded")
         await page.wait_for_timeout(3000) # delay to let odds load
