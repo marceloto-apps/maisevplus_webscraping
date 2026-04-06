@@ -17,7 +17,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ["CAMOUFOX_DATA_DIR"] = os.path.join(os.getcwd(), ".camoufox_profile")
 
 from camoufox.async_api import AsyncCamoufox
-from src.collectors.flashscore.odds_collector import FlashscoreCollector
+from src.collectors.flashscore.odds_collector import FlashscoreOddsCollector
 from src.db.logger import configure_logger, get_logger
 
 load_dotenv()
@@ -80,7 +80,7 @@ async def main():
         
     logger.info(f"[Backfill Flashscore] {len(matches)} partidas encontradas. Inicializando scraper da Morte...")
     
-    collector = FlashscoreCollector()
+    collector = FlashscoreOddsCollector()
     
     # Abre o navegador central
     browser = await AsyncCamoufox(
