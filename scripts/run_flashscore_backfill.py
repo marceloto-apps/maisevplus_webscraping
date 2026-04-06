@@ -18,10 +18,10 @@ os.environ["CAMOUFOX_DATA_DIR"] = os.path.join(os.getcwd(), ".camoufox_profile")
 
 from camoufox.async_api import AsyncCamoufox
 from src.collectors.flashscore.odds_collector import FlashscoreOddsCollector
-from src.db.logger import configure_logger, get_logger
+from src.db.logger import configure_logging, get_logger
 
 load_dotenv()
-configure_logger()
+configure_logging()
 logger = get_logger("run_flashscore_backfill")
 
 async def init_db():
