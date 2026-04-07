@@ -92,11 +92,21 @@ async def get_teams_without_flashscore_alias(pool, league_code: str = None) -> l
     return [dict(r) for r in rows]
 
 
+async def get_unknown_flashscore_names(pool) -> list:
+    """Busca nomes pendentes capturados do flashscore em unknown_aliases"""
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT DISTINCT raw_name FROM unknown_aliases WHERE source = 'flashscore' ORDER BY raw_name")
+    return [r["raw_name"] for r in rows]
+
 async def save_alias(pool, team_id: int, alias_name: str):
     async with pool.acquire() as conn:
         await conn.execute(
             "INSERT INTO team_aliases (team_id, source, alias_name) VALUES ($1, 'flashscore', $2) ON CONFLICT DO NOTHING",
             team_id, alias_name
+        )
+        await conn.execute(
+            "DELETE FROM unknown_aliases WHERE source = 'flashscore' AND raw_name = $1",
+            alias_name
         )
 
 
@@ -150,16 +160,13 @@ async def main():
         names = [n.strip() for n in args.names.split(",") if n.strip()]
         source_label = f"nomes manuais: {', '.join(names)}"
     else:
-        # Busca times sem alias flashscore na(s) liga(s)
-        missing = await get_teams_without_flashscore_alias(pool, args.league)
-        if not missing:
-            league_label = args.league or "todas as ligas"
-            print(f"\n✅ Todos os times de {league_label} já possuem alias Flashscore!")
+        # Busca times na tabela unknown_aliases
+        names = await get_unknown_flashscore_names(pool)
+        if not names:
+            print("\n✅ Nenhum alias pendente do Flashscore na tabela unknown_aliases!")
             return
 
-        # Usa name_canonical como nome a resolver (será comparado com fuzzy)
-        names = [m["name_canonical"] for m in missing]
-        source_label = f"times sem alias ({args.league or 'todas'})"
+        source_label = "unknown_aliases (flashscore)"
 
     print("\n" + "=" * 60)
     print("  RESOLUTOR DE ALIASES — FLASHSCORE")

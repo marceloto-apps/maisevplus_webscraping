@@ -23,6 +23,9 @@ def build_flashscore_season_slug(label: str) -> str:
     return label
 
 async def main():
+    from src.alerts.telegram_mini import TelegramAlert
+    await TelegramAlert.init()
+    
     print("Iniciando Discovery Massivo Flashscore...")
     discovery = FlashscoreDiscovery()
     pool = await get_pool()
@@ -62,6 +65,15 @@ async def main():
     res = await discovery.collect(mode="results", specific_leagues=list(target_urls.keys()), target_urls=target_urls)
     
     print(f"Discovery GLOBAL CONCLUÍDO! Status: {res.status.name}. Matches atualizados: {res.records_new}")
+    
+    msg = f"🔍 *Flashscore Mass Discovery*\nStatus: `{res.status.name}`\nMatches Associados: `{res.records_new}`"
+    if res.status.name == "FAILED":
+        TelegramAlert.fire("error", msg)
+    else:
+        TelegramAlert.fire("info", msg)
+        
+    await asyncio.sleep(1)
+    await TelegramAlert.close()
     
 if __name__ == "__main__":
     asyncio.run(main())

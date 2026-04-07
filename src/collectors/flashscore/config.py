@@ -37,12 +37,23 @@ LEAGUE_FLASHSCORE_PATHS: Dict[str, str] = {
 # para o nosso canonical name (precisa bater exatamente com a tabela bookmakers)
 # A VPS deve rodar com NordVPN conectada ao Brasil para receber bookmakers BR.
 FLASHSCORE_BOOKMAKER_MAP: Dict[str, str] = {
-    # Casas principais (alvo)
+    # Casas principais
     "bet365": "bet365",
     "Betfair": "betfair_ex",
     "Betano.br": "betano",
     "1xBet.br": "1xbet",
-    "Superbet.br": "superbet"
+    "Superbet.br": "superbet",
+    # Casas secundárias ativas
+    "Betnacional": "betnacional",
+    "KTO.br": "kto",
+    "Estrelabet": "estrela_bet",
+    "F12": "f12",
+    "Multibet.br": "multibet",
+    "Bet7k": "bet7k",
+    "SeguroBet": "segurobet",
+    # EXCLUÍDAS (não mapear): esportesdasorte, betesporte, br4bet, casadeapostas,
+    # luvabet, betdasorte, betboom, esportivabet, brasilbet, brasildasorte,
+    # goldebet, jogodeouro, lotogreen, alfabet
 }
 
 

@@ -112,6 +112,7 @@ async def main():
     parser = argparse.ArgumentParser(description="Backfill Flashscore Odds")
     parser.add_argument("--league", type=str, default=None, help="Código da liga (ex: ENG_PL, BRA_SA). Se omitido, roda todas.")
     parser.add_argument("--limit", type=int, default=380, help="Máximo de partidas para processar (default: 380)")
+    parser.add_argument("--timeout-hours", type=float, default=2.0, help="Tempo máximo de execução (horas)")
     args = parser.parse_args()
 
     if args.league and args.league not in LEAGUE_FLASHSCORE_PATHS:
@@ -142,8 +143,15 @@ async def main():
         ) as browser:
             total_collected = 0
             total_errors = 0
+            
+            start_time = datetime.now()
+            from datetime import timedelta
+            max_duration = timedelta(hours=args.timeout_hours)
 
             for idx, m in enumerate(matches):
+                if datetime.now() - start_time > max_duration:
+                    print(f"\n[TIMEOUT] Limite de {args.timeout_hours}h atingido. Interrompendo backfill suavemente.")
+                    break
                 match_uuid = m["match_id"]
                 fs_id = m["flashscore_id"]
                 league_label = m.get("code", args.league or "?")
