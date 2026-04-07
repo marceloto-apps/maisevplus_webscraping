@@ -61,19 +61,19 @@ async def get_target_matches(pool, league_code: str = None, limit: int = 380):
         if league_code:
             # Diagnóstico
             c_total = await conn.fetchval(
-                "SELECT count(*) FROM matches m JOIN leagues l ON m.league_id = l.league_id JOIN seasons s ON s.league_id = l.league_id WHERE l.code = $1",
+                "SELECT count(*) FROM matches m JOIN leagues l ON m.league_id = l.league_id WHERE l.code = $1",
                 league_code
             )
             c_ft = await conn.fetchval(
-                "SELECT count(*) FROM matches m JOIN leagues l ON m.league_id = l.league_id JOIN seasons s ON s.league_id = l.league_id WHERE l.code = $1 AND m.status = 'finished'",
+                "SELECT count(*) FROM matches m JOIN leagues l ON m.league_id = l.league_id WHERE l.code = $1 AND m.status = 'finished'",
                 league_code
             )
             c_fs = await conn.fetchval(
-                "SELECT count(*) FROM matches m JOIN leagues l ON m.league_id = l.league_id JOIN seasons s ON s.league_id = l.league_id WHERE l.code = $1 AND m.status = 'finished' AND m.flashscore_id IS NOT NULL",
+                "SELECT count(*) FROM matches m JOIN leagues l ON m.league_id = l.league_id WHERE l.code = $1 AND m.status = 'finished' AND m.flashscore_id IS NOT NULL",
                 league_code
             )
             c_done = await conn.fetchval(
-                "SELECT count(*) FROM matches m JOIN leagues l ON m.league_id = l.league_id JOIN seasons s ON s.league_id = l.league_id WHERE l.code = $1 AND m.status = 'finished' AND m.flashscore_id IS NOT NULL AND m.scraping_flashscore = true",
+                "SELECT count(*) FROM matches m JOIN leagues l ON m.league_id = l.league_id WHERE l.code = $1 AND m.status = 'finished' AND m.flashscore_id IS NOT NULL AND m.scraping_flashscore = true",
                 league_code
             )
             print(f"[DIAGNÓSTICO] {league_code}:")
@@ -87,7 +87,6 @@ async def get_target_matches(pool, league_code: str = None, limit: int = 380):
                 SELECT m.match_id, m.flashscore_id, m.kickoff
                 FROM matches m
                 JOIN leagues l ON m.league_id = l.league_id
-                JOIN seasons s ON s.league_id = l.league_id
                 WHERE l.code = $1
                   AND m.status = 'finished'
                   AND m.flashscore_id IS NOT NULL
@@ -100,7 +99,6 @@ async def get_target_matches(pool, league_code: str = None, limit: int = 380):
                 SELECT m.match_id, m.flashscore_id, m.kickoff, l.code
                 FROM matches m
                 JOIN leagues l ON m.league_id = l.league_id
-                JOIN seasons s ON s.league_id = l.league_id
                 WHERE m.status = 'finished'
                   AND m.flashscore_id IS NOT NULL
                   AND (m.scraping_flashscore IS NULL OR m.scraping_flashscore = false)
