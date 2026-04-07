@@ -319,6 +319,59 @@ async def apifootball_backfill():
     await run_backfill(is_cron=True)
     return {"provider": "api_football", "job": "backfill_daily"}
 
+@safe_job
+async def flashscore_historical_backfill():
+    """
+    Trigger: `0 6,10,14,18 * * *` BRT
+    Objetivo: Rodízio de IP (NordVPN) e backfill em lote do Flashscore.
+    """
+    import subprocess
+    import sys
+    import random
+    import re
+    
+    # Servidores homologados para rodízio
+    servers = ["br89", "br105", "br75"]
+    target_server = random.choice(servers)
+    
+    # 1. Tentar rotacionar o IP via NordVPN
+    try:
+        logger.info("nordvpn_connecting", server=target_server)
+        res = subprocess.run(["nordvpn", "connect", target_server], check=True, capture_output=True, text=True)
+        
+        # Puxa o status real para inspecionar o IP
+        status_res = subprocess.run(["nordvpn", "status"], capture_output=True, text=True)
+        ip_match = re.search(r"\bIP:\s*([\d\.]+)", status_res.stdout)
+        new_ip = ip_match.group(1) if ip_match else "Desconhecido"
+        
+        logger.info("nordvpn_reconnected", server=target_server, ip=new_ip)
+        # Dispara sucesso para o Telegram
+        TelegramAlert.fire("info", f"🔄 Rodízio de IP (NordVPN)\nSrv: `{target_server}`\nIP: `{new_ip}`")
+        
+    except FileNotFoundError:
+        logger.warning("nordvpn_binary_not_found_skipping_rotation")
+    except subprocess.CalledProcessError as e:
+        logger.error("nordvpn_failed", error=e.stderr.strip())
+        TelegramAlert.fire("warning", f"NordVPN rodízio falhou no srv {target_server}:\n{e.stderr.strip()}")
+
+    # 2. Spawn subprocess para limpar memória após a execução (o browser come muito)
+    try:
+        logger.info("spawning_flashscore_backfill_subprocess")
+        proc = await asyncio.create_subprocess_exec(
+            sys.executable, "scripts/run_flashscore_backfill.py", "--limit", "380",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            logger.error("flashscore_backfill_subprocess_failed", stderr=stderr.decode("utf-8", errors="replace"))
+        else:
+            logger.info("flashscore_backfill_subprocess_success")
+    except Exception as e:
+        logger.error("flashscore_backfill_spawn_failed", error=str(e))
+
+    return {"job": "flashscore_historical_backfill"}
+
 # ---------------------------------------------------------------------------
 @safe_job
 async def odds_prematch_30(): pass

@@ -29,18 +29,23 @@ class FlashscoreDiscovery(BaseCollector):
 
     async def _scroll_page(self, page):
         """Scrolla a página para tentar carregar mais jogos dinamicamente no Flashscore."""
-        for _ in range(self.config.discovery_max_scrolls):
-            # Click no botão "Show more matches" se existir
-            more_btn = await page.query_selector('a.event__more')
-            if more_btn:
-                try:
-                    await more_btn.click()
-                    await page.wait_for_timeout(1000)
-                except Exception:
-                    pass
-            # Scroll to bottom
+        max_attempts = 50
+        for i in range(max_attempts):
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             await page.wait_for_timeout(1000)
+            
+            more_btn = await page.query_selector('a.event__more')
+            if more_btn and await more_btn.is_visible():
+                try:
+                    await more_btn.click()
+                    logger.debug(f"[FlashscoreDiscovery] Clicou em 'Mostrar mais jogos' (Tentativa {i+1})")
+                    await page.wait_for_timeout(2000)
+                except Exception as e:
+                    logger.debug(f"[FlashscoreDiscovery] Falha ao clicar no botão: {e}")
+                    # Continua tentando
+            else:
+                logger.debug("[FlashscoreDiscovery] Fim do scroll: Botão não encontrado ou invisível.")
+                break
 
     async def _extract_matches_from_page(self, html: str, league_code: str, conn) -> int:
         """
@@ -119,10 +124,11 @@ class FlashscoreDiscovery(BaseCollector):
                 
         return updated_count
 
-    async def collect(self, mode: str = "fixtures", specific_leagues: List[str] = None, **kwargs) -> CollectResult:
+    async def collect(self, mode: str = "fixtures", specific_leagues: List[str] = None, target_urls: Dict[str, List[str]] = None, **kwargs) -> CollectResult:
         """
         Ponto de entrada do BaseCollector.
         Mode: "fixtures" (jogos futuros) ou "results" (jogos terminados recentes)
+        target_urls: { "ENG_PL": ["https://www.flashscore.com/..."] }
         """
         job_id = self.generate_job_id(f"flashscore_discovery_{mode}")
         started_at = datetime.now(timezone.utc)
@@ -141,13 +147,17 @@ class FlashscoreDiscovery(BaseCollector):
                 page = await browser.new_page()
                 
                 for league_code in leagues_to_run:
-                    path = LEAGUE_FLASHSCORE_PATHS.get(league_code)
-                    if not path:
-                        continue
+                    urls = []
+                    if target_urls and league_code in target_urls:
+                        urls = target_urls[league_code]
+                    else:
+                        path = LEAGUE_FLASHSCORE_PATHS.get(league_code)
+                        if not path:
+                            continue
+                        urls = [f"https://www.flashscore.com/{path}/{mode}/"]
                         
-                    # Base URL: https://www.flashscore.com/football/england/premier-league/
-                    url = f"https://www.flashscore.com/{path}/{mode}/"
-                    print(f"\n[Flashscore] Discovery URL alvo: {url}")
+                    for url in urls:
+                        print(f"\n[Flashscore] Discovery URL alvo: {url}")
                     
                     try:
                         await page.goto(url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)

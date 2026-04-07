@@ -11,6 +11,8 @@ from src.db.logger import get_logger
 logger = get_logger(__name__)
 
 LEVEL_EMOJI = {
+    "info":     "✅",
+    "success":  "🎉",
     "warning":  "⚠️",
     "error":    "❌",
     "critical": "🔥",

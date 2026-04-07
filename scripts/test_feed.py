@@ -1,5 +1,6 @@
 """
-Test intercepting via in-page JavaScript to bypass Playwright networking errors.
+Test reliable feed interception by clicking the stats tab from the match summary page,
+and using page.route to strip compression, avoiding decoding errors.
 """
 import sys, os, asyncio
 
@@ -9,7 +10,7 @@ async def main():
     flashscore_id = "IsSHKEbU"
     
     print("=" * 60)
-    print("TESTING IN-PAGE JS INTERCEPTION")
+    print("TESTING RELIABLE FEED INTERCEPTION")
     print("=" * 60)
     
     async with AsyncCamoufox(headless=False, os="linux") as browser:
@@ -17,52 +18,50 @@ async def main():
         
         stats_feed_data = None
         
-        async def intercept_stats_feed(route):
-            nonlocal stats_feed_data
+        async def handle_route(route):
+            # Remove compression header to receive plain text directly
+            headers = {k: v for k, v in route.request.headers.items() if k.lower() != 'accept-encoding'}
             try:
-                # Strip compression to avoid decoding errors in headless mode
-                headers = {k: v for k, v in route.request.headers.items() if k.lower() != 'accept-encoding'}
                 response = await route.fetch(headers=headers)
-                stats_feed_data = await response.text()
-                print(f"  📡 [ROUTE HIT] df_st_1 capturado via route: {len(stats_feed_data)} chars")
+                body_bytes = await response.body()
+                text_data = body_bytes.decode('utf-8', errors='ignore')
+                nonlocal stats_feed_data
+                stats_feed_data = text_data
+                print(f"  📡 [ROUTE] df_st_1_ captured: {len(text_data)} chars")
                 await route.fulfill(response=response)
             except Exception as e:
-                print(f"  ❌ Route error: {e}")
+                print(f"Route error: {e}")
                 await route.continue_()
-                
+
         # Intercept df_st_1 feed
-        await page.route("**/df_st_1_*", intercept_stats_feed)
+        await page.route("**/df_st_1_*", handle_route)
         
-        # 1. Start at odds page
-        odds_url = f"https://www.flashscore.com/match/{flashscore_id}/#/odds-comparison/1x2-odds/full-time"
-        print("[1] Navigating to odds page...")
-        await page.goto(odds_url, wait_until="domcontentloaded")
+        # 1. To trigger the feed reliably, we start at the main Match page
+        match_url = f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary/match-summary"
+        print("[1] Navigating to Match Summary page...")
+        await page.goto(match_url, wait_until="domcontentloaded")
         await page.wait_for_timeout(3000)
         
-        # 2. Change hash to trigger stats feed (like in odds_collector)
-        print("[2] Changing hash to match-statistics...")
-        await page.evaluate('window.location.hash = "#/match-summary/match-statistics/0"')
-        
-        print("[3] Waiting 10s for the route to trigger...")
-        for i in range(10):
+        # 2. Click the Statistics sub-tab using the specific href
+        print("[2] Clicking 'Statistics' tab using locator...")
+        try:
+            stats_tab = page.locator('a[href*="match-statistics"]')
+            if await stats_tab.count() > 0:
+                await stats_tab.first.click()
+                print("    Clicked specific sub-tab!")
+            else:
+                print("    Specific sub-tab not found. Trying text locator...")
+                stats_tab = page.locator("a:has-text('Stats'), a:has-text('Statistics')").first
+                await stats_tab.click()
+                print("    Clicked text locator!")
+        except Exception as e:
+            print(f"    Click error: {e}")
+            
+        print("[3] Waiting 8s for the feed...")
+        for _ in range(8):
             await page.wait_for_timeout(1000)
             if stats_feed_data:
                 break
-        
-        if not stats_feed_data:
-            # Fallback: maybe the page needs a hard refresh or click
-            print("[4] Not triggered by hash. Trying a full navigation...")
-            stats_url = f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary/match-statistics/0"
-            await page.goto(stats_url, wait_until="domcontentloaded")
-            await page.wait_for_timeout(3000)
-            
-            print("[5] Trying to click 'Stats' tab...")
-            try:
-                stats_link = page.locator("a:has-text('Stats'), a:has-text('Statistics')").first
-                await stats_link.click()
-                await page.wait_for_timeout(5000)
-            except Exception as e:
-                print(f"    Click error: {e}")
         
         print(f"\nResult: {'SUCCESS' if stats_feed_data else 'FAILED'}")
         if stats_feed_data:

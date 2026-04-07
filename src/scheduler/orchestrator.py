@@ -114,6 +114,16 @@ class AppOrchestrator:
             misfire_grace_time=7200
         )
 
+        # 6c. Flashscore Historical Backfill — Janelas de 2 horas (com IP rotation)
+        from src.scheduler.jobs import flashscore_historical_backfill
+        self.scheduler.add_job(
+            flashscore_historical_backfill,
+            'cron',
+            hour='6,10,14,18', minute=0,
+            id="flashscore_historical_backfill",
+            misfire_grace_time=3600
+        )
+
         # 7. Fixtures Weekly (Segundas-feiras 05:00 BRT — calendário futuro via API-Football)
         self.scheduler.add_job(
             fixtures_weekly,

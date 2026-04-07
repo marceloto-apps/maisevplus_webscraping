@@ -31,7 +31,11 @@ def similarity(a: str, b: str) -> float:
 
 async def get_all_db_teams(pool) -> list:
     async with pool.acquire() as conn:
-        return await conn.fetch("SELECT team_id, name_canonical FROM teams ORDER BY name_canonical")
+        return await conn.fetch("""
+            SELECT team_id, name_canonical AS ref_name FROM teams
+            UNION
+            SELECT team_id, alias_name AS ref_name FROM team_aliases
+        """)
 
 
 async def get_existing_aliases(pool) -> dict:
@@ -103,15 +107,15 @@ async def resolve_name(name: str, all_teams: list, existing_aliases: dict, pool)
     if name.lower() in existing_aliases:
         return {"name": name, "status": "already_exists", "team_id": existing_aliases[name.lower()]}
 
-    # Match exato por name_canonical?
+    # Match exato por ref_name?
     for t in all_teams:
-        if t["name_canonical"].lower() == name.lower():
+        if t["ref_name"].lower() == name.lower():
             await save_alias(pool, t["team_id"], name)
             existing_aliases[name.lower()] = t["team_id"]
-            return {"name": name, "status": "exact_match", "team_id": t["team_id"], "canonical": t["name_canonical"]}
+            return {"name": name, "status": "exact_match", "team_id": t["team_id"], "canonical": t["ref_name"]}
 
     # Fuzzy matching
-    scored = [(t, similarity(name, t["name_canonical"])) for t in all_teams]
+    scored = [(t, similarity(name, t["ref_name"])) for t in all_teams]
     scored.sort(key=lambda x: x[1], reverse=True)
     top = scored[:8]
     best_score = top[0][1] if top else 0
@@ -123,7 +127,7 @@ async def resolve_name(name: str, all_teams: list, existing_aliases: dict, pool)
         existing_aliases[name.lower()] = best["team_id"]
         return {
             "name": name, "status": "auto_resolved",
-            "team_id": best["team_id"], "canonical": best["name_canonical"],
+            "team_id": best["team_id"], "canonical": best["ref_name"],
             "score": best_score
         }
 
@@ -192,7 +196,7 @@ async def main():
             print(f"\n  ❓ Não resolvido: \"{name}\"")
             print(f"     Candidatos mais próximos:")
             for idx, (t, score) in enumerate(candidates):
-                print(f"       [{idx+1}] {t['name_canonical']} (id={t['team_id']}, score={score:.0%})")
+                print(f"       [{idx+1}] {t['ref_name']} (id={t['team_id']}, score={score:.0%})")
             print(f"       [0] Pular")
             print(f"       [m] Digitar team_id manualmente")
             print(f"       [s] Usar o nome canônico como alias")
@@ -202,10 +206,10 @@ async def main():
             if choice == "0":
                 total_skipped += 1
             elif choice == "s":
-                # Salva o name_canonical como alias flashscore (exact match)
+                # Salva o nome como alias flashscore (exact match)
                 # Busca o team_id pelo name
                 for t in all_teams:
-                    if t["name_canonical"] == name:
+                    if t["ref_name"] == name:
                         await save_alias(pool, t["team_id"], name)
                         existing_aliases[name.lower()] = t["team_id"]
                         total_auto += 1
@@ -229,7 +233,7 @@ async def main():
                 await save_alias(pool, selected["team_id"], alias_input)
                 existing_aliases[alias_input.lower()] = selected["team_id"]
                 total_manual += 1
-                print(f"  ✓  Selecionado: \"{alias_input}\" → {selected['name_canonical']} (id={selected['team_id']})")
+                print(f"  ✓  Selecionado: \"{alias_input}\" → {selected['ref_name']} (id={selected['team_id']})")
             else:
                 total_skipped += 1
 

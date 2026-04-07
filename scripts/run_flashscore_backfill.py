@@ -61,23 +61,23 @@ async def get_target_matches(pool, league_code: str = None, limit: int = 380):
         if league_code:
             # Diagnóstico
             c_total = await conn.fetchval(
-                "SELECT count(*) FROM matches m JOIN leagues l ON m.league_id = l.league_id JOIN seasons s ON s.league_id = l.league_id AND s.is_current = TRUE WHERE l.code = $1",
+                "SELECT count(*) FROM matches m JOIN leagues l ON m.league_id = l.league_id JOIN seasons s ON s.league_id = l.league_id WHERE l.code = $1",
                 league_code
             )
             c_ft = await conn.fetchval(
-                "SELECT count(*) FROM matches m JOIN leagues l ON m.league_id = l.league_id JOIN seasons s ON s.league_id = l.league_id AND s.is_current = TRUE WHERE l.code = $1 AND m.status = 'finished'",
+                "SELECT count(*) FROM matches m JOIN leagues l ON m.league_id = l.league_id JOIN seasons s ON s.league_id = l.league_id WHERE l.code = $1 AND m.status = 'finished'",
                 league_code
             )
             c_fs = await conn.fetchval(
-                "SELECT count(*) FROM matches m JOIN leagues l ON m.league_id = l.league_id JOIN seasons s ON s.league_id = l.league_id AND s.is_current = TRUE WHERE l.code = $1 AND m.status = 'finished' AND m.flashscore_id IS NOT NULL",
+                "SELECT count(*) FROM matches m JOIN leagues l ON m.league_id = l.league_id JOIN seasons s ON s.league_id = l.league_id WHERE l.code = $1 AND m.status = 'finished' AND m.flashscore_id IS NOT NULL",
                 league_code
             )
             c_done = await conn.fetchval(
-                "SELECT count(*) FROM matches m JOIN leagues l ON m.league_id = l.league_id JOIN seasons s ON s.league_id = l.league_id AND s.is_current = TRUE WHERE l.code = $1 AND m.status = 'finished' AND m.flashscore_id IS NOT NULL AND m.scraping_flashscore = true",
+                "SELECT count(*) FROM matches m JOIN leagues l ON m.league_id = l.league_id JOIN seasons s ON s.league_id = l.league_id WHERE l.code = $1 AND m.status = 'finished' AND m.flashscore_id IS NOT NULL AND m.scraping_flashscore = true",
                 league_code
             )
             print(f"[DIAGNÓSTICO] {league_code}:")
-            print(f"  Partidas temporada atual: {c_total}")
+            print(f"  Partidas configuradas:    {c_total}")
             print(f"  Finalizadas:              {c_ft}")
             print(f"  Com flashscore_id:        {c_fs}")
             print(f"  Já coletadas (odds):      {c_done}")
@@ -87,7 +87,7 @@ async def get_target_matches(pool, league_code: str = None, limit: int = 380):
                 SELECT m.match_id, m.flashscore_id, m.kickoff
                 FROM matches m
                 JOIN leagues l ON m.league_id = l.league_id
-                JOIN seasons s ON s.league_id = l.league_id AND s.is_current = TRUE
+                JOIN seasons s ON s.league_id = l.league_id
                 WHERE l.code = $1
                   AND m.status = 'finished'
                   AND m.flashscore_id IS NOT NULL
@@ -100,7 +100,7 @@ async def get_target_matches(pool, league_code: str = None, limit: int = 380):
                 SELECT m.match_id, m.flashscore_id, m.kickoff, l.code
                 FROM matches m
                 JOIN leagues l ON m.league_id = l.league_id
-                JOIN seasons s ON s.league_id = l.league_id AND s.is_current = TRUE
+                JOIN seasons s ON s.league_id = l.league_id
                 WHERE m.status = 'finished'
                   AND m.flashscore_id IS NOT NULL
                   AND (m.scraping_flashscore IS NULL OR m.scraping_flashscore = false)
@@ -121,25 +121,27 @@ async def main():
         print(f"Ligas disponíveis: {', '.join(sorted(LEAGUE_FLASHSCORE_PATHS.keys()))}")
         return
 
+    from src.alerts.telegram_mini import TelegramAlert
+    await TelegramAlert.init()
+
     pool = await init_db()
+    
+    try:
+        matches = await get_target_matches(pool, league_code=args.league, limit=args.limit)
+        if not matches:
+            league_label = args.league or "todas as ligas"
+            print(f"\n[Backfill Flashscore] Nenhuma partida pendente para {league_label}!")
+            return
 
-    matches = await get_target_matches(pool, league_code=args.league, limit=args.limit)
-    if not matches:
-        league_label = args.league or "todas as ligas"
-        print(f"\n[Backfill Flashscore] Nenhuma partida pendente para {league_label}!")
-        await pool.close()
-        return
+        print(f"\n[Backfill Flashscore] {len(matches)} partidas encontradas. Inicializando scraper...\n")
 
-    print(f"\n[Backfill Flashscore] {len(matches)} partidas encontradas. Inicializando scraper...\n")
+        collector = FlashscoreOddsCollector()
 
-    collector = FlashscoreOddsCollector()
-
-    # Abre o navegador central
-    async with AsyncCamoufox(
-        headless=False,  # Deve rodar sob xvfb-run na VPS
-        enable_cache=True
-    ) as browser:
-        try:
+        # Abre o navegador central
+        async with AsyncCamoufox(
+            headless=False,  # Deve rodar sob xvfb-run na VPS
+            enable_cache=True
+        ) as browser:
             total_collected = 0
             total_errors = 0
 
@@ -171,8 +173,17 @@ async def main():
             print(f"Completados com sucesso:    {total_collected}")
             print(f"Erros encontrados:          {total_errors}")
 
-        finally:
-            await pool.close()
+            if total_collected > 0:
+                msg = f"Backfill Flashscore finalizado!\nLiga: {args.league or 'Múltiplas'}\nColetados: {total_collected}\nErros: {total_errors}"
+                TelegramAlert.fire("info", msg)
+            if total_errors > 0:
+                TelegramAlert.fire("warning", f"Backfill Flashscore teve erros.\n{total_errors} jogos falharam nesta janela.")
+
+    finally:
+        await pool.close()
+        # Ensure telegram sends out alerts
+        await asyncio.sleep(1)
+        await TelegramAlert.close()
 
 if __name__ == "__main__":
     try:
