@@ -35,7 +35,7 @@ async def find_missing_stats(pool) -> list:
     async with pool.acquire() as conn:
         rows = await conn.fetch("""
             SELECT DISTINCT m.match_id, m.api_football_id, m.home_team_id, m.away_team_id,
-                   th.name AS home_name, ta.name AS away_name, m.kickoff
+                   th.name_canonical AS home_name, ta.name_canonical AS away_name, m.kickoff
             FROM matches m
             JOIN match_events me ON me.match_id = m.match_id
             JOIN match_stats ms ON ms.match_id = m.match_id
