@@ -25,7 +25,7 @@ async def main():
         return
 
     pool = await get_pool()
-    flashscore_id = "IsSHKEbU"
+    flashscore_id = "jHs8giMs"
     
     async with pool.acquire() as conn:
         # Pega o match_id

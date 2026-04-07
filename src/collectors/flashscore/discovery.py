@@ -212,6 +212,11 @@ class FlashscoreDiscovery(BaseCollector):
                 await page.close()
                 
 
+        from src.normalizer.team_resolver import TeamResolver
+        flushed = await TeamResolver.flush_unknowns()
+        if flushed > 0:
+            logger.info("flashscore_discovery_flushed_unknowns", count=flushed)
+
         return CollectResult(
             source=self.source_name,
             job_type=f"discovery_{mode}",
