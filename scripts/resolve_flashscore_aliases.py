@@ -2,13 +2,14 @@
 scripts/resolve_flashscore_aliases.py
 
 Resolve aliases de times do Flashscore para o banco de dados.
-  1. Busca nomes não resolvidos nos logs de discovery (via argumento ou todos).
+  1. Busca times da liga especificada (ou todas) que não têm alias 'flashscore'.
   2. Auto-resolve se fuzzy match >= 90%.
   3. Para scores < 90%, mostra candidatos para resolução interativa.
 
 Uso:
-  python scripts/resolve_flashscore_aliases.py
-  python scripts/resolve_flashscore_aliases.py --names "Athletico-PR,Bragantino2"
+  python scripts/resolve_flashscore_aliases.py                          # todas as ligas
+  python scripts/resolve_flashscore_aliases.py --league ENG_PL          # liga específica
+  python scripts/resolve_flashscore_aliases.py --names "Athletico-PR"   # nomes específicos
 """
 
 import asyncio
@@ -40,14 +41,51 @@ async def get_existing_aliases(pool) -> dict:
     return {row["alias_name"].lower(): row["team_id"] for row in rows}
 
 
-async def get_unresolved_names(pool) -> list:
+async def get_teams_without_flashscore_alias(pool, league_code: str = None) -> list:
     """
-    Busca nomes de times usados em partidas do Flashscore que não foram resolvidos.
-    Pega da tabela de discovery ou via nomes não presentes em aliases.
+    Busca times que participam de partidas na(s) liga(s) da temporada atual
+    mas não possuem alias 'flashscore' em team_aliases.
     """
-    # Abordagem: pegar todos os nomes do Flashscore que não têm alias
-    # Como não temos uma tabela de "pending", vamos aceitar nomes via argumento
-    return []
+    async with pool.acquire() as conn:
+        if league_code:
+            rows = await conn.fetch("""
+                SELECT DISTINCT t.team_id, t.name_canonical
+                FROM teams t
+                JOIN (
+                    SELECT home_team_id AS tid FROM matches m
+                    JOIN leagues l ON m.league_id = l.league_id
+                    JOIN seasons s ON s.league_id = l.league_id AND s.is_current = TRUE
+                    WHERE l.code = $1
+                    UNION
+                    SELECT away_team_id FROM matches m
+                    JOIN leagues l ON m.league_id = l.league_id
+                    JOIN seasons s ON s.league_id = l.league_id AND s.is_current = TRUE
+                    WHERE l.code = $1
+                ) sub ON sub.tid = t.team_id
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM team_aliases ta
+                    WHERE ta.team_id = t.team_id AND ta.source = 'flashscore'
+                )
+                ORDER BY t.name_canonical
+            """, league_code)
+        else:
+            rows = await conn.fetch("""
+                SELECT DISTINCT t.team_id, t.name_canonical
+                FROM teams t
+                JOIN (
+                    SELECT home_team_id AS tid FROM matches m
+                    JOIN seasons s ON s.league_id = m.league_id AND s.is_current = TRUE
+                    UNION
+                    SELECT away_team_id FROM matches m
+                    JOIN seasons s ON s.league_id = m.league_id AND s.is_current = TRUE
+                ) sub ON sub.tid = t.team_id
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM team_aliases ta
+                    WHERE ta.team_id = t.team_id AND ta.source = 'flashscore'
+                )
+                ORDER BY t.name_canonical
+            """)
+    return [dict(r) for r in rows]
 
 
 async def save_alias(pool, team_id: int, alias_name: str):
@@ -60,41 +98,42 @@ async def save_alias(pool, team_id: int, alias_name: str):
 
 async def resolve_name(name: str, all_teams: list, existing_aliases: dict, pool) -> dict:
     """Tenta resolver um nome. Retorna dict com resultado."""
-    
+
     # Já existe alias?
     if name.lower() in existing_aliases:
         return {"name": name, "status": "already_exists", "team_id": existing_aliases[name.lower()]}
-    
+
     # Match exato por name_canonical?
     for t in all_teams:
         if t["name_canonical"].lower() == name.lower():
             await save_alias(pool, t["team_id"], name)
             existing_aliases[name.lower()] = t["team_id"]
             return {"name": name, "status": "exact_match", "team_id": t["team_id"], "canonical": t["name_canonical"]}
-    
+
     # Fuzzy matching
     scored = [(t, similarity(name, t["name_canonical"])) for t in all_teams]
     scored.sort(key=lambda x: x[1], reverse=True)
     top = scored[:8]
     best_score = top[0][1] if top else 0
-    
+
     # Auto-resolve se >= 90%
     if best_score >= AUTO_THRESHOLD:
         best = top[0][0]
         await save_alias(pool, best["team_id"], name)
         existing_aliases[name.lower()] = best["team_id"]
         return {
-            "name": name, "status": "auto_resolved", 
+            "name": name, "status": "auto_resolved",
             "team_id": best["team_id"], "canonical": best["name_canonical"],
             "score": best_score
         }
-    
+
     # Requer interação
     return {"name": name, "status": "needs_input", "candidates": top}
 
 
 async def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--league", help="Filtrar por código da liga (ex: ENG_PL)", default=None)
     parser.add_argument("--names", help="Nomes separados por vírgula (ex: 'Athletico-PR,Bragantino2')", default=None)
     args = parser.parse_args()
 
@@ -105,44 +144,26 @@ async def main():
     # Coleta nomes a resolver
     if args.names:
         names = [n.strip() for n in args.names.split(",") if n.strip()]
+        source_label = f"nomes manuais: {', '.join(names)}"
     else:
-        # Busca nomes que existem em team_aliases de outras fontes mas não em flashscore
-        # E nomes que sabemos que falharam (hardcoded dos logs recentes)
-        async with pool.acquire() as conn:
-            # Busca nomes que falharam no discovery via log pattern (se tiver tabela de pending)
-            # Fallback: busca times da BRA_SA sem alias flashscore
-            rows = await conn.fetch("""
-                SELECT DISTINCT t.team_id, t.name_canonical 
-                FROM teams t
-                JOIN seasons s ON TRUE
-                JOIN leagues l ON s.league_id = l.league_id AND l.code = 'BRA_SA'
-                WHERE s.is_current = TRUE
-                AND NOT EXISTS (
-                    SELECT 1 FROM team_aliases ta 
-                    WHERE ta.team_id = t.team_id AND ta.source = 'flashscore'
-                )
-                AND t.team_id IN (
-                    SELECT home_team_id FROM matches WHERE league_id = l.league_id
-                    UNION
-                    SELECT away_team_id FROM matches WHERE league_id = l.league_id
-                )
-                ORDER BY t.name_canonical
-            """)
-        if rows:
-            print(f"\nEncontrados {len(rows)} times da BRA_SA sem alias Flashscore.")
-            print("Esses times têm partidas mas não foram mapeados para o Flashscore.\n")
-            # Para cada, mostramos o nome canônico (não o nome do flashscore)
-            # O ideal aqui é ter o nome do Flashscore. Vamos usar uma lista conhecida.
-        
-        # Nomes que sabemos que falharam nos logs
-        names = ["Athletico-PR", "Bragantino2"]
-        print(f"Usando nomes conhecidos dos logs de discovery: {names}")
+        # Busca times sem alias flashscore na(s) liga(s)
+        missing = await get_teams_without_flashscore_alias(pool, args.league)
+        if not missing:
+            league_label = args.league or "todas as ligas"
+            print(f"\n✅ Todos os times de {league_label} já possuem alias Flashscore!")
+            return
+
+        # Usa name_canonical como nome a resolver (será comparado com fuzzy)
+        names = [m["name_canonical"] for m in missing]
+        source_label = f"times sem alias ({args.league or 'todas'})"
 
     print("\n" + "=" * 60)
     print("  RESOLUTOR DE ALIASES — FLASHSCORE")
     print("=" * 60)
+    print(f"  Liga:            {args.league or 'TODAS'}")
     print(f"  Times no DB:     {len(all_teams)}")
     print(f"  Aliases FS:      {len(existing_aliases)}")
+    print(f"  Fonte:           {source_label}")
     print(f"  Nomes a resolver: {len(names)}")
     print()
 
@@ -153,19 +174,19 @@ async def main():
 
     for name in names:
         result = await resolve_name(name, all_teams, existing_aliases, pool)
-        
+
         if result["status"] == "already_exists":
             print(f"  ⏭  \"{name}\" → já existe (team_id={result['team_id']})")
             total_existing += 1
-            
+
         elif result["status"] == "exact_match":
             print(f"  ✓  \"{name}\" → {result['canonical']} (exact, id={result['team_id']})")
             total_auto += 1
-            
+
         elif result["status"] == "auto_resolved":
             print(f"  ✓  \"{name}\" → {result['canonical']} (score={result['score']:.0%}, id={result['team_id']})")
             total_auto += 1
-            
+
         elif result["status"] == "needs_input":
             candidates = result["candidates"]
             print(f"\n  ❓ Não resolvido: \"{name}\"")
@@ -174,28 +195,41 @@ async def main():
                 print(f"       [{idx+1}] {t['name_canonical']} (id={t['team_id']}, score={score:.0%})")
             print(f"       [0] Pular")
             print(f"       [m] Digitar team_id manualmente")
-            
+            print(f"       [s] Usar o nome canônico como alias")
+
             choice = input("     Escolha: ").strip()
-            
+
             if choice == "0":
                 total_skipped += 1
+            elif choice == "s":
+                # Salva o name_canonical como alias flashscore (exact match)
+                # Busca o team_id pelo name
+                for t in all_teams:
+                    if t["name_canonical"] == name:
+                        await save_alias(pool, t["team_id"], name)
+                        existing_aliases[name.lower()] = t["team_id"]
+                        total_auto += 1
+                        print(f"  ✓  Canônico: \"{name}\" → team_id {t['team_id']}")
+                        break
             elif choice == "m":
                 manual_id = input("     team_id: ").strip()
                 try:
                     tid = int(manual_id)
-                    await save_alias(pool, tid, name)
-                    existing_aliases[name.lower()] = tid
+                    alias_input = input(f"     Alias a salvar [{name}]: ").strip() or name
+                    await save_alias(pool, tid, alias_input)
+                    existing_aliases[alias_input.lower()] = tid
                     total_manual += 1
-                    print(f"  ✓  Manual: \"{name}\" → team_id {tid}")
+                    print(f"  ✓  Manual: \"{alias_input}\" → team_id {tid}")
                 except ValueError:
                     print("  ✗  ID inválido, pulando.")
                     total_skipped += 1
             elif choice.isdigit() and 1 <= int(choice) <= len(candidates):
                 selected = candidates[int(choice) - 1][0]
-                await save_alias(pool, selected["team_id"], name)
-                existing_aliases[name.lower()] = selected["team_id"]
+                alias_input = input(f"     Alias a salvar [{name}]: ").strip() or name
+                await save_alias(pool, selected["team_id"], alias_input)
+                existing_aliases[alias_input.lower()] = selected["team_id"]
                 total_manual += 1
-                print(f"  ✓  Selecionado: \"{name}\" → {selected['name_canonical']} (id={selected['team_id']})")
+                print(f"  ✓  Selecionado: \"{alias_input}\" → {selected['name_canonical']} (id={selected['team_id']})")
             else:
                 total_skipped += 1
 
