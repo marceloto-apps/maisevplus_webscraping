@@ -29,22 +29,42 @@ class FlashscoreDiscovery(BaseCollector):
 
     async def _scroll_page(self, page):
         """Scrolla a página para tentar carregar mais jogos dinamicamente no Flashscore."""
+        
+        # Tenta fechar o banner de consentimento (se existir) porque ele tampa eventos de scroll/click
+        try:
+            cookie_btn = await page.query_selector('button#onetrust-accept-btn-handler')
+            if cookie_btn and await cookie_btn.is_visible():
+                await cookie_btn.click()
+                await page.wait_for_timeout(1000)
+        except Exception:
+            pass
+
         max_attempts = 50
         for i in range(max_attempts):
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await page.wait_for_timeout(1000)
+            await page.wait_for_timeout(1500)
             
+            # Tenta pegar pela classe padrão
             more_btn = await page.query_selector('a.event__more')
-            if more_btn and await more_btn.is_visible():
+            
+            # Fallback 1: pegar pelo texto em Português
+            if not more_btn:
+                more_btn = await page.query_selector("text=Mostrar mais jogos")
+                
+            # Fallback 2: pegar pelo texto em Inglês
+            if not more_btn:
+                more_btn = await page.query_selector("text=Show more matches")
+                
+            if more_btn:
                 try:
-                    await more_btn.click()
+                    await more_btn.click(force=True)  # force=True ignora se tem outro elemento por cima
                     logger.debug(f"[FlashscoreDiscovery] Clicou em 'Mostrar mais jogos' (Tentativa {i+1})")
-                    await page.wait_for_timeout(2000)
+                    await page.wait_for_timeout(2500)  # Dá um tempo pro ajax trazer os elementos novos e injetar na DOM
                 except Exception as e:
                     logger.debug(f"[FlashscoreDiscovery] Falha ao clicar no botão: {e}")
-                    # Continua tentando
+                    break
             else:
-                logger.debug("[FlashscoreDiscovery] Fim do scroll: Botão não encontrado ou invisível.")
+                logger.debug("[FlashscoreDiscovery] Fim do scroll: Botão não encontrado ou layout finalizado.")
                 break
 
     async def _extract_matches_from_page(self, html: str, league_code: str, conn) -> int:
