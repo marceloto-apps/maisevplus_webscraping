@@ -134,26 +134,32 @@ class FlashscoreOddsCollector(BaseCollector):
                         bm_db_id = self.bm_ids.get(our_bm_key)
                         
                         if not bm_db_id:
+                            logger.debug(f"[DEBUG-SKIP] Casa mapeada '{our_bm_key}' não achou ID correspondente no banco de dados!")
                             continue
                             
-                        is_new = await insert_odds_if_new(
-                            conn=conn,
-                            match_id=match_id_uuid,
-                            bookmaker_id=bm_db_id,
-                            market_type=entry["market_type"],
-                            line=entry["line"],
-                            period=entry["period"],
-                            odds_1=entry["odds_1"],
-                            odds_x=entry["odds_x"],
-                            odds_2=entry["odds_2"],
-                            source=self.source_name,
-                            collect_job_id=job_id,
-                            is_opening=False,
-                            is_closing=is_closing,
-                            time=now
-                        )
-                        if is_new:
-                            total_inserted += 1
+                        try:
+                            is_new = await insert_odds_if_new(
+                                conn=conn,
+                                match_id=match_id_uuid,
+                                bookmaker_id=bm_db_id,
+                                market_type=entry["market_type"],
+                                line=entry["line"],
+                                period=entry["period"],
+                                odds_1=entry["odds_1"],
+                                odds_x=entry["odds_x"],
+                                odds_2=entry["odds_2"],
+                                source=self.source_name,
+                                collect_job_id=job_id,
+                                is_opening=False,
+                                is_closing=is_closing,
+                                time=now
+                            )
+                            if is_new:
+                                total_inserted += 1
+                            else:
+                                logger.debug(f"[DEBUG-DEDUP] Odds ignoradas. Ja existem para {our_bm_key} / {entry['market_type']}")
+                        except Exception as e:
+                            logger.error(f"[DEBUG-INSERT] Falha crassa ao inserir: {e}")
                             
                 except Exception as e:
                     logger.warning(f"[Flashscore] Erro no mercado {m_key} para {flashscore_id}: {e}")
