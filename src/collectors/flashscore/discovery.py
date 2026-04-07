@@ -161,7 +161,15 @@ class FlashscoreDiscovery(BaseCollector):
                     
                     try:
                         await page.goto(url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
-                        # Dá um tempo pro JS renderizar
+                        
+                        # Espera explícita pelo primeiro jogo renderizar (sinal que o JS principal rodou)
+                        try:
+                            await page.wait_for_selector('div[id^="g_1_"]', timeout=15000)
+                        except Exception:
+                            logger.warning(f"[Flashscore] Timeout esperando os jogos carregarem em: {url}")
+                            # Continua para tentar mesmo assim (pode não haver jogos listados)
+                        
+                        # Dá um tempo a mais pro layout estabilizar
                         await page.wait_for_timeout(self.config.render_wait_ms)
                         
                         await self._scroll_page(page)
