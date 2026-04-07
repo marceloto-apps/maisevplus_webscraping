@@ -41,13 +41,13 @@ class AppOrchestrator:
         """Registra os jobs fixos e periódicos na instância da APScheduler."""
         set_scheduler(self.scheduler)
         # 1. Odds Gameday Hourly (apenas janela 8-23h BRT)
-        self.scheduler.add_job(
-            odds_gameday_hourly,
-            'cron',
-            hour='8-23', minute=0,
-            id="odds_gameday_hourly",
-            misfire_grace_time=3600
-        )
+        # self.scheduler.add_job(
+        #     odds_gameday_hourly,
+        #     'cron',
+        #     hour='8-23', minute=0,
+        #     id="odds_gameday_hourly",
+        #     misfire_grace_time=3600
+        # )
 
         # 2. KeyManager Reset Daily (sempre à meia-noite UTC = 21:00 BRT)
         self.scheduler.add_job(
@@ -79,13 +79,13 @@ class AppOrchestrator:
         )
 
         # 4. Odds Standard para D+1 a D+7 (06:00, 10:00, 14:00, 20:00 BRT)
-        self.scheduler.add_job(
-            odds_standard,
-            'cron',
-            hour='6,10,14,20', minute=0,
-            id="odds_standard",
-            misfire_grace_time=3600
-        )
+        # self.scheduler.add_job(
+        #     odds_standard,
+        #     'cron',
+        #     hour='6,10,14,20', minute=0,
+        #     id="odds_standard",
+        #     misfire_grace_time=3600
+        # )
 
         # 5. FootyStats Daily — 05:00 BRT (atualiza temporadas ativas + auto-close)
         self.scheduler.add_job(
