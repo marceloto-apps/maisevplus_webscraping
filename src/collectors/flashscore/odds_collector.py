@@ -36,6 +36,8 @@ class FlashscoreOddsCollector(BaseCollector):
             # Busca todas as casas no banco para mapear strings para ints
             rows = await conn.fetch("SELECT bookmaker_id, name FROM bookmakers")
             for row in rows:
+                # Usamos lower() case-insensitive safety fallback
+                self.bm_ids[row['name'].lower()] = row['bookmaker_id']
                 self.bm_ids[row['name']] = row['bookmaker_id']
 
     async def collect_match(self, browser, conn, match_id_uuid: str, flashscore_id: str, is_closing: bool, job_id: str) -> int:
@@ -45,6 +47,8 @@ class FlashscoreOddsCollector(BaseCollector):
         precisa simular clique real na aba Odds.
         Retorna quantidade de novos registros inseridos.
         """
+        await self._init_bm_ids(conn)
+        
         total_inserted = 0
         now = datetime.now(timezone.utc)
         
