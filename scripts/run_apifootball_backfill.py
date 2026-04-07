@@ -70,7 +70,7 @@ async def get_match_status(pool, match_id: str) -> dict:
     """Retorna o status de coleta de cada parte para não gastar cotas em duplicidade."""
     status = {"stats": False, "events": False, "lineups": False, "players": False}
     async with pool.acquire() as conn:
-        status["stats"] = bool(await conn.fetchval("SELECT 1 FROM match_stats WHERE match_id = $1 AND shots_home IS NOT NULL LIMIT 1", match_id))
+        status["stats"] = bool(await conn.fetchval("SELECT 1 FROM match_stats WHERE match_id = $1 AND total_passes_home IS NOT NULL LIMIT 1", match_id))
         status["events"] = bool(await conn.fetchval("SELECT 1 FROM match_events WHERE match_id = $1 LIMIT 1", match_id))
         status["lineups"] = bool(await conn.fetchval("SELECT 1 FROM lineups WHERE match_id = $1 LIMIT 1", match_id))
         status["players"] = bool(await conn.fetchval("SELECT 1 FROM match_player_stats WHERE match_id = $1 LIMIT 1", match_id))
