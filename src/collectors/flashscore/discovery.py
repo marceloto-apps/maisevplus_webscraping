@@ -105,20 +105,23 @@ class FlashscoreDiscovery(BaseCollector):
                 away_team = away_node.get_text(strip=True)
                 date_text = time_node.get_text(strip=True) # Ex: "22.03. 15:15" ou "16.12.2023 15:15"
                 
-                day_month = re.search(r'(\d+)\.(\d+)\.', date_text)
-                if day_month:
-                    day = int(day_month.group(1))
-                    month = int(day_month.group(2))
+                date_match = re.search(r'(\d{1,2})\.(\d{1,2})\.\s*(\d{4})?', date_text)
+                if date_match:
+                    day = int(date_match.group(1))
+                    month = int(date_match.group(2))
+                    explicit_year_str = date_match.group(3)
                     
-                    # Tracking progressivo de ano: Flashscore sempre lista cronologicamente no DOM (do topo mais novo pro fim mais velho em results)
-                    if last_month is not None:
-                        # Salto de começo de ano e.g. Janeiro (1) para Dezembro (12) passado
-                        if last_month <= 6 and month >= 8:
-                            recent_year -= 1
-                        # Salto de fim de ano (Dezembro) para Janeiro (futuro na Fixtures)
-                        elif last_month >= 8 and month <= 6:
-                            recent_year += 1
-                            
+                    if explicit_year_str:
+                        # O Flashscore imprimiu o ano explicitamente (comum para datas de ano(s) anterior(es))
+                        recent_year = int(explicit_year_str)
+                    else:
+                        # O ano está oculto (ex: '22.03. 15:15'), usamos tracking progressivo
+                        if last_month is not None:
+                            if last_month <= 6 and month >= 8:
+                                recent_year -= 1
+                            elif last_month >= 8 and month <= 6:
+                                recent_year += 1
+                                
                     last_month = month
                     
                     match_date = datetime(recent_year, month, day).date()
