@@ -67,78 +67,77 @@ class FlashscoreDiscovery(BaseCollector):
                 logger.debug("[FlashscoreDiscovery] Fim do scroll: Botão não encontrado ou layout finalizado.")
                 break
 
-    async def _extract_matches_from_page(self, html: str, league_code: str, conn) -> int:
-        """
-        Extrai as informações de cada partida renderizada (casa, fora, data) e tenta
-        gravar o flashscore_id no banco usando o MatchResolver.
-        Retorna o número de matches atualizados.
-        """
+    async def _extract_matches_from_page(self, html: str, league_code: str, conn, url: str) -> int:
         soup = BeautifulSoup(html, "html.parser")
-        match_divs = soup.find_all("div", id=re.compile(r"^g_1_"))
-        
-        if not match_divs:
-            logger.warning(f"No match divs found in HTML for {league_code}. Check DOM selectors.")
-            
         updated_count = 0
         
         # Pega a season atual
         league_id = await conn.fetchval("SELECT league_id FROM leagues WHERE code = $1", league_code)
         if not league_id:
             return 0
+        
+        # Descobre o ano de início pela URL ou assume o ano atual
+        recent_year = datetime.now().year
+        match_years = re.search(r'-(\d{4})-(\d{4})/', url)
+        if match_years:
+            recent_year = int(match_years.group(2)) # Terminando ano da temporada europeia no topo (ex: maio de 2024)
+        else:
+            match_year = re.search(r'-(\d{4})/', url)
+            if match_year:
+                recent_year = int(match_year.group(1)) # Ano singular de estaduais / BR
+                
+        last_month = None
 
-        for index, div in enumerate(match_divs):
+        for match_div in soup.find_all("div", id=re.compile(r"^g_1_")):
             try:
-                fs_id = div['id'].replace("g_1_", "")
+                # O ID vem no formato g_1_UUID (Flashscore)
+                fs_id = match_div["id"].replace("g_1_", "")
                 
-                # Debug logging for the very first div
-                if index == 0:
-                    logger.debug(f"FIRST MATCH DIV FULL DOM:\n{div.prettify()}")
+                # Pega o texto principal pra extrair os times (eles tbm estão em classes separadas mas aqui é mais rapido)
+                home_node = match_div.find("div", class_=re.compile("homeParticipant"))
+                away_node = match_div.find("div", class_=re.compile("awayParticipant"))
+                time_node = match_div.find("div", class_="event__time")
                 
-                home_elem = div.find("div", class_=lambda c: c and ("participant--home" in c or "homeParticipant" in c))
-                away_elem = div.find("div", class_=lambda c: c and ("participant--away" in c or "awayParticipant" in c))
-                time_elem = div.find("div", class_=lambda c: c and "event__time" in c)
-                
-                if not home_elem or not away_elem or not time_elem:
+                if not home_node or away_node is None or not time_node:
                     continue
                     
-                home_team = home_elem.get_text(strip=True)
-                away_team = away_elem.get_text(strip=True)
-                time_text = time_elem.get_text(strip=True)
+                home_team = home_node.get_text(strip=True)
+                away_team = away_node.get_text(strip=True)
+                date_text = time_node.get_text(strip=True) # Ex: "22.03. 15:15" ou "16.12.2023 15:15"
                 
-                # Formato temporal flashscore: "14.05. 16:00" ou "24.08.2025 15:30" (menos comum)
-                day_month = re.search(r"(\d{2})\.(\d{2})\.", time_text)
-                if not day_month:
-                    logger.debug(f"Regex failed for time format: {time_text}")
-                    continue
+                day_month = re.search(r'(\d+)\.(\d+)\.', date_text)
+                if day_month:
+                    day = int(day_month.group(1))
+                    month = int(day_month.group(2))
                     
-                day = int(day_month.group(1))
-                month = int(day_month.group(2))
-                
-                # Lógica simplificada de Ano (M1) — pega do now ou now+1 se o mes atual for maior
-                now = datetime.now()
-                year = now.year
-                if month > now.month + 6:
-                    year -= 1 # provavelmente do início da season europeia do ano passado
-                elif month < now.month - 6:
-                    year += 1 # fim da season no ano que vem
+                    # Tracking progressivo de ano: Flashscore sempre lista cronologicamente no DOM (do topo mais novo pro fim mais velho em results)
+                    if last_month is not None:
+                        # Salto de começo de ano e.g. Janeiro (1) para Dezembro (12) passado
+                        if last_month <= 6 and month >= 8:
+                            recent_year -= 1
+                        # Salto de fim de ano (Dezembro) para Janeiro (futuro na Fixtures)
+                        elif last_month >= 8 and month <= 6:
+                            recent_year += 1
+                            
+                    last_month = month
                     
-                match_date = datetime(year, month, day).date()
-                
-                print(f"Tentando resolver: {home_team} vs {away_team} at {match_date}")
-                
-                # Resolve
-                match_uuid = await MatchResolver.resolve(league_id, home_team, away_team, match_date, "flashscore")
-                
-                if match_uuid:
-                    # Verifica se já tem fs_id ou se já não está preenchido com esse
-                    current_fs_id = await conn.fetchval("SELECT flashscore_id FROM matches WHERE match_id = $1", match_uuid)
-                    if current_fs_id != fs_id:
-                        await conn.execute("UPDATE matches SET flashscore_id = $1 WHERE match_id = $2", fs_id, match_uuid)
-                        updated_count += 1
-                        print(f"  --> SUCESSO: Associado e atualizado (fs_id={fs_id})")
-                else:
-                    print(f"[FlashscoreDiscovery] Não resolvido no BD: {home_team} x {away_team} em {match_date} ({fs_id})")
+                    match_date = datetime(recent_year, month, day).date()
                     
+                    print(f"Tentando resolver: {home_team} vs {away_team} at {match_date}")
+                    
+                    # Resolve
+                    match_uuid = await MatchResolver.resolve(league_id, home_team, away_team, match_date, "flashscore")
+                    
+                    if match_uuid:
+                        # Verifica se já tem fs_id ou se já não está preenchido com esse
+                        current_fs_id = await conn.fetchval("SELECT flashscore_id FROM matches WHERE match_id = $1", match_uuid)
+                        if current_fs_id != fs_id:
+                            await conn.execute("UPDATE matches SET flashscore_id = $1 WHERE match_id = $2", fs_id, match_uuid)
+                            updated_count += 1
+                            print(f"  --> SUCESSO: Associado e atualizado (fs_id={fs_id})")
+                    else:
+                        print(f"[FlashscoreDiscovery] Não resolvido no BD: {home_team} x {away_team} em {match_date} ({fs_id})")
+                        
             except Exception as e:
                 print(f"[FlashscoreDiscovery] Falha num HTML match node: {e}")
                 
@@ -197,7 +196,7 @@ class FlashscoreDiscovery(BaseCollector):
                         html = await page.content()
                         
                         # Process HTML e update BD
-                        upd = await self._extract_matches_from_page(html, league_code, conn)
+                        upd = await self._extract_matches_from_page(html, league_code, conn, url)
                         total_updated += upd
                         print(f"[Flashscore] {league_code}: {upd} novos flashscore_ids atualizados na base de dados.\n")
                         
