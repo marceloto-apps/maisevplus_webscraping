@@ -31,6 +31,7 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 STATE_FILE = os.path.join(DATA_DIR, "apifootball_stats_only_state.json")
 
 MAX_REQUESTS_PER_RUN = 1500
+SKIP_LEAGUES = {"ENG_NL"}  # Ligas sem estatísticas no API-Football
 
 
 def load_state() -> dict:
@@ -156,6 +157,10 @@ async def run():
         l_db_id = l_data["league_id"]
 
         if l_code in completed_leagues:
+            continue
+
+        if l_code in SKIP_LEAGUES:
+            print(f"⏭ [{l_code}] Pulando (sem stats no API-Football).")
             continue
 
         print(f"▶ [{l_code}] Puxando fixtures {l_year}...")
