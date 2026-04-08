@@ -119,8 +119,15 @@ class AppOrchestrator:
         self.scheduler.add_job(
             flashscore_historical_backfill,
             'cron',
-            hour='6,10,14,18', minute=0,
-            id="flashscore_historical_backfill",
+            hour=6, minute=15,
+            id="flashscore_historical_backfill_6h",
+            misfire_grace_time=3600
+        )
+        self.scheduler.add_job(
+            flashscore_historical_backfill,
+            'cron',
+            hour='10,14,18', minute=0,
+            id="flashscore_historical_backfill_day",
             misfire_grace_time=3600
         )
 
@@ -133,32 +140,32 @@ class AppOrchestrator:
             misfire_grace_time=7200
         )
 
-        # 8. Flashscore Discovery (04:00 BRT — descobre match IDs)
+        # 8. Flashscore Discovery (06:00 BRT — descobre match IDs)
         self.scheduler.add_job(
             flashscore_discovery,
             'cron',
-            hour=4, minute=0,
+            hour=6, minute=0,
             id="flashscore_discovery",
             misfire_grace_time=7200
         )
 
         # 9. Flashscore Odds Standard (07:00, 11:00, 15:00, 21:00 BRT)
-        self.scheduler.add_job(
-            flashscore_odds_standard,
-            'cron',
-            hour='7,11,15,21', minute=0,
-            id="flashscore_odds_standard",
-            misfire_grace_time=3600
-        )
+        # self.scheduler.add_job(
+        #     flashscore_odds_standard,
+        #     'cron',
+        #     hour='7,11,15,21', minute=0,
+        #     id="flashscore_odds_standard",
+        #     misfire_grace_time=3600
+        # )
 
-        # 10. Flashscore Closing Odds (01:00 BRT — odds de fechamento de D-1)
-        self.scheduler.add_job(
-            flashscore_closing_odds,
-            'cron',
-            hour=1, minute=0,
-            id="flashscore_closing_odds",
-            misfire_grace_time=3600
-        )
+        # 10. Flashscore Closing Odds (06:30 BRT — odds de fechamento de D-1)
+        # self.scheduler.add_job(
+        #     flashscore_closing_odds,
+        #     'cron',
+        #     hour=6, minute=30,
+        #     id="flashscore_closing_odds",
+        #     misfire_grace_time=3600
+        # )
 
     async def _init_dependencies(self):
         """Prepara DB e Caches síncronas antes do start loop"""
