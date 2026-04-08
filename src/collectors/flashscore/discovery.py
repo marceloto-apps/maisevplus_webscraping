@@ -112,19 +112,13 @@ class FlashscoreDiscovery(BaseCollector):
                     explicit_year_str = date_match.group(3)
                     
                     if explicit_year_str:
-                        # O Flashscore imprimiu o ano explicitamente (comum para datas de ano(s) anterior(es))
-                        recent_year = int(explicit_year_str)
+                        # O Flashscore imprimiu o ano explicitamente na tela ex: '16.12.2025'
+                        match_year = int(explicit_year_str)
                     else:
-                        # O ano está oculto (ex: '22.03. 15:15'), usamos tracking progressivo
-                        if last_month is not None:
-                            if last_month <= 6 and month >= 8:
-                                recent_year -= 1
-                            elif last_month >= 8 and month <= 6:
-                                recent_year += 1
-                                
-                    last_month = month
+                        # O ano está oculto ex: '22.03. 15:15'. Por padrão do Flashscore isso indica o ano atual.
+                        match_year = datetime.now().year
                     
-                    match_date = datetime(recent_year, month, day).date()
+                    match_date = datetime(match_year, month, day).date()
                     
                     print(f"Tentando resolver: {home_team} vs {away_team} at {match_date}")
                     
