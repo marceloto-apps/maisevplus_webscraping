@@ -203,122 +203,120 @@ class FlashscoreOddsCollector(BaseCollector):
                         pass
                 
                 if not clicked:
-                    logger.debug("[Flashscore] Fallback para navegação de URL de stats...")
-                    stats_url = f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary/match-statistics/0"
-                    await page.goto(stats_url, wait_until="domcontentloaded")
-                
-                await page.wait_for_timeout(2000)
-                
-                # O Xvfb engessa a viewport. Precisamos fazer scroll-down para forçar o IntersectionObserver
-                # da SPA do Flashscore a renderizar as sessões virtualizadas reais (Shots, Passes, etc).
-                await page.evaluate('''async () => {
-                    let ot = document.getElementById('onetrust-consent-sdk');
-                    if(ot) ot.style.display = 'none';
+                    logger.debug(f"[Flashscore] Partida {flashscore_id} não possui aba de estatísticas visível. Pulando stats.")
+                else:
+                    await page.wait_for_timeout(2000)
+                    
+                    # O Xvfb engessa a viewport. Precisamos fazer scroll-down para forçar o IntersectionObserver
+                    # da SPA do Flashscore a renderizar as sessões virtualizadas reais (Shots, Passes, etc).
+                    await page.evaluate('''async () => {
+                        let ot = document.getElementById('onetrust-consent-sdk');
+                        if(ot) ot.style.display = 'none';
 
-                    for(let i=0; i<15; i++) {
-                        window.scrollBy({ top: window.innerHeight * 0.8, behavior: 'smooth' });
-                        await new Promise(r => setTimeout(r, 200));
-                    }
-                }''')
-                
-                # Executar a busca de TODAS as linhas wcl-statistics e stat__row (fallback)
-                stats_extracted = await page.evaluate('''() => {
-                    let results = {};
-                    let rows = document.querySelectorAll('[data-testid="wcl-statistics"]');
-                    for (let row of rows) {
-                        let textContent = row.innerText || "";
-                        let parts = textContent.split('\\n').map(p => p.trim()).filter(p => p.length > 0);
-                        
-                        // Categoria possui texto e rejeita elementos puros como '25%' ou '(9/36)'
-                        let category = parts.find(p => /[A-Za-z]/.test(p) && !p.match(/^[\\d\\s/%()]+$/));
-                        if (!category) category = parts.find(p => /[A-Za-z]/.test(p));
-                        
-                        if (category) {
-                            let catIdx = parts.indexOf(category);
-                            if (catIdx > 0 && catIdx < parts.length - 1) {
-                                // Junta pedaços ignorados como '25%' e '(9/36)' numa unica string '25% (9/36)'
-                                let home = parts.slice(0, catIdx).join(' ');
-                                let away = parts.slice(catIdx + 1).join(' ');
-                                results[category.toLowerCase()] = { "home": home, "away": away };
+                        for(let i=0; i<15; i++) {
+                            window.scrollBy({ top: window.innerHeight * 0.8, behavior: 'smooth' });
+                            await new Promise(r => setTimeout(r, 200));
+                        }
+                    }''')
+                    
+                    # Executar a busca de TODAS as linhas wcl-statistics e stat__row (fallback)
+                    stats_extracted = await page.evaluate('''() => {
+                        let results = {};
+                        let rows = document.querySelectorAll('[data-testid="wcl-statistics"]');
+                        for (let row of rows) {
+                            let textContent = row.innerText || "";
+                            let parts = textContent.split('\\n').map(p => p.trim()).filter(p => p.length > 0);
+                            
+                            // Categoria possui texto e rejeita elementos puros como '25%' ou '(9/36)'
+                            let category = parts.find(p => /[A-Za-z]/.test(p) && !p.match(/^[\\d\\s/%()]+$/));
+                            if (!category) category = parts.find(p => /[A-Za-z]/.test(p));
+                            
+                            if (category) {
+                                let catIdx = parts.indexOf(category);
+                                if (catIdx > 0 && catIdx < parts.length - 1) {
+                                    // Junta pedaços ignorados como '25%' e '(9/36)' numa unica string '25% (9/36)'
+                                    let home = parts.slice(0, catIdx).join(' ');
+                                    let away = parts.slice(catIdx + 1).join(' ');
+                                    results[category.toLowerCase()] = { "home": home, "away": away };
+                                }
                             }
                         }
-                    }
-                    
-                    if (Object.keys(results).length === 0) {
-                        let statRows = document.querySelectorAll('.stat__row');
-                        for (let row of statRows) {
-                            let cat = row.querySelector('.stat__categoryName')?.innerText || "";
-                            let hVal = row.querySelector('.stat__homeValue')?.innerText || "";
-                            let aVal = row.querySelector('.stat__awayValue')?.innerText || "";
-                            if (cat) results[cat.toLowerCase()] = { "home": hVal, "away": aVal };
-                        }
-                    }
-                    return results;
-                }''')
-                
-                logger.debug(f"[Flashscore] DOM extraído ({len(stats_extracted)} items): {list(stats_extracted.keys())}")
-                
-                xg_home = xg_away = xgot_home = xgot_away = None
-                xa_home = xa_away = crosses_home = crosses_away = None
-                
-                def parse_dom_val(v):
-                    if not v: return None
-                    try: return float(str(v).replace('%', '').strip())
-                    except: return None
-
-                for cat, vals in stats_extracted.items():
-                    # xG: The actual label in Flashscore UI is 'Expected goals (xG)'
-                    if "expected goals (xg)" in cat and "xgot" not in cat:
-                        xg_home = parse_dom_val(vals["home"])
-                        xg_away = parse_dom_val(vals["away"])
-                    # xGOT: 'xG on target (xGOT)' - Excluindo 'xGOT faced' dos goleiros que tem os valores invertidos
-                    elif ("xgot" in cat or "goals on target (xgot)" in cat or "expected goals on target" in cat) and "faced" not in cat:
-                        xgot_home = parse_dom_val(vals["home"])
-                        xgot_away = parse_dom_val(vals["away"])
-                    # xA: 'Expected assists (xA)'
-                    elif "expected assists" in cat or "(xa)" in cat:
-                        xa_home = parse_dom_val(vals["home"])
-                        xa_away = parse_dom_val(vals["away"])
-                    # Crosses: 'Crosses'
-                    elif "crosses" in cat or "cruzamentos" in cat:
-                        def parse_crosses(v):
-                            if not v: return None
-                            v_str = str(v)
-                            # Se tiver no formato '25% (9/36)', queremos o 36. 
-                            # O split('/') dividirá em ["25% (9", "36)"] e o filter pegará apenas "36" do último elemento.
-                            if '/' in v_str:
-                                return int(''.join(filter(str.isdigit, v_str.split('/')[-1])))
-                            return int(''.join(filter(str.isdigit, v_str)))
-                        crosses_home = parse_crosses(vals["home"])
-                        crosses_away = parse_crosses(vals["away"])
                         
-                logger.debug(f"[Flashscore] Stats parsed: xG={xg_home}/{xg_away} xGOT={xgot_home}/{xgot_away} xA={xa_home}/{xa_away} Crosses={crosses_home}/{crosses_away}")
+                        if (Object.keys(results).length === 0) {
+                            let statRows = document.querySelectorAll('.stat__row');
+                            for (let row of statRows) {
+                                let cat = row.querySelector('.stat__categoryName')?.innerText || "";
+                                let hVal = row.querySelector('.stat__homeValue')?.innerText || "";
+                                let aVal = row.querySelector('.stat__awayValue')?.innerText || "";
+                                if (cat) results[cat.toLowerCase()] = { "home": hVal, "away": aVal };
+                            }
+                        }
+                        return results;
+                    }''')
+                    
+                    logger.debug(f"[Flashscore] DOM extraído ({len(stats_extracted)} items): {list(stats_extracted.keys())}")
                 
-                if any(v is not None for v in [xg_home, xgot_home, xa_home, crosses_home]):
-                    await conn.execute("""
-                        INSERT INTO match_stats (
-                            match_id, 
-                            xg_fs_home, xg_fs_away, 
-                            xgot_fs_home, xgot_fs_away,
-                            xa_fs_home, xa_fs_away,
-                            crosses_fs_home, crosses_fs_away,
-                            collected_at
-                        ) VALUES (
-                            $1, 
-                            $2, $3, $4, $5, $6, $7, $8, $9, NOW()
-                        )
-                        ON CONFLICT (match_id) DO UPDATE SET
-                            xg_fs_home = EXCLUDED.xg_fs_home,
-                            xg_fs_away = EXCLUDED.xg_fs_away,
-                            xgot_fs_home = EXCLUDED.xgot_fs_home,
-                            xgot_fs_away = EXCLUDED.xgot_fs_away,
-                            xa_fs_home = EXCLUDED.xa_fs_home,
-                            xa_fs_away = EXCLUDED.xa_fs_away,
-                            crosses_fs_home = EXCLUDED.crosses_fs_home,
-                            crosses_fs_away = EXCLUDED.crosses_fs_away,
-                            collected_at = EXCLUDED.collected_at
-                    """, match_id_uuid, xg_home, xg_away, xgot_home, xgot_away, xa_home, xa_away, crosses_home, crosses_away)
-                    logger.debug(f"[Flashscore] Estatísticas avançadas salvas para {flashscore_id}")
+                    xg_home = xg_away = xgot_home = xgot_away = None
+                    xa_home = xa_away = crosses_home = crosses_away = None
+                    
+                    def parse_dom_val(v):
+                        if not v: return None
+                        try: return float(str(v).replace('%', '').strip())
+                        except: return None
+
+                    for cat, vals in stats_extracted.items():
+                        # xG: The actual label in Flashscore UI is 'Expected goals (xG)'
+                        if "expected goals (xg)" in cat and "xgot" not in cat:
+                            xg_home = parse_dom_val(vals["home"])
+                            xg_away = parse_dom_val(vals["away"])
+                        # xGOT: 'xG on target (xGOT)' - Excluindo 'xGOT faced' dos goleiros que tem os valores invertidos
+                        elif ("xgot" in cat or "goals on target (xgot)" in cat or "expected goals on target" in cat) and "faced" not in cat:
+                            xgot_home = parse_dom_val(vals["home"])
+                            xgot_away = parse_dom_val(vals["away"])
+                        # xA: 'Expected assists (xA)'
+                        elif "expected assists" in cat or "(xa)" in cat:
+                            xa_home = parse_dom_val(vals["home"])
+                            xa_away = parse_dom_val(vals["away"])
+                        # Crosses: 'Crosses'
+                        elif "crosses" in cat or "cruzamentos" in cat:
+                            def parse_crosses(v):
+                                if not v: return None
+                                v_str = str(v)
+                                # Se tiver no formato '25% (9/36)', queremos o 36. 
+                                # O split('/') dividirá em ["25% (9", "36)"] e o filter pegará apenas "36" do último elemento.
+                                if '/' in v_str:
+                                    return int(''.join(filter(str.isdigit, v_str.split('/')[-1])))
+                                return int(''.join(filter(str.isdigit, v_str)))
+                            crosses_home = parse_crosses(vals["home"])
+                            crosses_away = parse_crosses(vals["away"])
+                            
+                    logger.debug(f"[Flashscore] Stats parsed: xG={xg_home}/{xg_away} xGOT={xgot_home}/{xgot_away} xA={xa_home}/{xa_away} Crosses={crosses_home}/{crosses_away}")
+                    
+                    if any(v is not None for v in [xg_home, xgot_home, xa_home, crosses_home]):
+                        await conn.execute("""
+                            INSERT INTO match_stats (
+                                match_id, 
+                                xg_fs_home, xg_fs_away, 
+                                xgot_fs_home, xgot_fs_away,
+                                xa_fs_home, xa_fs_away,
+                                crosses_fs_home, crosses_fs_away,
+                                collected_at
+                            ) VALUES (
+                                $1, 
+                                $2, $3, $4, $5, $6, $7, $8, $9, NOW()
+                            )
+                            ON CONFLICT (match_id) DO UPDATE SET
+                                xg_fs_home = EXCLUDED.xg_fs_home,
+                                xg_fs_away = EXCLUDED.xg_fs_away,
+                                xgot_fs_home = EXCLUDED.xgot_fs_home,
+                                xgot_fs_away = EXCLUDED.xgot_fs_away,
+                                xa_fs_home = EXCLUDED.xa_fs_home,
+                                xa_fs_away = EXCLUDED.xa_fs_away,
+                                crosses_fs_home = EXCLUDED.crosses_fs_home,
+                                crosses_fs_away = EXCLUDED.crosses_fs_away,
+                                collected_at = EXCLUDED.collected_at
+                        """, match_id_uuid, xg_home, xg_away, xgot_home, xgot_away, xa_home, xa_away, crosses_home, crosses_away)
+                        logger.debug(f"[Flashscore] Estatísticas avançadas salvas para {flashscore_id}")
             except Exception as e:
                 logger.warning(f"[Flashscore] Falha ao coletar/salvar estatísticas para {flashscore_id}: {e}")
 
