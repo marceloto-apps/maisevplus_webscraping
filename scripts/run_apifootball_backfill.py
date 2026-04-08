@@ -213,10 +213,13 @@ async def run_backfill(is_cron=False):
 
     leagues = await get_active_leagues(pool)
     state = load_state()
-    # Initialise current_year if not present
-    if state.get("current_year") is None:
+    # Initialise current_year if not present or out of range
+    if state.get("current_year") is None or state.get("current_year") < EARLIEST_YEAR:
         # Determine the most recent season year among active leagues
         state["current_year"] = max(l["year"] for l in leagues)
+        # Reset per-year tracking
+        state["completed_leagues"] = []
+        state["last_processed_fixture_id"] = None
         save_state(state)
     current_year = state["current_year"]
     completed_leagues = state.get("completed_leagues", [])
