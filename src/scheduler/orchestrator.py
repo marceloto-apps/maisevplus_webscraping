@@ -126,7 +126,7 @@ class AppOrchestrator:
         self.scheduler.add_job(
             flashscore_historical_backfill,
             'cron',
-            hour='10,14,18', minute=0,
+            hour='9,12,15,18,21,0', minute=0,
             id="flashscore_historical_backfill_day",
             misfire_grace_time=3600
         )
