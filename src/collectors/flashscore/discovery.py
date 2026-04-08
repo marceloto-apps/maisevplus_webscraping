@@ -146,7 +146,7 @@ class FlashscoreDiscovery(BaseCollector):
                 
         return updated_count
 
-    async def collect(self, mode: str = "fixtures", specific_leagues: List[str] = None, target_urls: Dict[str, List[str]] = None, **kwargs) -> CollectResult:
+    async def collect(self, mode: str = "results", specific_leagues: List[str] = None, target_urls: Dict[str, List[str]] = None, **kwargs) -> CollectResult:
         """
         Ponto de entrada do BaseCollector.
         Mode: "fixtures" (jogos futuros) ou "results" (jogos terminados recentes)

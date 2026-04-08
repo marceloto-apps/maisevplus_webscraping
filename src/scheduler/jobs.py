@@ -125,10 +125,10 @@ async def flashscore_discovery():
     collector = FlashscoreDiscovery()
     # Busca IDs dos jogos passados que terminaram
     r1 = await collector.collect(mode="results")
-    # Busca IDs dos fixtures futuros 
-    r2 = await collector.collect(mode="fixtures")
+    # Busca IDs dos fixtures futuros (DESATIVADO TEMPORARIAMENTE DURANTE O BACKFILL)
+    # r2 = await collector.collect(mode="fixtures")
     
-    return {"discovery_results": r1.records_new, "discovery_fixtures": r2.records_new}
+    return {"discovery_results": r1.records_new, "discovery_fixtures": "disabled"}
 
 
 @safe_job
