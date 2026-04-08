@@ -21,6 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.db.pool import get_pool
 from src.db.logger import get_logger
+from src.alerts.telegram_mini import TelegramAlert
 from src.normalizer.team_resolver import TeamResolver
 from src.collectors.api_football.client import ApiFootballClient
 from src.collectors.api_football.stats_collector import StatsCollector
@@ -36,15 +37,21 @@ STATE_FILE = os.path.join(DATA_DIR, "apifootball_backfill_state.json")
 
 MAX_REQUESTS_PER_RUN = 7300  # VIP plan: 7500/dia, margem de segurança
 SKIP_LEAGUES = {"ENG_NL"}   # Ligas sem estatísticas no API-Football
+EARLIEST_YEAR = 2021  # Minimum season year to backfill
 
 
 def load_state() -> dict:
+    """Load backfill state from JSON file.
+    The state now tracks the current season year being processed.
+    """
     if os.path.exists(STATE_FILE):
         with open(STATE_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
+    # Initial state when file does not exist
     return {
         "completed_leagues": [],
-        "last_processed_fixture_id": None
+        "last_processed_fixture_id": None,
+        "current_year": None
     }
 
 
@@ -189,130 +196,189 @@ async def process_match(m: dict, status: dict, stats_c, events_c, lineups_c, pla
 
 
 async def run_backfill(is_cron=False):
+    """Run the API‑Football backfill.
+    The routine now processes multiple seasons, starting from the most recent
+    (current season) and descending to EARLIEST_YEAR (2021). It respects the
+    daily request quota (MAX_REQUESTS_PER_RUN) and keeps state about the
+    current season year and the last processed fixture.
+    """
     if not is_cron:
         print("\n" + "=" * 55)
-        print("      API-FOOTBALL BACKFILL — TEMPORADA ATUAL")
+        print("      API-FOOTBALL BACKFILL — MULTI‑SEASON (2021‑ATÉ ATUAL)")
         print("=" * 55 + "\n")
 
     pool = await get_pool()
+    await TelegramAlert.init()
     await TeamResolver.load_cache()
 
     leagues = await get_active_leagues(pool)
     state = load_state()
+    # Initialise current_year if not present
+    if state.get("current_year") is None:
+        # Determine the most recent season year among active leagues
+        state["current_year"] = max(l["year"] for l in leagues)
+        save_state(state)
+    current_year = state["current_year"]
     completed_leagues = state.get("completed_leagues", [])
     last_fixture_id = state.get("last_processed_fixture_id")
     reqs_used = 0
+    errors_found = []
+
+    modo = "🤖 Automático (cron)" if is_cron else "🖐 Manual"
+    TelegramAlert.fire(
+        "info",
+        f"*API-Football Backfill* iniciado\n"
+        f"Modo: {modo}\n"
+        f"Ligas na fila: {len(leagues)}"
+    )
 
     stats_c = StatsCollector()
     events_c = EventsCollector()
     lineups_c = LineupCollector()
     players_c = PlayersCollector()
 
-    for l_data in leagues:
-        l_code = l_data["code"]
-        l_api_id = l_data["api_football_league_id"]
-        l_year = l_data["year"]
-        l_db_id = l_data["league_id"]
-
-        if l_code in completed_leagues:
+    # Process seasons from most recent down to EARLIEST_YEAR
+    while current_year >= EARLIEST_YEAR:
+        # Filter leagues for the current season year
+        season_leagues = [l for l in leagues if l["year"] == current_year]
+        if not season_leagues:
+            # No leagues for this year, move to previous year
+            current_year -= 1
+            state["current_year"] = current_year
+            state["completed_leagues"] = []
+            state["last_processed_fixture_id"] = None
+            save_state(state)
             continue
 
-        if l_code in SKIP_LEAGUES:
-            print(f"⏭ [{l_code}] Pulando (sem stats no API-Football).")
-            continue
+        # Reset per‑year tracking
+        completed_leagues = []
+        state["completed_leagues"] = completed_leagues
+        save_state(state)
 
-        print(f"▶ [{l_code}] Puxando fixtures {l_year}...")
-        try:
-            # 1 req per league
-            fixtures = await ApiFootballClient.get("/fixtures", {"league": l_api_id, "season": l_year})
-            reqs_used += 1
-        except Exception as e:
-            msg = f"ERRO ao puxar /fixtures da {l_code}: {e}"
-            logger.error(msg)
-            print(msg)
-            break
+        for l_data in season_leagues:
+            l_code = l_data["code"]
+            l_api_id = l_data["api_football_league_id"]
+            l_year = l_data["year"]
+            l_db_id = l_data["league_id"]
 
-        if not fixtures:
-            print(f"   ↳ 0 resultados.")
-            continue
-
-        # Filtro: match status concluído
-        valid = []
-        for f in fixtures:
-            if f["fixture"]["status"]["short"] not in ("FT", "AET", "PEN"):
+            if l_code in SKIP_LEAGUES:
+                print(f"⏭ [{l_code}] Pulando (sem stats no API-Football).")
                 continue
 
-            raw_dt = datetime.fromisoformat(f["fixture"]["date"])
-            valid.append((f, raw_dt.timestamp()))
-
-        # Ordenar descendente por timestamp (do mais novo para o mais antigo)
-        valid.sort(key=lambda x: x[1], reverse=True)
-        sorted_fixtures = [x[0] for x in valid]
-
-        print(f"   ↳ {len(sorted_fixtures)} jogos concluídos a avaliar.")
-
-        # Segurança: se o last_fixture_id não existe mais na lista (removido da API), ignoramos o pulo
-        if last_fixture_id and not any(f["fixture"]["id"] == last_fixture_id for f in sorted_fixtures):
-            print(f"    ⚠ last_fixture_id {last_fixture_id} não encontrado na lista atual. Processando sem fast-forward.")
-            last_fixture_id = None
-
-        for f in sorted_fixtures:
-            if reqs_used >= MAX_REQUESTS_PER_RUN:
+            print(f"▶ [{l_code}] ({l_year}) Puxando fixtures...")
+            try:
+                fixtures = await ApiFootballClient.get("/fixtures", {"league": l_api_id, "season": l_year})
+                reqs_used += 1
+            except Exception as e:
+                msg = f"ERRO ao puxar /fixtures da {l_code} ({l_year}): {e}"
+                logger.error(msg)
+                print(msg)
+                errors_found.append(f"[{l_code}] /fixtures: {e}")
                 break
 
-            f_id = f["fixture"]["id"]
+            if not fixtures:
+                print("   ↳ 0 resultados.")
+                continue
 
-            # Checa se precisamos retomar a partir de um fixture_id específico
-            if last_fixture_id and last_fixture_id == f_id:
-                # O state marcou como último proc, seguimos pro próximo
+            # Filter completed matches
+            valid = []
+            for f in fixtures:
+                if f["fixture"]["status"]["short"] not in ("FT", "AET", "PEN"):
+                    continue
+                raw_dt = datetime.fromisoformat(f["fixture"]["date"])
+                valid.append((f, raw_dt.timestamp()))
+
+            valid.sort(key=lambda x: x[1], reverse=True)
+            sorted_fixtures = [x[0] for x in valid]
+            print(f"   ↳ {len(sorted_fixtures)} jogos concluídos a avaliar.")
+
+            # Fast‑forward safety check
+            if last_fixture_id and not any(f["fixture"]["id"] == last_fixture_id for f in sorted_fixtures):
+                print(f"    ⚠ last_fixture_id {last_fixture_id} não encontrado na lista atual. Processando sem fast‑forward.")
                 last_fixture_id = None
-                continue
-            elif last_fixture_id:
-                # Estamos procurando o anchor q paramos no db antes de continuar
-                continue
 
-            m = await resolve_fixture_to_match(pool, f, l_db_id)
-            if not m:
-                continue
+            for f in sorted_fixtures:
+                if reqs_used >= MAX_REQUESTS_PER_RUN:
+                    break
 
-            mid = m["match_id"]
-            label = f"{m['home_name']} x {m['away_name']} ({m['kickoff_brt'].strftime('%d/%m')})"
+                f_id = f["fixture"]["id"]
 
-            status = await get_match_status(pool, mid)
-            if all(status.values()):
-                # Skips spending quotas
+                if last_fixture_id and last_fixture_id == f_id:
+                    last_fixture_id = None
+                    continue
+                elif last_fixture_id:
+                    continue
+
+                m = await resolve_fixture_to_match(pool, f, l_db_id)
+                if not m:
+                    continue
+
+                mid = m["match_id"]
+                label = f"{m['home_name']} x {m['away_name']} ({m['kickoff_brt'].strftime('%d/%m')})"
+
+                status = await get_match_status(pool, mid)
+                if all(status.values()):
+                    state["last_processed_fixture_id"] = f_id
+                    continue
+
+                sys.stdout.write(f"    ➜ Coletando: {label}...")
+                sys.stdout.flush()
+
+                cost = await process_match(m, status, stats_c, events_c, lineups_c, players_c, pool)
+                reqs_used += cost
+                print(f" OK (+{cost} req) | Total: {reqs_used}/{MAX_REQUESTS_PER_RUN}")
+
                 state["last_processed_fixture_id"] = f_id
-                continue
+                save_state(state)
 
-            sys.stdout.write(f"    ➜ Coletando: {label}...")
-            sys.stdout.flush()
+            if reqs_used >= MAX_REQUESTS_PER_RUN:
+                print("\n[!] LIMITE ATINGIDO. Pausando execução.")
+                TelegramAlert.fire(
+                    "warning",
+                    f"*API-Football Backfill* pausado por limite\n"
+                    f"Requisições usadas: `{reqs_used}/{MAX_REQUESTS_PER_RUN}`\n"
+                    f"Liga pausada: `{l_code}`\n"
+                    f"O restante será retomado na próxima execução."
+                )
+                break
+            else:
+                completed_leagues.append(l_code)
+                state["completed_leagues"] = completed_leagues
+                state["last_processed_fixture_id"] = None
+                last_fixture_id = None
+                save_state(state)
+                print(f"✅ Liga {l_code} ({l_year}) inteiramente concluída.")
 
-            cost = await process_match(m, status, stats_c, events_c, lineups_c, players_c, pool)
-            reqs_used += cost
-            print(f" OK (+{cost} req) | Total: {reqs_used}/{MAX_REQUESTS_PER_RUN}")
-
-            state["last_processed_fixture_id"] = f_id
-            save_state(state)
-
-        if reqs_used >= MAX_REQUESTS_PER_RUN:
-            print("\n[!] LIMITE ATINGIDO. Pausando execução.")
-            break
-        else:
-            # Liga concluída!
-            completed_leagues.append(l_code)
-            state["completed_leagues"] = completed_leagues
-            state["last_processed_fixture_id"] = None
-            last_fixture_id = None  # <-- Correção: reseta na memória também
-            save_state(state)
-            print(f"✅ Liga {l_code} inteiramente concluída.")
-
-    # Quando todas as ligas foram concluídas, reseta o state para a próxima execução
-    if all(l["code"] in completed_leagues or l["code"] in SKIP_LEAGUES for l in leagues):
-        state = {"completed_leagues": [], "last_processed_fixture_id": None}
+        # End of season processing – move to previous year
+        current_year -= 1
+        state["current_year"] = current_year
+        state["completed_leagues"] = []
+        state["last_processed_fixture_id"] = None
         save_state(state)
-        print("\n🔄 Todas as ligas concluídas. State resetado para próxima execução.")
 
+    # All seasons processed – final cleanup
     print(f"\nExecução finalizada. Total requests: {reqs_used}")
+
+    if errors_found:
+        erros_txt = "\n".join(f"• {e}" for e in errors_found[:10])
+        TelegramAlert.fire(
+            "error",
+            f"*API-Football Backfill* finalizado com erros\n"
+            f"Requisições usadas: `{reqs_used}/{MAX_REQUESTS_PER_RUN}`\n"
+            f"Status: ❌ Com erros\n\n"
+            f"*Erros encontrados:*\n{erros_txt}"
+        )
+    else:
+        status_txt = "🔄 Parcial (limite atingido)" if reqs_used >= MAX_REQUESTS_PER_RUN else "✅ Concluído sem erros"
+        TelegramAlert.fire(
+            "success",
+            f"*API-Football Backfill* finalizado\n"
+            f"Requisições usadas: `{reqs_used}/{MAX_REQUESTS_PER_RUN}`\n"
+            f"Status: {status_txt}"
+        )
+
+    await asyncio.sleep(1)
+    await TelegramAlert.close()
 
 
 if __name__ == "__main__":
