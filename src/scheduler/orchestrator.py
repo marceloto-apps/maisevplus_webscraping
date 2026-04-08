@@ -105,11 +105,11 @@ class AppOrchestrator:
             misfire_grace_time=7200
         )
 
-        # 6b. API-Football Backfill — 02:00 BRT (consome cotas para preencher histórico retroativo)
+        # 6b. API-Football Backfill — 04:00 BRT (consome cotas para preencher histórico retroativo)
         self.scheduler.add_job(
             apifootball_backfill,
             'cron',
-            hour=2, minute=0,
+            hour=4, minute=0,
             id="apifootball_backfill",
             misfire_grace_time=7200
         )

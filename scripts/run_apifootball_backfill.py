@@ -251,6 +251,11 @@ async def run_backfill(is_cron=False):
 
         print(f"   ↳ {len(sorted_fixtures)} jogos concluídos a avaliar.")
 
+        # Segurança: se o last_fixture_id não existe mais na lista (removido da API), ignoramos o pulo
+        if last_fixture_id and not any(f["fixture"]["id"] == last_fixture_id for f in sorted_fixtures):
+            print(f"    ⚠ last_fixture_id {last_fixture_id} não encontrado na lista atual. Processando sem fast-forward.")
+            last_fixture_id = None
+
         for f in sorted_fixtures:
             if reqs_used >= MAX_REQUESTS_PER_RUN:
                 break
@@ -297,6 +302,7 @@ async def run_backfill(is_cron=False):
             completed_leagues.append(l_code)
             state["completed_leagues"] = completed_leagues
             state["last_processed_fixture_id"] = None
+            last_fixture_id = None  # <-- Correção: reseta na memória também
             save_state(state)
             print(f"✅ Liga {l_code} inteiramente concluída.")
 
