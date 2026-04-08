@@ -186,24 +186,34 @@ class FlashscoreOddsCollector(BaseCollector):
                 
                 # Clica na aba Stats de fato, pois ir pela URL direto redireciona para a Summary (onde só há 3 Stats)
                 clicked = False
-                for href_pattern in [
+                patterns = [
                     f'a[href="#/match-summary/match-statistics/0"]',
                     f'a[href*="match-statistics/0"]',
                     f'button:has-text("Stats")', 
                     f'a:has-text("Stats")'
-                ]:
-                    try:
-                        tab = page.locator(href_pattern).first
-                        if await tab.count() > 0:
-                            await tab.click()
-                            clicked = True
-                            logger.debug(f"[Flashscore] Aba Statistics clicada com sucesso ({href_pattern})")
-                            break
-                    except Exception:
-                        pass
+                ]
+                
+                for attempt in range(2):
+                    for href_pattern in patterns:
+                        try:
+                            tab = page.locator(href_pattern).first
+                            if await tab.count() > 0:
+                                await tab.click()
+                                clicked = True
+                                logger.debug(f"[Flashscore] Aba Statistics clicada com sucesso ({href_pattern}) (tentativa {attempt + 1})")
+                                break
+                        except Exception:
+                            pass
+                            
+                    if clicked:
+                        break
+                        
+                    if attempt == 0:
+                        logger.debug(f"[Flashscore] Aba Statistics não carregada imediatamente para {flashscore_id}. Aguardando 3s...")
+                        await page.wait_for_timeout(3000)
                 
                 if not clicked:
-                    logger.debug(f"[Flashscore] Partida {flashscore_id} não possui aba de estatísticas visível. Pulando stats.")
+                    logger.debug(f"[Flashscore] Partida {flashscore_id} não possui aba de estatísticas visível após espera. Pulando stats.")
                 else:
                     await page.wait_for_timeout(2000)
                     
