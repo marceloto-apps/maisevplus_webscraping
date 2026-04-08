@@ -358,13 +358,11 @@ async def flashscore_historical_backfill():
     try:
         logger.info("spawning_flashscore_backfill_subprocess")
         proc = await asyncio.create_subprocess_exec(
-            sys.executable, "scripts/run_flashscore_backfill.py", "--limit", "180",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+            sys.executable, "scripts/run_flashscore_backfill.py", "--limit", "180"
         )
-        stdout, stderr = await proc.communicate()
+        await proc.wait()
         if proc.returncode != 0:
-            logger.error("flashscore_backfill_subprocess_failed", stderr=stderr.decode("utf-8", errors="replace"))
+            logger.error(f"flashscore_backfill_subprocess_failed_com_codigo_{proc.returncode}")
         else:
             logger.info("flashscore_backfill_subprocess_success")
     except Exception as e:
