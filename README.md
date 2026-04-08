@@ -13,7 +13,7 @@ Este repositório contém o **Módulo 1 (M1) — Coleta de Dados (Ingestão)** d
 | Fonte | Tipo | Responsabilidade |
 |---|---|---|
 | **Footystats API** | HTTP REST | Resultados, stats, fixtures |
-| **FlashScore** | Selenium headless | Odds em tempo real (13 casas × 9 mercados) |
+| **Flashscore** | Camoufox/Playwright + VPN | Odds em tempo real, Discovery de Partidas, Backfill |
 | **Football-Data.co.uk** | HTTP (CSV) | Backfill histórico |
 | **FBRef** | HTTP + BeautifulSoup | xG para 19 ligas |
 | **Understat** | HTTP (lib Python async) | xG granular Top 5 ligas |

@@ -475,72 +475,50 @@ GET <https://api.football-data-api.com/league-matches>
 
 ## 5. Fase 3 — Coletores Principais MVP e Secundários
 
-### T09 — BetExplorer Odds Collector (Fonte Primária)
+### T09 — Flashscore Odds Collector (Fonte Primária)
 
-⏱️ **3.5 dias** | 🔗 T03, T04
+⏱️ **5 dias** | 🔗 T03, T04
 
-**Escopo:**
+**Escopo (Pivotado de BetExplorer para Flashscore):**
 
-- Arquitetura focada via HTTpx (+ Backoff) extraindo dados server-side + AJAX endpoints.
-- Extração de Opening e Closing odds simultâneas em 1 request (`data-odd` attributes).
-- `client.py`: httpx async + rate limiting + retry no BetExplorer.
-- `url_builder.py`: resolve o caminho das 26 ligas por temporada/jogo.
-- `parser.py`: BS4 → dicts de odds por casa/mercado/linha.
-- `odds_collector.py`: orquestra navegação → parse → normalização → insert.
-- Casas-alvo MVP: Pinnacle, Bet365, Betfair, 1xBet (Extraindo Closing/Opening nativos).
-- 9 Mercados: FT: 1x2, ou, ah, dc, dnb, btts | HT: 1x2_ht, ou_ht, ah_ht (requer investigar AJAX vs Playwright para abas).
-- Dedup via `content_hash` + `insert_odds_if_new()`
-- Mark `is_opening` / `is_closing`
-- Overround calculado
+- Arquitetura focada via Playwright/Camoufox + NordVPN para extração server-side + anti-bot bypass.
+- Rotina de Discovery (`run_flashscore_discovery_all.py`): Mapeia IDs unicos do Flashscore (`flashscore_id`) e conecta com os IDs do banco preexistente via fuzzy matching.
+- Gerenciamento dinâmico de aliases (`resolve_flashscore_aliases.py`) para times faltantes (`unknown_aliases`).
+- Extração em Background (Isolamento em subprocessos) iterando por ligas via `xvfb-run`.
+- Casas-alvo: Mapeamento de dictionary 1:1 baseado no `FLASHSCORE_BOOKMAKER_MAP`.
+- Dedup via `content_hash` + `insert_odds_if_new()`.
+- Serviço Linux Systemd permanente (`maisev_orchestrator.service`) para orquestração geral.
 
 **Entregáveis:**
 
 ```
-📁 src/collectors/betexplorer/
+📁 src/collectors/flashscore/
 ├── __init__.py
-├── client.py
-├── url_builder.py
+├── config.py
 ├── parser.py
 ├── odds_collector.py
-├── selectors.py
-└── discovery.py
-📁 src/tests/test_betexplorer.py
+├── discovery.py
+└── run_flashscore_backfill.py
+📁 scripts/resolve_flashscore_aliases.py
+📁 /etc/systemd/system/maisev_orchestrator.service
 ```
 
-**Regras de filtragem:**
-
-```python
-# Não inserir odds quando:
-SKIP_CONDITIONS = [
-    lambda odds: odds in ["-", "", None],       # Indisponível
-    lambda odds: float(odds) <= 1.0,            # Sem retorno
-]
-
-# Casas aceitas no MVP de Valor (BetExplorer list)
-ACCEPTED_BOOKMAKERS = {
-    "Pinnacle", "Pinnacle Sports",
-    "Betfair", "Betfair Exchange",
-    "bet365", "Bet365",
-    "1xBet"
-}
-# Nota POST-MVP: BetExplorer entrará num Sprint posterior para extração de casas isoladas BR (Betano, KTO).
-```
+**Conclusão:** Pivotamos o M1 inteiro para Flashscore como fonte principal de Odds, usando ferramentas de ponta de stealth scraping (Camoufox). BetExplorer e Odds API foram suspensos.
 
 **Critérios de aceite:**
 
-- ✅ Coleta odds de 1 jogo com 13 casas × 9 mercados
-- ✅ Selectors isolados em `selectors.py` (nenhum CSS/XPath hardcoded em outros arquivos)
-- ✅ Dedup funciona: 2ª coleta do mesmo jogo sem mudança → 0 inserts novos
-- ✅ `is_opening` marcado no primeiro registro de cada combinação
-- ✅ Overround calculado corretamente
-- ✅ Odds `"-"`, `""`, `"1.00"` filtradas
-- ✅ Health check: acessa página de teste no BetExplorer
+- ✅ Coleta odds extraindo JSONs de dados via `fetchEventData` bypassing Cloudflare.
+- ✅ Discovery capaz de descobrir temporada histórica (`/results/`) iterando com cliques em 'Mostrar mais jogos'.
+- ✅ Dedup funciona perfeitamente, salvando hashes para injeção via pipeline do M2.
+- ✅ Daemon do Orquestrador rodando lisamente e engatando a partir dos timers do APScheduler.
 
 ---
 
-### T10 — The Odds API Collector
+### T10 — The Odds API Collector (Suspenso)
 
 ⏱️ **1 dia** | 🔗 T03, T04
+
+*(Processo suspenso e cron desativado após o sucesso extremo da infraestrutura robusta do Flashscore)*
 
 **Escopo:**
 
@@ -976,9 +954,9 @@ COLETORES CORE
   [x] T07  Understat collector
   [-] T08  FBRef collector (Arquivado/Buscando Alternativa)
 
-COLETORES SECUNDÁRIOS
-  [x] T09  BetExplorer odds collector
-  [x] T10  The Odds API collector
+COLETORES SECUNDÁRIOS / ODDS
+  [x] T09  Flashscore Odds Collector (Substituiu BetExplorer com excelência)
+  [x] T10  The Odds API collector (Suspenso em favor do Flashscore)
   [x] T11  API-Football collector
 
 ORQUESTRAÇÃO
@@ -990,7 +968,7 @@ BACKFILL
   [x] T15  Etapa 2: Revisão aliases (Marcelo)
   [x] T16  Etapa 3: Footystats stats (100% Cobertura)
   [ ] T17  Etapa 4: xG Understat (Avaliar alternativas: FotMob e SofaScore)
-  [ ] T18  Aliases cross-source
+  [x] T18  Aliases cross-source (Especialmente Match/Team Resolver unificado do Flashscore)
 
 VALIDAÇÃO
   [ ] T19  Testes + resiliência globais
