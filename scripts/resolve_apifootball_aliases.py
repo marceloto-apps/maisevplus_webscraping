@@ -49,7 +49,7 @@ async def get_active_leagues(pool, filter_code=None) -> list:
             SELECT l.league_id, l.code, l.name, l.api_football_league_id, CAST(LEFT(s.label, 4) AS INTEGER) AS year 
             FROM seasons s 
             JOIN leagues l ON s.league_id = l.league_id 
-            WHERE s.is_current = TRUE AND l.api_football_league_id IS NOT NULL
+            WHERE CAST(LEFT(s.label, 4) AS INTEGER) BETWEEN 2021 AND 2024 AND l.api_football_league_id IS NOT NULL
             ORDER BY l.code
         ''')
     leagues = [dict(r) for r in rows]
