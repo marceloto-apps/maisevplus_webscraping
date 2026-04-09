@@ -36,7 +36,7 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 STATE_FILE = os.path.join(DATA_DIR, "apifootball_backfill_state.json")
 
 MAX_REQUESTS_PER_RUN = 7300  # VIP plan: 7500/dia, margem de segurança
-SKIP_LEAGUES = {"ENG_NL"}   # Ligas sem estatísticas no API-Football
+SKIP_LEAGUES = set()   # Ligas sem estatísticas no API-Football
 EARLIEST_YEAR = 2021  # Minimum season year to backfill
 
 
