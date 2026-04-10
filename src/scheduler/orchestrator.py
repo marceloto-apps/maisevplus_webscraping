@@ -22,6 +22,8 @@ from src.scheduler.jobs import (
     flashscore_discovery,
     flashscore_odds_standard,
     flashscore_closing_odds,
+    flashscore_historical_backfill,
+    health_check,
     set_scheduler
 )
 
@@ -115,7 +117,6 @@ class AppOrchestrator:
         )
 
         # 6c. Flashscore Historical Backfill — Janelas de 2 horas (com IP rotation)
-        from src.scheduler.jobs import flashscore_historical_backfill
         self.scheduler.add_job(
             flashscore_historical_backfill,
             'cron',
@@ -126,7 +127,7 @@ class AppOrchestrator:
         self.scheduler.add_job(
             flashscore_historical_backfill,
             'cron',
-            hour='9,12,15,18,21,0', minute=0,
+            hour='2,9,12,15,18,21', minute=0,
             id="flashscore_historical_backfill_day",
             misfire_grace_time=3600
         )
@@ -167,6 +168,16 @@ class AppOrchestrator:
         #     misfire_grace_time=3600
         # )
 
+        # 11. Health Check / Heartbeat Diário (03:00 BRT)
+        # Confirma no Telegram que o orchestrator está vivo e lista os próximos jobs.
+        self.scheduler.add_job(
+            health_check,
+            'cron',
+            hour=3, minute=0,
+            id="daily_heartbeat",
+            misfire_grace_time=3600
+        )
+
     async def _init_dependencies(self):
         """Prepara DB e Caches síncronas antes do start loop"""
         logger.info("app_init_started")
@@ -175,6 +186,7 @@ class AppOrchestrator:
         await TeamResolver.load_cache()
         await TelegramAlert.init()
         logger.info("app_dependencies_ready")
+
 
     async def _cleanup(self):
         """Graceful shutdown dos buffers e conexões ativas"""

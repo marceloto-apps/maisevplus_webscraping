@@ -13,11 +13,22 @@ from src.normalizer.team_resolver import TeamResolver
 from src.collectors.odds_api.api_collector import OddsApiCollector
 from src.collectors.api_football.api_collector import ApiFootballCollector
 from src.collectors.flashscore.odds_collector import FlashscoreOddsCollector
-from src.collectors.flashscore.discovery import FlashscoreDiscovery
 
 logger = get_logger(__name__)
 
 _scheduler_ref = None
+
+# Jobs que devem enviar notificação Telegram quando concluírem com sucesso.
+# Jobs de gameday (odds_single_match, lineups_single_match) são excluídos
+# para não poluir o chat com dezenas de mensagens por dia.
+NOTIFY_ON_SUCCESS: set[str] = {
+    "flashscore_historical_backfill",
+    "apifootball_backfill",
+    "footystats_daily",
+    "football_data_daily",
+    "fixtures_weekly",
+    "flashscore_discovery",
+}
 
 def set_scheduler(scheduler):
     global _scheduler_ref
@@ -40,10 +51,17 @@ def safe_job(func):
             result = await func(*args, **kwargs)
             
             duration = time.monotonic() - start_time
-            
-            # Log de contagem sem poluir o output com dicionários
+            duration_min = round(duration / 60, 1)
+
+            # Extrai contagem de registros do resultado de forma inteligente:
+            # Prioriza chaves semânticas do dict antes de usar len()
             records_count = None
-            if isinstance(result, (list, dict)):
+            if isinstance(result, dict):
+                for key in ("records_count", "total", "records_collected", "matches_upserted"):
+                    if key in result and result[key] is not None:
+                        records_count = result[key]
+                        break
+            elif isinstance(result, list):
                 records_count = len(result)
             elif hasattr(result, "records_collected"):
                 records_count = result.records_collected
@@ -54,6 +72,16 @@ def safe_job(func):
                 duration_s=round(duration, 2), 
                 records_count=records_count
             )
+
+            # Notificação Telegram de sucesso (apenas para jobs que precisam de visibilidade)
+            if job_name in NOTIFY_ON_SUCCESS:
+                count_line = f"Registros: `{records_count}`\n" if records_count is not None else ""
+                TelegramAlert.fire(
+                    "success", 
+                    f"*{job_name}*\n"
+                    f"Duração: `{duration_min} min`\n"
+                    f"{count_line}"
+                )
 
         except asyncio.CancelledError:
             logger.info("job_cancelled", job_name=job_name)
@@ -119,16 +147,45 @@ async def fixtures_weekly():
 @safe_job
 async def flashscore_discovery():
     """
-    Trigger: 04:00 BRT
-    Descobre os Flashscore IDs (jogos da semana e resultados recentes).
+    Trigger: 06:00 BRT
+    Descobre os Flashscore IDs (jogos passados e futures).
+    Roda como subprocess sob xvfb-run para ter display virtual (Camoufox headed).
     """
-    collector = FlashscoreDiscovery()
-    # Busca IDs dos jogos passados que terminaram
-    r1 = await collector.collect(mode="results")
-    # Busca IDs dos fixtures futuros (DESATIVADO TEMPORARIAMENTE DURANTE O BACKFILL)
-    # r2 = await collector.collect(mode="fixtures")
-    
-    return {"discovery_results": r1.records_new, "discovery_fixtures": "disabled"}
+    import subprocess
+    import sys
+
+    try:
+        logger.info("spawning_flashscore_discovery_subprocess")
+        proc = await asyncio.create_subprocess_exec(
+            "xvfb-run", "-a", sys.executable, "scripts/run_flashscore_discovery_all.py",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout_bytes, stderr_bytes = await proc.communicate()
+
+        if proc.returncode != 0:
+            stderr_text = (stderr_bytes or b"").decode("utf-8", errors="replace")[-600:]
+            logger.error("flashscore_discovery_subprocess_failed", returncode=proc.returncode)
+            raise RuntimeError(
+                f"Subprocess encerrou com código {proc.returncode}.\n{stderr_text}"
+            )
+
+        logger.info("flashscore_discovery_subprocess_success")
+
+        # Extrai "Matches atualizados: N" do stdout para o safe_job wrapper
+        stdout_text = (stdout_bytes or b"").decode("utf-8", errors="replace")
+        import re as _re
+        m = _re.search(r"Matches atualizados:\s*(\d+)", stdout_text)
+        records_count = int(m.group(1)) if m else None
+
+    except RuntimeError:
+        raise
+    except Exception as e:
+        logger.error("flashscore_discovery_spawn_failed", error=str(e))
+        raise
+
+    return {"job": "flashscore_discovery", "records_count": records_count}
+
 
 
 @safe_job
@@ -316,8 +373,12 @@ async def apifootball_backfill():
     Lê estado local e consome até ~650 requisições diárias.
     """
     from scripts.run_apifootball_backfill import run_backfill
-    await run_backfill(is_cron=True)
-    return {"provider": "api_football", "job": "backfill_daily"}
+    result = await run_backfill(is_cron=True)
+    # run_backfill pode retornar dict com stats ou None
+    records_count = None
+    if isinstance(result, dict):
+        records_count = result.get("total_processed") or result.get("records_collected")
+    return {"provider": "api_football", "job": "backfill_daily", "records_count": records_count}
 
 @safe_job
 async def flashscore_historical_backfill():
@@ -358,17 +419,34 @@ async def flashscore_historical_backfill():
     try:
         logger.info("spawning_flashscore_backfill_subprocess")
         proc = await asyncio.create_subprocess_exec(
-            "xvfb-run", "-a", sys.executable, "scripts/run_flashscore_backfill.py", "--limit", "180"
+            "xvfb-run", "-a", sys.executable, "scripts/run_flashscore_backfill.py", "--limit", "180",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
-        await proc.wait()
+        stdout_bytes, stderr_bytes = await proc.communicate()
+
         if proc.returncode != 0:
-            logger.error(f"flashscore_backfill_subprocess_failed_com_codigo_{proc.returncode}")
-        else:
-            logger.info("flashscore_backfill_subprocess_success")
+            stderr_text = (stderr_bytes or b"").decode("utf-8", errors="replace")[-600:]
+            logger.error("flashscore_backfill_subprocess_failed", returncode=proc.returncode)
+            raise RuntimeError(
+                f"Subprocess encerrou com código {proc.returncode}.\n{stderr_text}"
+            )
+
+        logger.info("flashscore_backfill_subprocess_success")
+
+        # Tenta extrair `Completados com sucesso` do stdout para o Telegram
+        stdout_text = (stdout_bytes or b"").decode("utf-8", errors="replace")
+        import re as _re
+        m = _re.search(r"Completados com sucesso:\s+(\d+)", stdout_text)
+        records_count = int(m.group(1)) if m else None
+
+    except RuntimeError:
+        raise  # Re-propagado para o safe_job capturar e notificar Telegram
     except Exception as e:
         logger.error("flashscore_backfill_spawn_failed", error=str(e))
+        raise
 
-    return {"job": "flashscore_historical_backfill"}
+    return {"job": "flashscore_historical_backfill", "records_count": records_count}
 
 # ---------------------------------------------------------------------------
 @safe_job
@@ -393,4 +471,50 @@ async def csv_weekly(): pass
 async def odds_api_validation(): pass
 
 @safe_job
-async def health_check(): pass
+async def health_check():
+    """
+    Trigger: 03:00 BRT (diário)
+    Heartbeat diário — confirma no Telegram que o orchestrator está vivo
+    e lista as rotinas que serão disparadas hoje.
+    """
+    from datetime import date
+    now_brt = datetime.now(ZoneInfo("America/Sao_Paulo"))
+    today_str = now_brt.strftime("%d/%m/%Y")
+    weekday = now_brt.strftime("%A")
+
+    WEEKDAY_PT = {
+        "Monday": "Segunda", "Tuesday": "Terça", "Wednesday": "Quarta",
+        "Thursday": "Quinta", "Friday": "Sexta", "Saturday": "Sábado", "Sunday": "Domingo"
+    }
+    weekday_pt = WEEKDAY_PT.get(weekday, weekday)
+
+    is_monday = now_brt.weekday() == 0  # segunda
+
+    schedule_lines = [
+        "🗓 *Rotinas de hoje:*",
+        "  `02:00` — Flashscore Backfill (janela 1)",
+        "  `04:00` — API-Football Backfill",
+        "  `05:00` — FootyStats Daily",
+        "  `05:15` — Football-Data Daily",
+        "  `06:00` — Flashscore Discovery",
+        "  `06:15` — Flashscore Backfill (janela 2)",
+        "  `09:00` — Flashscore Backfill (janela 3)",
+        "  `12:00` — Flashscore Backfill (janela 4)",
+        "  `15:00` — Flashscore Backfill (janela 5)",
+        "  `18:00` — Flashscore Backfill (janela 6)",
+        "  `21:00` — Flashscore Backfill (janela 7)",
+    ]
+    if is_monday:
+        schedule_lines.append("  `05:00` — Fixtures Weekly *(segunda-feira)*")
+
+    schedule_txt = "\n".join(schedule_lines)
+
+    TelegramAlert.fire(
+        "info",
+        f"💓 *Orchestrator Alive*\n"
+        f"{weekday_pt}, {today_str} — 03:00 BRT\n\n"
+        f"{schedule_txt}"
+    )
+
+    return {"heartbeat": True}
+

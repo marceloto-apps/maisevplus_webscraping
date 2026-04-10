@@ -258,6 +258,7 @@ async def run_backfill(is_cron=False):
         state["completed_leagues"] = completed_leagues
         save_state(state)
 
+        limit_reached = False
         for l_data in season_leagues:
             l_code = l_data["code"]
             l_api_id = l_data["api_football_league_id"]
@@ -340,9 +341,13 @@ async def run_backfill(is_cron=False):
                     "warning",
                     f"*API-Football Backfill* pausado por limite\n"
                     f"Requisições usadas: `{reqs_used}/{MAX_REQUESTS_PER_RUN}`\n"
-                    f"Liga pausada: `{l_code}`\n"
+                    f"Ano: `{l_year}` | Liga pausada: `{l_code}`\n"
                     f"O restante será retomado na próxima execução."
                 )
+                # Preserva current_year e last_processed_fixture_id para retomada exata
+                state["current_year"] = current_year
+                save_state(state)
+                limit_reached = True
                 break
             else:
                 completed_leagues.append(l_code)
@@ -352,12 +357,17 @@ async def run_backfill(is_cron=False):
                 save_state(state)
                 print(f"✅ Liga {l_code} ({l_year}) inteiramente concluída.")
 
-        # End of season processing – move to previous year
+        if limit_reached:
+            # Não avança o ano — próxima execução retoma de onde parou
+            break
+
+        # Temporada completa — avança para o ano anterior
         current_year -= 1
         state["current_year"] = current_year
         state["completed_leagues"] = []
         state["last_processed_fixture_id"] = None
         save_state(state)
+
 
     # All seasons processed – final cleanup
     print(f"\nExecução finalizada. Total requests: {reqs_used}")
