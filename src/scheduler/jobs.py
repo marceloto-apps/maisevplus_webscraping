@@ -368,10 +368,25 @@ async def football_data_daily():
 @safe_job
 async def apifootball_backfill():
     """
-    Trigger: `0 2 * * *` BRT
+    Trigger: `0 4 * * *` BRT (04:15 após ajuste)
     Objetivo: Backfill reversivo das temporadas atuais (a partir de 03/04).
     Lê estado local e consome até ~650 requisições diárias.
+    Desconecta a NordVPN antes de rodar para garantir IP real na API-Football.
     """
+    import subprocess
+
+    # Garante que a VPN está desconectada (API-Football bloqueia IPs de VPN)
+    try:
+        logger.info("nordvpn_disconnecting_for_apifootball")
+        subprocess.run(["nordvpn", "disconnect"], check=True, capture_output=True, text=True, timeout=30)
+        logger.info("nordvpn_disconnected_ok")
+    except FileNotFoundError:
+        logger.warning("nordvpn_binary_not_found_skipping_disconnect")
+    except subprocess.CalledProcessError as e:
+        logger.warning("nordvpn_disconnect_failed", error=e.stderr.strip())
+    except subprocess.TimeoutExpired:
+        logger.warning("nordvpn_disconnect_timeout")
+
     from scripts.run_apifootball_backfill import run_backfill
     result = await run_backfill(is_cron=True)
     # run_backfill pode retornar dict com stats ou None
@@ -391,8 +406,8 @@ async def flashscore_historical_backfill():
     import random
     import re
     
-    # Servidores homologados para rodízio
-    servers = ["br89", "br105", "br75"]
+    # Servidores homologados para rodízio (6 servidores)
+    servers = ["br89", "br105", "br75", "br116", "br76", "br81"]
     target_server = random.choice(servers)
     
     # 1. Tentar rotacionar o IP via NordVPN
@@ -493,16 +508,17 @@ async def health_check():
     schedule_lines = [
         "🗓 *Rotinas de hoje:*",
         "  `02:00` — Flashscore Backfill (janela 1)",
-        "  `04:00` — API-Football Backfill",
+        "  `04:15` — API-Football Backfill",
         "  `05:00` — FootyStats Daily",
         "  `05:15` — Football-Data Daily",
         "  `06:00` — Flashscore Discovery",
         "  `06:15` — Flashscore Backfill (janela 2)",
         "  `09:00` — Flashscore Backfill (janela 3)",
-        "  `12:00` — Flashscore Backfill (janela 4)",
-        "  `15:00` — Flashscore Backfill (janela 5)",
-        "  `18:00` — Flashscore Backfill (janela 6)",
-        "  `21:00` — Flashscore Backfill (janela 7)",
+        "  `11:45` — Flashscore Backfill (janela 4)",
+        "  `14:30` — Flashscore Backfill (janela 5)",
+        "  `17:15` — Flashscore Backfill (janela 6)",
+        "  `20:00` — Flashscore Backfill (janela 7)",
+        "  `22:45` — Flashscore Backfill (janela 8)",
     ]
     if is_monday:
         schedule_lines.append("  `05:00` — Fixtures Weekly *(segunda-feira)*")

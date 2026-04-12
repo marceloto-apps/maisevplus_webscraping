@@ -71,11 +71,11 @@ class AppOrchestrator:
             misfire_grace_time=3600
         )
 
-        # 4. Schedule Dinâmico (00:30 BRT)
+        # 4. Schedule Dinâmico (01:00 BRT)
         self.scheduler.add_job(
             schedule_gameday_jobs,
             'cron',
-            hour=0, minute=30,
+            hour=1, minute=0,
             id="schedule_gameday_jobs",
             misfire_grace_time=1800
         )
@@ -107,28 +107,47 @@ class AppOrchestrator:
             misfire_grace_time=7200
         )
 
-        # 6b. API-Football Backfill — 04:00 BRT (consome cotas para preencher histórico retroativo)
+        # 6b. API-Football Backfill — 04:15 BRT (garante VPN desconectada do Flashscore das 02h)
         self.scheduler.add_job(
             apifootball_backfill,
             'cron',
-            hour=4, minute=0,
+            hour=4, minute=15,
             id="apifootball_backfill",
             misfire_grace_time=7200
         )
 
-        # 6c. Flashscore Historical Backfill — Janelas de 2 horas (com IP rotation)
+        # 6c. Flashscore Historical Backfill — 8 janelas BRT (ip rotation a cada rodada)
+        # Agrupadas por minuto para minimizar o número de jobs registrados:
+        # Minuto :00  → 02h, 09h, 20h
         self.scheduler.add_job(
             flashscore_historical_backfill,
             'cron',
-            hour=6, minute=15,
-            id="flashscore_historical_backfill_6h",
+            hour='2,9,20', minute=0,
+            id="flashscore_backfill_m00",
             misfire_grace_time=3600
         )
+        # Minuto :15  → 06h15, 17h15
         self.scheduler.add_job(
             flashscore_historical_backfill,
             'cron',
-            hour='2,9,12,15,18,21', minute=0,
-            id="flashscore_historical_backfill_day",
+            hour='6,17', minute=15,
+            id="flashscore_backfill_m15",
+            misfire_grace_time=3600
+        )
+        # Minuto :30  → 14h30
+        self.scheduler.add_job(
+            flashscore_historical_backfill,
+            'cron',
+            hour=14, minute=30,
+            id="flashscore_backfill_m30",
+            misfire_grace_time=3600
+        )
+        # Minuto :45  → 11h45, 22h45
+        self.scheduler.add_job(
+            flashscore_historical_backfill,
+            'cron',
+            hour='11,22', minute=45,
+            id="flashscore_backfill_m45",
             misfire_grace_time=3600
         )
 
