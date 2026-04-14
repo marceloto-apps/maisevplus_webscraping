@@ -35,7 +35,6 @@ def build_flashscore_season_slug(label: str) -> str:
     if "/" in label:
         parts = label.split("/")
         p1, p2 = parts[0].strip(), parts[1].strip()
-        # Suporte a labels com 2 ou 4 dígitos
         y1 = f"20{p1}" if len(p1) == 2 else p1
         y2 = f"20{p2}" if len(p2) == 2 else p2
         return f"{y1}-{y2}"
@@ -51,19 +50,21 @@ async def main():
     target_urls = {}
     
     async with pool.acquire() as conn:
-        # Pega todas as ligas configuradas pro Flashscore (ativo)
-        leagues = await conn.fetch("SELECT code, flashscore_path FROM leagues WHERE is_active = TRUE AND flashscore_path IS NOT NULL")
-        
-        for lg in leagues:
-            code = lg["code"]
-            base_path = lg["flashscore_path"]
-            
+        # Itera sobre ligas com flashscore_path configurado no dicionário Python
+        for code, base_path in LEAGUE_FLASHSCORE_PATHS.items():
+            # Verifica se a liga está ativa no banco
+            league_id = await conn.fetchval(
+                "SELECT league_id FROM leagues WHERE code = $1 AND is_active = TRUE", code
+            )
+            if not league_id:
+                continue
+
             # Temporada atual e imediatamente anterior (limite 2, mais nova primeiro)
             seasons = await conn.fetch("""
                 SELECT label, is_current FROM seasons 
-                WHERE league_id = (SELECT league_id FROM leagues WHERE code = $1) 
+                WHERE league_id = $1
                 ORDER BY label DESC LIMIT 2
-            """, code)
+            """, league_id)
                 
             urls = []
             for s in seasons:

@@ -41,7 +41,6 @@ def build_flashscore_season_slug(label: str) -> str:
     if "/" in label:
         parts = label.split("/")
         p1, p2 = parts[0].strip(), parts[1].strip()
-        # Suporte a labels com 2 ou 4 dígitos
         y1 = f"20{p1}" if len(p1) == 2 else p1
         y2 = f"20{p2}" if len(p2) == 2 else p2
         return f"{y1}-{y2}"
@@ -72,31 +71,31 @@ async def main():
     skipped_seasons = 0
     total_season_urls = 0
 
-    async with pool.acquire() as conn:
-        # Pega todas as ligas configuradas pro Flashscore (ativas, com flashscore_path)
-        if args.leagues:
-            leagues = await conn.fetch(
-                "SELECT code, flashscore_path FROM leagues "
-                "WHERE is_active = TRUE AND flashscore_path IS NOT NULL AND code = ANY($1)",
-                args.leagues
-            )
-        else:
-            leagues = await conn.fetch(
-                "SELECT code, flashscore_path FROM leagues "
-                "WHERE is_active = TRUE AND flashscore_path IS NOT NULL"
-            )
+    # Filtra ligas: usa o dicionário LEAGUE_FLASHSCORE_PATHS como fonte dos paths
+    if args.leagues:
+        league_codes = [c for c in args.leagues if c in LEAGUE_FLASHSCORE_PATHS]
+    else:
+        league_codes = list(LEAGUE_FLASHSCORE_PATHS.keys())
 
-        for lg in leagues:
-            code = lg["code"]
-            base_path = lg["flashscore_path"]
+    async with pool.acquire() as conn:
+        for code in league_codes:
+            base_path = LEAGUE_FLASHSCORE_PATHS[code]
+
+            # Busca league_id
+            league_id = await conn.fetchval(
+                "SELECT league_id FROM leagues WHERE code = $1 AND is_active = TRUE", code
+            )
+            if not league_id:
+                print(f"  [WARN] Liga {code} não encontrada/inativa no banco. Pulando.")
+                continue
 
             # Busca TODAS as temporadas, da mais nova para a mais antiga
             seasons = await conn.fetch("""
                 SELECT s.season_id, s.label, s.is_current
                 FROM seasons s
-                WHERE s.league_id = (SELECT league_id FROM leagues WHERE code = $1)
+                WHERE s.league_id = $1
                 ORDER BY s.label DESC
-            """, code)
+            """, league_id)
 
             urls = []
             for s in seasons:
@@ -130,7 +129,7 @@ async def main():
                     continue
 
                 pct = round(already_mapped / total_in_season * 100, 1) if total_in_season > 0 else 0
-                
+
                 # Constrói a URL para esta temporada
                 if is_current:
                     url = f"https://www.flashscore.com/{base_path}/results/"
@@ -192,7 +191,7 @@ async def main():
             "WHERE source = 'flashscore' AND resolved = FALSE "
             "ORDER BY first_seen DESC LIMIT 20"
         )
-    
+
     if unknowns:
         print(f"\n{'=' * 70}")
         print(f"  ⚠️  {len(unknowns)} ALIASES NÃO RESOLVIDOS (flashscore)")
