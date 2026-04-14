@@ -130,6 +130,14 @@ async def main():
         if not matches:
             league_label = args.league or "todas as ligas"
             print(f"\n[Backfill Flashscore] Nenhuma partida pendente para {league_label}!")
+            TelegramAlert.fire(
+                "info",
+                f"📭 *Backfill Flashscore*\n"
+                f"Fila vazia — 0 partidas pendentes.\n"
+                f"Liga: `{league_label}`\n"
+                f"_Aguardando discovery popular novos flashscore\\_ids._"
+            )
+            print("Completados com sucesso:    0")
             return
 
         print(f"\n[Backfill Flashscore] {len(matches)} partidas encontradas. Inicializando scraper...\n")

@@ -1,3 +1,15 @@
+"""
+scripts/run_flashscore_discovery_all.py
+
+Discovery diário de Flashscore IDs para temporadas ATUAIS (e imediatamente anterior).
+Roda pelo scheduler (06:00 BRT) para manter os flashscore_ids atualizados.
+
+Para discovery histórico de TODAS as temporadas, usar:
+    scripts/run_flashscore_discovery_historical.py
+
+Uso (scheduler/cron):
+    xvfb-run -a python scripts/run_flashscore_discovery_all.py
+"""
 import asyncio
 import os
 import sys
@@ -13,12 +25,19 @@ from src.db.logger import get_logger
 logger = get_logger(__name__)
 
 def build_flashscore_season_slug(label: str) -> str:
-    """Conserta label '23/24' para '2023-2024' e '2023' para '2023'."""
+    """
+    Converte label de temporada para slug de URL do Flashscore.
+    Exemplos:
+        '2024/2025' -> '2024-2025'
+        '2025'      -> '2025'
+        '24/25'     -> '2024-2025'  (fallback legado)
+    """
     if "/" in label:
         parts = label.split("/")
-        # Assumindo que 23 é 2023
-        y1 = f"20{parts[0]}"
-        y2 = f"20{parts[1]}"
+        p1, p2 = parts[0].strip(), parts[1].strip()
+        # Suporte a labels com 2 ou 4 dígitos
+        y1 = f"20{p1}" if len(p1) == 2 else p1
+        y2 = f"20{p2}" if len(p2) == 2 else p2
         return f"{y1}-{y2}"
     return label
 
@@ -26,7 +45,7 @@ async def main():
     from src.alerts.telegram_mini import TelegramAlert
     await TelegramAlert.init()
     
-    print("Iniciando Discovery Massivo Flashscore...")
+    print("Iniciando Discovery Diário Flashscore (temporadas atuais)...")
     discovery = FlashscoreDiscovery()
     pool = await get_pool()
     target_urls = {}
@@ -37,20 +56,18 @@ async def main():
         
         for lg in leagues:
             code = lg["code"]
-            base_path = lg["flashscore_path"] # ex: "football/brazil/serie-a-betano"
+            base_path = lg["flashscore_path"]
             
-            # Decide quais seasons buscar
-            if code in ["BRA_SA", "ENG_PL"]:
-                # APENAS temporada passada (pois a atual já rodou)
-                seasons = await conn.fetch("SELECT label, is_current FROM seasons WHERE league_id = (SELECT league_id FROM leagues WHERE code = $1) AND is_current = FALSE ORDER BY label DESC LIMIT 1", code)
-            else:
-                # Temporada atual e Imediatamente Anterior (limite 2 ordered by label desc)
-                seasons = await conn.fetch("SELECT label, is_current FROM seasons WHERE league_id = (SELECT league_id FROM leagues WHERE code = $1) ORDER BY label DESC LIMIT 2", code)
+            # Temporada atual e imediatamente anterior (limite 2, mais nova primeiro)
+            seasons = await conn.fetch("""
+                SELECT label, is_current FROM seasons 
+                WHERE league_id = (SELECT league_id FROM leagues WHERE code = $1) 
+                ORDER BY label DESC LIMIT 2
+            """, code)
                 
             urls = []
             for s in seasons:
                 label = s["label"]
-                # Se for a atual, a url base /results/ já funciona
                 if s.get("is_current"):
                     urls.append(f"https://www.flashscore.com/{base_path}/results/")
                 else:

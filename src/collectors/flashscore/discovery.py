@@ -162,6 +162,8 @@ class FlashscoreDiscovery(BaseCollector):
             async with AsyncCamoufox(headless=self.config.headless, os="linux") as browser:
                 page = await browser.new_page()
                 
+                url_counter = 0
+
                 for league_code in leagues_to_run:
                     urls = []
                     if target_urls and league_code in target_urls:
@@ -171,37 +173,38 @@ class FlashscoreDiscovery(BaseCollector):
                         if not path:
                             continue
                         urls = [f"https://www.flashscore.com/{path}/{mode}/"]
-                        
+
                     for url in urls:
-                        print(f"\n[Flashscore] Discovery URL alvo: {url}")
-                    
-                    try:
-                        await page.goto(url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
-                        
-                        # Espera explícita pelo primeiro jogo renderizar (sinal que o JS principal rodou)
+                        url_counter += 1
+                        print(f"\n[Flashscore] [{url_counter}] Discovery URL alvo: {url}")
+
                         try:
-                            await page.wait_for_selector('div[id^="g_1_"]', timeout=15000)
-                        except Exception:
-                            logger.warning(f"[Flashscore] Timeout esperando os jogos carregarem em: {url}")
-                            # Continua para tentar mesmo assim (pode não haver jogos listados)
-                        
-                        # Dá um tempo a mais pro layout estabilizar
-                        await page.wait_for_timeout(self.config.render_wait_ms)
-                        
-                        await self._scroll_page(page)
-                        
-                        html = await page.content()
-                        
-                        # Process HTML e update BD
-                        upd = await self._extract_matches_from_page(html, league_code, conn, url)
-                        total_updated += upd
-                        print(f"[Flashscore] {league_code}: {upd} novos flashscore_ids atualizados na base de dados.\n")
-                        
-                        await asyncio.sleep(2)
-                        
-                    except Exception as e:
-                        logger.error(f"[Flashscore] Falha no discovery para {league_code}: {e}")
-                        errors.append(str(e))
+                            await page.goto(url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
+
+                            # Espera explícita pelo primeiro jogo renderizar (sinal que o JS principal rodou)
+                            try:
+                                await page.wait_for_selector('div[id^="g_1_"]', timeout=15000)
+                            except Exception:
+                                logger.warning(f"[Flashscore] Timeout esperando os jogos carregarem em: {url}")
+                                # Continua para tentar mesmo assim (pode não haver jogos listados)
+
+                            # Dá um tempo a mais pro layout estabilizar
+                            await page.wait_for_timeout(self.config.render_wait_ms)
+
+                            await self._scroll_page(page)
+
+                            html = await page.content()
+
+                            # Process HTML e update BD
+                            upd = await self._extract_matches_from_page(html, league_code, conn, url)
+                            total_updated += upd
+                            print(f"[Flashscore] {league_code}: {upd} novos flashscore_ids atualizados na base de dados.\n")
+
+                            await asyncio.sleep(2)
+
+                        except Exception as e:
+                            logger.error(f"[Flashscore] Falha no discovery para {league_code} ({url}): {e}")
+                            errors.append(str(e))
                         
                 await page.close()
                 
