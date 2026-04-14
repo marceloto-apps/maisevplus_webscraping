@@ -12,6 +12,8 @@ resolver os unknown_aliases pendentes e rodar novamente.
 Uso:
     xvfb-run -a python scripts/run_flashscore_discovery_historical.py
     xvfb-run -a python scripts/run_flashscore_discovery_historical.py --leagues ENG_PL BRA_SA
+    xvfb-run -a python scripts/run_flashscore_discovery_historical.py --seasons 2024/2025 2023/2024
+    xvfb-run -a python scripts/run_flashscore_discovery_historical.py --leagues ENG_PL --seasons 2023/2024
     xvfb-run -a python scripts/run_flashscore_discovery_historical.py --dry-run
 """
 import asyncio
@@ -52,6 +54,10 @@ async def main():
     parser.add_argument(
         "--leagues", nargs="*", default=None,
         help="Ligas específicas (ex: ENG_PL BRA_SA). Se omitido, roda todas."
+    )
+    parser.add_argument(
+        "--seasons", nargs="*", default=None,
+        help="Temporadas específicas (ex: 2024/2025 2023/2024 2025). Se omitido, roda todas."
     )
     parser.add_argument(
         "--dry-run", action="store_true",
@@ -102,6 +108,10 @@ async def main():
                 season_id = s["season_id"]
                 label = s["label"]
                 is_current = s.get("is_current", False)
+
+                # Filtra por temporada se especificado
+                if args.seasons and label not in args.seasons:
+                    continue
 
                 # Verifica progresso por temporada
                 pending = await conn.fetchval("""
