@@ -94,7 +94,8 @@ async def main():
             print(f"Partidas vistoriadas: {total_collected}")
 
             if total_collected > 0:
-                msg = f"📈 *Prematch Tracking Finalizado* ({args.phase})\nPartidas vistoriadas: {total_collected}"
+                safe_phase = args.phase.replace('_', r'\_')
+                msg = f"📈 *Prematch Tracking Finalizado* ({safe_phase})\nPartidas vistoriadas: {total_collected}"
                 TelegramAlert.fire("info", msg)
 
     finally:
