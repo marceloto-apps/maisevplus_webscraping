@@ -188,6 +188,9 @@ class FlashscoreOddsCollector(BaseCollector):
                     is_first_market = False  # Garante progressão mesmo com erro
                     
             # 5. Coletar Estatísticas pelo DOM estendido
+            if is_prematch:
+                return total_inserted
+                
             logger.debug(f"[Flashscore] Buscando estatísticas para {flashscore_id}")
             try:
                 match_url = f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary"
