@@ -186,6 +186,109 @@ async def flashscore_discovery():
 
     return {"job": "flashscore_discovery", "records_count": records_count}
 
+@safe_job
+async def flashscore_discovery_fixtures():
+    """
+    Trigger: 05:30 BRT
+    Descobre os Flashscore IDs de partidas agendadas (fixtures).
+    """
+    import subprocess
+    import sys
+
+    try:
+        logger.info("spawning_flashscore_discovery_fixtures_subprocess")
+        proc = await asyncio.create_subprocess_exec(
+            "xvfb-run", "-a", sys.executable, "scripts/run_flashscore_discovery_fixtures.py",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout_bytes, stderr_bytes = await proc.communicate()
+
+        if proc.returncode != 0:
+            stderr_text = (stderr_bytes or b"").decode("utf-8", errors="replace")[-600:]
+            logger.error("flashscore_discovery_fixtures_subprocess_failed", returncode=proc.returncode)
+            raise RuntimeError(
+                f"Subprocess encerrou com código {proc.returncode}.\n{stderr_text}"
+            )
+
+        logger.info("flashscore_discovery_fixtures_subprocess_success")
+
+    except RuntimeError:
+        raise
+    except Exception as e:
+        logger.error("flashscore_discovery_fixtures_spawn_failed", error=str(e))
+        raise
+
+    return {"job": "flashscore_discovery_fixtures"}
+
+async def _run_prematch_tracker(phase: str):
+    import subprocess
+    import sys
+
+    try:
+        logger.info(f"spawning_prematch_tracker_subprocess_phase_{phase}")
+        proc = await asyncio.create_subprocess_exec(
+            "xvfb-run", "-a", sys.executable, "scripts/run_flashscore_prematch.py", "--phase", phase,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout_bytes, stderr_bytes = await proc.communicate()
+
+        if proc.returncode != 0:
+            stderr_text = (stderr_bytes or b"").decode("utf-8", errors="replace")[-600:]
+            logger.error(f"prematch_tracker_subprocess_failed_phase_{phase}", returncode=proc.returncode)
+            raise RuntimeError(
+                f"Subprocess encerrou com código {proc.returncode}.\n{stderr_text}"
+            )
+
+        logger.info(f"prematch_tracker_subprocess_success_phase_{phase}")
+
+    except RuntimeError:
+        raise
+    except Exception as e:
+        logger.error(f"prematch_tracker_spawn_failed_phase_{phase}", error=str(e))
+        raise
+
+    return {"job": f"prematch_tracker_{phase}"}
+
+@safe_job
+async def prematch_tracking_morning():
+    return await _run_prematch_tracker("tracking_2x")
+
+@safe_job
+async def prematch_tracking_evening():
+    return await _run_prematch_tracker("tracking_2x")
+
+@safe_job
+async def flashscore_dynamic_prematch(match_id: str, phase: str):
+    import subprocess
+    import sys
+
+    try:
+        logger.info(f"spawning_flashscore_dynamic_prematch_phase_{phase}_match_{match_id}")
+        proc = await asyncio.create_subprocess_exec(
+            "xvfb-run", "-a", sys.executable, "scripts/run_flashscore_prematch.py", 
+            "--phase", phase, "--match_id", match_id,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout_bytes, stderr_bytes = await proc.communicate()
+
+        if proc.returncode != 0:
+            stderr_text = (stderr_bytes or b"").decode("utf-8", errors="replace")[-600:]
+            logger.error(f"flashscore_dynamic_prematch_failed_phase_{phase}", returncode=proc.returncode)
+            raise RuntimeError(
+                f"Subprocess encerrou com código {proc.returncode}.\n{stderr_text}"
+            )
+
+    except RuntimeError:
+        raise
+    except Exception as e:
+        logger.error(f"flashscore_dynamic_prematch_spawn_failed_phase_{phase}", error=str(e))
+        raise
+
+    return {"job": f"fs_dynamic_{phase}", "match_id": match_id}
+
 
 
 @safe_job
@@ -233,6 +336,17 @@ async def flashscore_closing_odds():
     if match_ids:
         collector = FlashscoreOddsCollector()
         res = await collector.collect(match_ids=match_ids, is_closing=True)
+        
+        # Após a coleta das closing odds originais da partida terminar, 
+        # marcamos o último snapshot do tracker como closing_prematch
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            for m in match_ids:
+                try:
+                    await conn.execute("SELECT mark_closing_prematch($1)", m["match_id"])
+                except Exception as e:
+                    logger.error(f"Erro ao chamar mark_closing_prematch para {m['match_id']}: {e}")
+                    
         return {"total_closing": res.records_collected, "new": res.records_new}
     return {"total_closing": 0, "new": 0}
 
@@ -299,9 +413,12 @@ async def schedule_gameday_jobs():
         # T-60 (Lineups & Odds Inicial), T-30 (Odds Finais 1), T-5 (Closing)
         placements = [
             (-60, "pre60_lineups", lineups_single_match),
-            (-60, "pre60_odds", odds_single_match),
-            (-30, "pre30_odds", odds_single_match),
-            (-5, "pre5_odds", odds_single_match),
+            # Desativados os triggers Odds API enquanto o pipeline backfill avança
+            # (-60, "pre60_odds", odds_single_match),
+            # (-30, "pre30_odds", odds_single_match),
+            # (-5, "pre5_odds", odds_single_match),
+            # Flashscore Tracking Dinâmicos reducao temporaria: pre30 removido, preservando pre2
+            (-2, "pre2", flashscore_dynamic_prematch),
         ]
 
         for offset_min, label, job_func in placements:
@@ -319,6 +436,8 @@ async def schedule_gameday_jobs():
             kwargs = {"match_id": match_id_uuid}
             if job_func == odds_single_match:
                 kwargs["label"] = label
+            elif job_func == flashscore_dynamic_prematch:
+                kwargs["phase"] = label
                 
             _scheduler_ref.add_job(
                 job_func,
@@ -506,19 +625,23 @@ async def health_check():
     is_monday = now_brt.weekday() == 0  # segunda
 
     schedule_lines = [
-        "🗓 *Rotinas de hoje:*",
-        "  `02:00` — Flashscore Backfill (janela 1)",
-        "  `04:15` — API-Football Backfill",
-        "  `05:00` — FootyStats Daily",
-        "  `05:15` — Football-Data Daily",
-        "  `06:00` — Flashscore Discovery",
-        "  `06:15` — Flashscore Backfill (janela 2)",
-        "  `09:00` — Flashscore Backfill (janela 3)",
-        "  `11:45` — Flashscore Backfill (janela 4)",
-        "  `14:30` — Flashscore Backfill (janela 5)",
-        "  `17:15` — Flashscore Backfill (janela 6)",
-        "  `20:00` — Flashscore Backfill (janela 7)",
-        "  `22:45` — Flashscore Backfill (janela 8)",
+        "🗓 *Rotinas Fixas de hoje:*",
+        "  `00:30` — Schedule Gameday Dinâmico",
+        "  `01:00` — Flashscore Backfill (janela 1)",
+        "  `03:00` — Heartbeat / Notificações",
+        "  `03:20` — API-Football Backfill",
+        "  `04:10` — FootyStats Daily",
+        "  `04:20` — Football-Data Daily",
+        "  `04:30` — Flashscore Discovery Fixtures",
+        "  `05:00` — Flashscore Discovery Results",
+        "  `05:40` — Prematch Tracking (Morning)",
+        "  `08:00` — Flashscore Backfill (janela 2)",
+        "  `10:20` — Flashscore Backfill (janela 3)",
+        "  `12:40` — Flashscore Backfill (janela 4)",
+        "  `15:00` — Flashscore Backfill (janela 5)",
+        "  `17:20` — Flashscore Backfill (janela 6)",
+        "  `19:40` — Prematch Tracking (Evening)",
+        "  `22:00` — Flashscore Backfill (janela 7)",
     ]
     if is_monday:
         schedule_lines.append("  `05:00` — Fixtures Weekly *(segunda-feira)*")

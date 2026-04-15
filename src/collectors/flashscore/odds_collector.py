@@ -9,6 +9,7 @@ from src.collectors.base import BaseCollector, CollectResult, CollectStatus
 from src.collectors.flashscore.config import FlashscoreConfig, FLASHSCORE_BOOKMAKER_MAP
 from src.collectors.flashscore.parser import FlashscoreParser
 from src.normalizer.dedup import insert_odds_if_new
+from src.normalizer.prematch_tracker import insert_prematch_odds
 from src.db.pool import get_pool
 from src.db.logger import get_logger
 
@@ -40,7 +41,7 @@ class FlashscoreOddsCollector(BaseCollector):
                 self.bm_ids[row['name'].lower()] = row['bookmaker_id']
                 self.bm_ids[row['name']] = row['bookmaker_id']
 
-    async def collect_match(self, browser, conn, match_id_uuid: str, flashscore_id: str, is_closing: bool, job_id: str) -> int:
+    async def collect_match(self, browser, conn, match_id_uuid: str, flashscore_id: str, is_closing: bool, job_id: str, is_prematch: bool = False, kickoff: datetime = None) -> int:
         """
         Para uma única partida, usa navegação SPA (cliques) para acessar a aba de odds.
         Flashscore bloqueia renderização de odds em navegação direta (goto);
@@ -142,22 +143,39 @@ class FlashscoreOddsCollector(BaseCollector):
                             continue
                             
                         try:
-                            is_new = await insert_odds_if_new(
-                                conn=conn,
-                                match_id=match_id_uuid,
-                                bookmaker_id=bm_db_id,
-                                market_type=entry["market_type"],
-                                line=entry["line"],
-                                period=entry["period"],
-                                odds_1=entry["odds_1"],
-                                odds_x=entry["odds_x"],
-                                odds_2=entry["odds_2"],
-                                source=self.source_name,
-                                collect_job_id=job_id,
-                                is_opening=False,
-                                is_closing=is_closing,
-                                time=now
-                            )
+                            if is_prematch:
+                                is_new = await insert_prematch_odds(
+                                    conn=conn,
+                                    match_id=match_id_uuid,
+                                    bookmaker_id=bm_db_id,
+                                    market_type=entry["market_type"],
+                                    line=entry["line"],
+                                    period=entry["period"],
+                                    odds_1=entry["odds_1"],
+                                    odds_x=entry["odds_x"],
+                                    odds_2=entry["odds_2"],
+                                    source=self.source_name,
+                                    collect_job_id=job_id,
+                                    kickoff=kickoff,
+                                    time=now
+                                )
+                            else:
+                                is_new = await insert_odds_if_new(
+                                    conn=conn,
+                                    match_id=match_id_uuid,
+                                    bookmaker_id=bm_db_id,
+                                    market_type=entry["market_type"],
+                                    line=entry["line"],
+                                    period=entry["period"],
+                                    odds_1=entry["odds_1"],
+                                    odds_x=entry["odds_x"],
+                                    odds_2=entry["odds_2"],
+                                    source=self.source_name,
+                                    collect_job_id=job_id,
+                                    is_opening=False,
+                                    is_closing=is_closing,
+                                    time=now
+                                )
                             if is_new:
                                 total_inserted += 1
                             else:
@@ -335,11 +353,12 @@ class FlashscoreOddsCollector(BaseCollector):
             
         return total_inserted
 
-    async def collect(self, match_ids: List[dict] = None, is_closing: bool = False, **kwargs) -> CollectResult:
+    async def collect(self, match_ids: List[dict] = None, is_closing: bool = False, is_prematch: bool = False, **kwargs) -> CollectResult:
         """
         Ponto de entrada do BaseCollector.
-        match_ids: lista de dicionários contendo {"match_id": UUID, "flashscore_id": str}
+        match_ids: lista de dicionários contendo {"match_id": UUID, "flashscore_id": str, "kickoff": datetime}
         is_closing: se True, marca as odds como is_closing = TRUE (útil para jogos pós match)
+        is_prematch: se True, redireciona o fluxo para a tabela prematch_odds
         """
         job_id = self.generate_job_id("flashscore_odds")
         started_at = datetime.now(timezone.utc)
@@ -366,13 +385,14 @@ class FlashscoreOddsCollector(BaseCollector):
                     for idx, m in enumerate(match_ids):
                         m_uuid = m["match_id"]
                         fs_id = m.get("flashscore_id")
+                        kickoff = m.get("kickoff")
                         
                         if not fs_id:
                             total_skipped += 1
                             continue
                             
                         logger.info(f"[Flashscore] Progresso: {idx+1}/{len(match_ids)} | Match: {fs_id}")
-                        inserted = await self.collect_match(browser, conn, m_uuid, fs_id, is_closing, job_id)
+                        inserted = await self.collect_match(browser, conn, m_uuid, fs_id, is_closing, job_id, is_prematch, kickoff)
                         
                         total_collected += 1  # Conta matches processados
                         total_new += inserted

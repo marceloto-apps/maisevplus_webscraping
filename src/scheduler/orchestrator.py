@@ -23,6 +23,10 @@ from src.scheduler.jobs import (
     flashscore_odds_standard,
     flashscore_closing_odds,
     flashscore_historical_backfill,
+    flashscore_discovery_fixtures,
+    prematch_tracking_morning,
+    prematch_tracking_evening,
+    health_check,
     health_check,
     set_scheduler
 )
@@ -71,11 +75,11 @@ class AppOrchestrator:
             misfire_grace_time=3600
         )
 
-        # 4. Schedule Dinâmico (01:00 BRT)
+        # 4. Schedule Dinâmico (00:30 BRT)
         self.scheduler.add_job(
             schedule_gameday_jobs,
             'cron',
-            hour=1, minute=0,
+            hour=0, minute=30,
             id="schedule_gameday_jobs",
             misfire_grace_time=1800
         )
@@ -89,82 +93,73 @@ class AppOrchestrator:
         #     misfire_grace_time=3600
         # )
 
-        # 5. FootyStats Daily — 05:00 BRT (atualiza temporadas ativas + auto-close)
+        # 5. FootyStats Daily — 04:10 BRT (atualiza temporadas ativas + auto-close)
         self.scheduler.add_job(
             footystats_daily,
             'cron',
-            hour=5, minute=0,
+            hour=4, minute=10,
             id="footystats_daily",
             misfire_grace_time=7200
         )
 
-        # 6. Football-Data Daily — 05:15 BRT (atualiza CSVs das temporadas ativas)
+        # 6. Football-Data Daily — 04:20 BRT (atualiza CSVs das temporadas ativas)
         self.scheduler.add_job(
             football_data_daily,
             'cron',
-            hour=5, minute=15,
+            hour=4, minute=20,
             id="football_data_daily",
             misfire_grace_time=7200
         )
 
-        # 6b. API-Football Backfill — 04:15 BRT (garante VPN desconectada do Flashscore das 02h)
+        # 6b. API-Football Backfill — 03:20 BRT (garante VPN desconectada do Flashscore das 01h)
         self.scheduler.add_job(
             apifootball_backfill,
             'cron',
-            hour=4, minute=15,
+            hour=3, minute=20,
             id="apifootball_backfill",
             misfire_grace_time=7200
         )
 
-        # 6c. Flashscore Historical Backfill — 8 janelas BRT (ip rotation a cada rodada)
-        # Agrupadas por minuto para minimizar o número de jobs registrados:
-        # Minuto :00  → 02h, 09h, 20h
+        # 6c. Flashscore Historical Backfill — 7 janelas BRT (ip rotation a cada rodada)
+        # Minuto :00  → 01h, 08h, 15h, 22h
         self.scheduler.add_job(
             flashscore_historical_backfill,
             'cron',
-            hour='2,9,20', minute=0,
+            hour='1,8,15,22', minute=0,
             id="flashscore_backfill_m00",
             misfire_grace_time=3600
         )
-        # Minuto :15  → 06h15, 17h15
+        # Minuto :20  → 10h20, 17h20
         self.scheduler.add_job(
             flashscore_historical_backfill,
             'cron',
-            hour='6,17', minute=15,
-            id="flashscore_backfill_m15",
+            hour='10,17', minute=20,
+            id="flashscore_backfill_m20",
             misfire_grace_time=3600
         )
-        # Minuto :30  → 14h30
+        # Minuto :40  → 12h40
         self.scheduler.add_job(
             flashscore_historical_backfill,
             'cron',
-            hour=14, minute=30,
-            id="flashscore_backfill_m30",
-            misfire_grace_time=3600
-        )
-        # Minuto :45  → 11h45, 22h45
-        self.scheduler.add_job(
-            flashscore_historical_backfill,
-            'cron',
-            hour='11,22', minute=45,
-            id="flashscore_backfill_m45",
+            hour=12, minute=40,
+            id="flashscore_backfill_m40",
             misfire_grace_time=3600
         )
 
         # 7. Fixtures Weekly (Segundas-feiras 05:00 BRT — calendário futuro via API-Football)
-        self.scheduler.add_job(
-            fixtures_weekly,
-            'cron',
-            day_of_week='mon', hour=5, minute=0,
-            id="fixtures_weekly",
-            misfire_grace_time=7200
-        )
+        # self.scheduler.add_job(
+        #     fixtures_weekly,
+        #     'cron',
+        #     day_of_week='mon', hour=5, minute=0,
+        #     id="fixtures_weekly",
+        #     misfire_grace_time=7200
+        # )
 
-        # 8. Flashscore Discovery (06:00 BRT — descobre match IDs)
+        # 8. Flashscore Discovery (05:00 BRT — descobre match IDs passados)
         self.scheduler.add_job(
             flashscore_discovery,
             'cron',
-            hour=6, minute=0,
+            hour=5, minute=0,
             id="flashscore_discovery",
             misfire_grace_time=7200
         )
@@ -177,6 +172,36 @@ class AppOrchestrator:
         #     id="flashscore_odds_standard",
         #     misfire_grace_time=3600
         # )
+        
+        # 9b. Flashscore Discovery Fixtures (04:30 BRT)
+        self.scheduler.add_job(
+            flashscore_discovery_fixtures,
+            'cron',
+            hour=4, minute=30,
+            id="flashscore_discovery_fixtures",
+            misfire_grace_time=1800,
+            replace_existing=True
+        )
+
+        # 9c. Flashscore Prematch Tracking Morning (05:40 BRT)
+        self.scheduler.add_job(
+            prematch_tracking_morning,
+            'cron',
+            hour=5, minute=40,
+            id="prematch_tracking_morning",
+            misfire_grace_time=1800,
+            replace_existing=True
+        )
+
+        # 9d. Flashscore Prematch Tracking Evening (19:40 BRT)
+        self.scheduler.add_job(
+            prematch_tracking_evening,
+            'cron',
+            hour=19, minute=40,
+            id="prematch_tracking_evening",
+            misfire_grace_time=1800,
+            replace_existing=True
+        )
 
         # 10. Flashscore Closing Odds (06:30 BRT — odds de fechamento de D-1)
         # self.scheduler.add_job(
