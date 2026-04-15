@@ -5,6 +5,102 @@ from src.db.logger import get_logger
 
 logger = get_logger(__name__)
 
+
+def _parse_line_value(raw_text: str, signed: bool = False) -> Optional[float]:
+    """
+    Converte texto de linha (handicap/total) do Flashscore para float.
+    
+    Formatos suportados:
+    - Inteiro: "3", "0", "-3", "+2"
+    - Decimal: "2.5", "-0.5", "+1.5", "2.0"
+    - Quarter-goal (comma-separated): "2, 2.5" → 2.25, "-3, -3.5" → -3.25
+    
+    Args:
+        signed: Se True, aceita sinais +/- (para AH). Se False, só positivos (para OU).
+    """
+    text = raw_text.strip()
+    if not text:
+        return None
+    
+    # Caso 1: Quarter-goal (dois valores separados por vírgula)
+    if ',' in text:
+        parts = [p.strip() for p in text.split(',')]
+        if len(parts) == 2:
+            try:
+                v1, v2 = float(parts[0]), float(parts[1])
+                return round((v1 + v2) / 2, 2)  # média = quarter line
+            except ValueError:
+                pass
+    
+    # Caso 2: Valor único (inteiro ou decimal)
+    pattern = r'^([+-]?\d+(?:\.\d+)?)$' if signed else r'^(\d+(?:\.\d+)?)$'
+    match = re.match(pattern, text)
+    if match:
+        return float(match.group(1))
+    
+    return None
+
+
+def _extract_line_from_cell(row, signed: bool = False) -> Optional[float]:
+    """
+    Extrai o valor da linha (handicap/total) a partir da célula CSS dedicada do Flashscore.
+    
+    O DOM do Flashscore usa a classe 'oddsCell__handicap' (ou variações) para a célula
+    que contém exclusivamente o valor da linha, sem misturar com bookmaker ou odds.
+    """
+    # Tentativa 1: Classe CSS específica do Flashscore para a célula de handicap/total
+    handicap_cell = row.find(
+        lambda tag: tag.name in ("a", "div", "span")
+        and tag.get("class")
+        and any("handicap" in c.lower() for c in (tag.get("class") or []))
+    )
+    
+    if handicap_cell:
+        # Dentro da célula, o valor pode estar num span filho ou ser texto direto
+        inner_span = handicap_cell.find("span")
+        raw = (inner_span.get_text(strip=True) if inner_span else handicap_cell.get_text(strip=True))
+        
+        # Caso especial: Flashscore exibe célula vazia para handicap 0
+        # A célula CSS existe mas não contém texto visível
+        if not raw and signed:
+            return 0.0
+        
+        val = _parse_line_value(raw, signed=signed)
+        if val is not None:
+            return val
+    
+    return None
+
+
+def _parse_line_from_text(full_text: str, signed: bool = False) -> Optional[float]:
+    """
+    Fallback: extrai o valor da linha a partir do texto completo da row via regex.
+    Mais frágil que _extract_line_from_cell() mas serve como backup.
+    """
+    # Tenta quarter-goal primeiro (ex: "-3, -3.5" ou "2, 2.5")
+    if signed:
+        qg_match = re.search(r'([+-]?\d+(?:\.\d+)?)\s*,\s*([+-]?\d+(?:\.\d+)?)', full_text)
+    else:
+        qg_match = re.search(r'(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)', full_text)
+    
+    if qg_match:
+        try:
+            v1, v2 = float(qg_match.group(1)), float(qg_match.group(2))
+            return round((v1 + v2) / 2, 2)
+        except ValueError:
+            pass
+    
+    # Tenta valor único (inteiro ou decimal)
+    if signed:
+        single_match = re.search(r'(?:^|\s)([+-]?\d+(?:\.\d+)?)(?:\s|$)', full_text)
+    else:
+        single_match = re.search(r'(?:^|\s)(\d+(?:\.\d+)?)(?:\s|$)', full_text)
+    
+    if single_match:
+        return float(single_match.group(1))
+    
+    return None
+
 class FlashscoreParser:
     """
     Parser para conteúdo HTML da página do Flashscore.
@@ -93,21 +189,18 @@ class FlashscoreParser:
                             "odds_2": parsed_vals[2]
                         })
                 elif sys_market == "ou":
-                    # OU geralmente tem a linha na primeira célula após o nome do bookmaker (ex: 2.5) 
-                    # Mas se a aba já é de uma linha específica, a linha pode estar no cabeçalho ou vir junta.
-                    # Flashscore tipicamente exibe: Bookmaker | Total | Over | Under
-                    # Assumimos que a tabela mostra a linha.
+                    # Over/Under: Bookmaker | Total Line | Over | Under
+                    # Extrai a linha (total) pela célula CSS dedicada
+                    line_val = _extract_line_from_cell(row, signed=False)
                     
-                    # Para Extrair a linha (Total), achamos um elemento de texto visível que se parece com linha.
-                    # Ele costuma estar solto na row ou num span específico.
-                    line_text = row.get_text(separator=' ', strip=True)
-                    line_match = re.search(r'\b(\d+\.5|\d+\.25|\d+\.75|\d+\.0)\b', line_text)
-                    line_val = float(line_match.group(1)) if line_match else None
+                    # Fallback: regex no texto completo da row
+                    if line_val is None:
+                        line_text = row.get_text(separator=' ', strip=True)
+                        line_val = _parse_line_from_text(line_text, signed=False)
                     
                     if len(parsed_vals) >= 2 and line_val is not None:
                         # Frequentemente, a própria linha parseou no parsed_vals. 
                         # Precisamos excluir a linha se ela foi detectada como odd acidentalmente.
-                        # Exemplo: parsed_vals = [2.50, 1.80, 2.05]
                         real_odds = [v for v in parsed_vals if v != line_val]
                         # Se não sobrou 2 odds, fallback para pegar as últimas duas
                         if len(real_odds) < 2:
@@ -125,13 +218,16 @@ class FlashscoreParser:
                             })
                 elif sys_market == "ah":
                     # Asian Handicap: Bookmaker | Handicap | ODD 1 | ODD 2
-                    line_text = row.get_text(separator=' ', strip=True)
-                    # Linhas AH podem ter sinais + ou -
-                    line_match = re.search(r'([+-]?\d+\.5|[+-]?\d+\.25|[+-]?\d+\.75|[+-]?\d+\.0)\b', line_text)
+                    # Extrai a linha (handicap) pela célula CSS dedicada
+                    line_val = _extract_line_from_cell(row, signed=True)
+                    
+                    # Fallback: regex no texto completo da row
+                    if line_val is None:
+                        line_text = row.get_text(separator=' ', strip=True)
+                        line_val = _parse_line_from_text(line_text, signed=True)
                     
                     # As odds geralmente são as últimas duas colunas da row
-                    if line_match and len(parsed_vals) >= 2:
-                        line_val = float(line_match.group(1))
+                    if line_val is not None and len(parsed_vals) >= 2:
                         # odds1 = home, odds2 = away
                         real_odds = parsed_vals[-2:] 
                         results.append({
