@@ -55,7 +55,7 @@ CREATE INDEX IF NOT EXISTS idx_prematch_last_snapshot ON public.prematch_odds(ma
 CREATE INDEX IF NOT EXISTS idx_prematch_job ON public.prematch_odds(source, collect_job_id);
 
 -- Index auxiliar em matches
-CREATE INDEX idx_matches_scheduled_flashscore ON matches(kickoff, league_id) 
+CREATE INDEX IF NOT EXISTS idx_matches_scheduled_flashscore ON public.matches(kickoff, league_id) 
 WHERE status = 'scheduled' AND flashscore_id IS NOT NULL;
 
 
