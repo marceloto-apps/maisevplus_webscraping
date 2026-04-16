@@ -242,6 +242,19 @@ class FlashscoreParser:
                         if line_val is not None and not _is_valid_line(line_val):
                             line_val = None
                     
+                    # Fallback final para handicap 0:
+                    # No Flashscore, quando o AH é 0 a célula oddsCell__handicap
+                    # NÃO EXISTE no DOM (é removida, não apenas vazia).
+                    # Se temos bookmaker + 2 odds mas nenhuma linha → é AH 0.
+                    if line_val is None and len(parsed_vals) >= 2:
+                        # Confirmar que realmente não há célula handicap na row
+                        has_handicap_cell = row.find(
+                            lambda tag: tag.get("class")
+                            and any("handicap" in c.lower() for c in (tag.get("class") or []))
+                        )
+                        if not has_handicap_cell:
+                            line_val = 0.0
+                    
                     # As odds geralmente são as últimas duas colunas da row
                     if line_val is not None and len(parsed_vals) >= 2:
                         # odds1 = home, odds2 = away

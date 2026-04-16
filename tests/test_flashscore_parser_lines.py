@@ -343,6 +343,27 @@ class TestParseOddsTableAH:
         assert result[0]["odds_1"] == 1.90
         assert result[0]["odds_2"] == 2.00
 
+    def test_missing_cell_means_zero(self):
+        """DOM real Flashscore: para AH 0, a célula oddsCell__handicap
+        NÃO EXISTE no DOM (removida completamente, não apenas vazia)."""
+        html = """
+        <html><body>
+        <div class="ui-table__row">
+            <div class="oddsCell__bookmakerPart">
+                <a title="bet365"><img alt="bet365"/></a>
+            </div>
+            <a class="oddsCell__odd"><span>1.57</span></a>
+            <a class="oddsCell__odd"><span>2.22</span></a>
+        </div>
+        </body></html>
+        """
+        config = {"sys_market": "ah", "period": "ft"}
+        result = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
+        assert len(result) == 1
+        assert result[0]["line"] == 0.0
+        assert result[0]["odds_1"] == 1.57
+        assert result[0]["odds_2"] == 2.22
+
 class TestParseOddsTableOU:
     """Testa parse_odds_table para mercado Over/Under com vários formatos de linha."""
 

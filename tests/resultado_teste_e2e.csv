@@ -1,0 +1,768 @@
+flashscore_id;match_label;market_key;market_type;period;bookmaker;line;odds_1;odds_x;odds_2
+bZOttMQ7;Vasco vs Sao Paulo;1x2_ft;1x2;ft;bet365;;2.2;3.2;3.2
+bZOttMQ7;Vasco vs Sao Paulo;1x2_ft;1x2;ft;betano;;2.35;3.2;3.25
+bZOttMQ7;Vasco vs Sao Paulo;1x2_ft;1x2;ft;estrela_bet;;2.28;3.2;3.25
+bZOttMQ7;Vasco vs Sao Paulo;1x2_ft;1x2;ft;superbet;;2.32;3.15;3.3
+bZOttMQ7;Vasco vs Sao Paulo;1x2_ft;1x2;ft;1xbet;;2.32;3.2;3.22
+bZOttMQ7;Vasco vs Sao Paulo;1x2_ft;1x2;ft;betnacional;;2.28;3.2;3.24
+bZOttMQ7;Vasco vs Sao Paulo;1x2_ft;1x2;ft;bet7k;;2.29;3.1;3.18
+bZOttMQ7;Vasco vs Sao Paulo;1x2_ft;1x2;ft;betfair_ex;;2.3;3.0;3.3
+bZOttMQ7;Vasco vs Sao Paulo;1x2_ft;1x2;ft;f12;;2.27;3.2;3.25
+bZOttMQ7;Vasco vs Sao Paulo;1x2_ft;1x2;ft;kto;;2.35;3.25;3.3
+bZOttMQ7;Vasco vs Sao Paulo;1x2_ft;1x2;ft;multibet;;2.25;3.14;3.25
+bZOttMQ7;Vasco vs Sao Paulo;1x2_ft;1x2;ft;segurobet;;2.29;3.18;3.23
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;bet365;0.5;1.07;;8.5
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;betano;0.5;1.09;;7.3
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;estrela_bet;0.5;1.06;;7.5
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;superbet;0.5;1.08;;8.1
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;1xbet;0.5;1.02;;7.9
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;betfair_ex;0.5;1.07;;8.0
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;f12;0.5;1.07;;7.4
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;kto;0.5;1.06;;9.0
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;multibet;0.5;1.07;;7.0
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;estrela_bet;0.75;1.07;;7.0
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;1xbet;0.75;1.03;;7.2
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;multibet;0.75;1.08;;6.66
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;bet365;1.0;1.11;;6.8
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;estrela_bet;1.0;1.09;;6.5
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;1xbet;1.0;1.05;;6.5
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;betnacional;1.0;1.1;;6.22
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;multibet;1.0;1.1;;6.33
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;bet365;1.25;1.24;;3.9
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;estrela_bet;1.25;1.22;;4.0
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;1xbet;1.25;1.19;;3.78
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;multibet;1.25;1.23;;3.8
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;segurobet;1.25;1.24;;3.9
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;bet365;1.5;1.4;;3.0
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;betano;1.5;1.42;;2.9
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;estrela_bet;1.5;1.36;;3.0
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;superbet;1.5;1.39;;3.0
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;1xbet;1.5;1.33;;2.85
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;betnacional;1.5;1.37;;2.95
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;betfair_ex;1.5;1.44;;2.7
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;f12;1.5;1.37;;2.95
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;kto;1.5;1.35;;3.15
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;multibet;1.5;1.37;;2.9
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;segurobet;1.5;1.38;;2.9
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;bet365;1.75;1.48;;2.6
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;estrela_bet;1.75;1.44;;2.66
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;1xbet;1.75;1.44;;2.48
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;bet7k;1.75;1.47;;2.55
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;multibet;1.75;1.47;;2.57
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;segurobet;1.75;1.48;;2.55
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;bet365;2.0;1.63;;2.25
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;estrela_bet;2.0;1.6;;2.25
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;1xbet;2.0;1.6;;2.15
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;betnacional;2.0;1.6;;2.24
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;bet7k;2.0;1.63;;2.17
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;multibet;2.0;1.6;;2.25
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;segurobet;2.0;1.65;;2.2
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;bet365;2.25;1.95;;1.9
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;estrela_bet;2.25;1.85;;1.88
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;1xbet;2.25;1.87;;1.82
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;bet7k;2.25;1.9;;1.84
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;multibet;2.25;1.87;;1.86
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;segurobet;2.25;1.93;;1.88
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;bet365;2.5;2.15;;1.67
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;betano;2.5;2.22;;1.67
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;estrela_bet;2.5;2.1;;1.68
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;superbet;2.5;2.22;;1.67
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;1xbet;2.5;2.21;;1.66
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;betnacional;2.5;2.14;;1.66
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;bet7k;2.5;2.17;;1.63
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;betfair_ex;2.5;2.45;;1.53
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;f12;2.5;2.14;;1.66
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;kto;2.5;2.15;;1.68
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;multibet;2.5;2.16;;1.64
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;segurobet;2.5;2.17;;1.67
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;bet365;2.75;2.5;;1.5
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;estrela_bet;2.75;2.42;;1.52
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;1xbet;2.75;2.5;;1.46
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;bet7k;2.75;2.53;;1.47
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;multibet;2.75;2.5;;1.5
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;segurobet;2.75;2.5;;1.5
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;bet365;3.0;3.3;;1.33
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;estrela_bet;3.0;3.1;;1.33
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;1xbet;3.0;3.16;;1.29
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;betnacional;3.0;3.09;;1.34
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;multibet;3.0;3.14;;1.33
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;segurobet;3.0;3.25;;1.32
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;bet365;3.25;3.55;;1.27
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;estrela_bet;3.25;3.33;;1.3
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;1xbet;3.25;3.52;;1.23
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;multibet;3.25;3.5;;1.27
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;segurobet;3.25;3.6;;1.27
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;bet365;3.5;4.0;;1.25
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;betano;3.5;4.0;;1.25
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;estrela_bet;3.5;3.66;;1.25
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;superbet;3.5;4.0;;1.25
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;1xbet;3.5;3.9;;1.18
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;betnacional;3.5;3.77;;1.24
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;betfair_ex;3.5;5.0;;1.17
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;f12;3.5;3.75;;1.24
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;kto;3.5;4.0;;1.24
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;multibet;3.5;3.8;;1.23
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;segurobet;3.5;4.0;;1.23
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;bet365;3.75;5.0;;1.17
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;estrela_bet;3.75;4.5;;1.17
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;1xbet;3.75;4.95;;1.11
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;multibet;3.75;4.75;;1.16
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;bet365;4.0;7.0;;1.1
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;estrela_bet;4.0;6.5;;1.09
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;1xbet;4.0;7.2;;1.03
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;betnacional;4.0;6.54;;1.09
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;multibet;4.0;6.66;;1.08
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;estrela_bet;4.25;6.5;;1.09
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;1xbet;4.25;7.7;;1.03
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;multibet;4.25;7.0;;1.07
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;bet365;4.5;8.0;;1.08
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;betano;4.5;7.7;;1.09
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;estrela_bet;4.5;7.0;;1.07
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;superbet;4.5;8.3;;1.08
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;1xbet;4.5;8.1;;1.02
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;betfair_ex;4.5;10.0;;1.05
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;f12;4.5;7.2;;1.07
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;kto;4.5;8.5;;1.06
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;multibet;4.5;7.5;;1.06
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;estrela_bet;4.75;8.5;;1.05
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;multibet;4.75;9.0;;1.04
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;estrela_bet;5.0;10.0;;1.03
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;multibet;5.0;11.0;;1.02
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;estrela_bet;5.25;10.0;;1.03
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;multibet;5.25;11.0;;1.02
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;bet365;5.5;17.0;;1.02
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;betano;5.5;13.0;;1.03
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;estrela_bet;5.5;11.0;;1.02
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;superbet;5.5;18.0;;1.02
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;1xbet;5.5;15.0;;1.01
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;f12;5.5;12.0;;1.02
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;multibet;5.5;11.0;;1.02
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;betano;6.5;17.0;;1.01
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;superbet;6.5;45.0;;1.01
+bZOttMQ7;Vasco vs Sao Paulo;ou_ft;ou;ft;1xbet;6.5;17.0;;1.01
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;estrela_bet;-2.5;8.5;;1.05
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;superbet;-2.5;10.0;;1.04
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;1xbet;-2.5;9.9;;1.01
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;1xbet;-2.0;8.8;;1.02
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;betnacional;-2.0;8.15;;1.06
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;bet365;-1.75;6.0;;1.13
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;estrela_bet;-1.75;5.5;;1.12
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;1xbet;-1.75;6.1;;1.06
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;segurobet;-1.75;5.7;;1.11
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;bet365;-1.5;4.5;;1.19
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;estrela_bet;-1.5;4.25;;1.2
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;superbet;-1.5;4.5;;1.18
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;1xbet;-1.5;4.6;;1.13
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;betnacional;-1.5;4.32;;1.19
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;kto;-1.5;4.7;;1.19
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;segurobet;-1.5;4.5;;1.17
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;bet365;-1.25;4.1;;1.23
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;estrela_bet;-1.25;4.0;;1.22
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;superbet;-1.25;3.85;;1.19
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;1xbet;-1.25;4.1;;1.16
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;kto;-1.25;4.2;;1.22
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;segurobet;-1.25;4.1;;1.2
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;bet365;-1.0;3.55;;1.27
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;betano;-1.0;3.85;;1.28
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;estrela_bet;-1.0;3.5;;1.27
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;superbet;-1.0;3.45;;1.24
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;1xbet;-1.0;3.6;;1.21
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;betnacional;-1.0;3.49;;1.28
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;kto;-1.0;3.75;;1.27
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;multibet;-1.0;3.33;;1.26
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;segurobet;-1.0;3.63;;1.25
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;bet365;-0.75;2.68;;1.45
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;betano;-0.75;2.8;;1.47
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;estrela_bet;-0.75;2.62;;1.45
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;superbet;-0.75;2.62;;1.42
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;1xbet;-0.75;2.64;;1.39
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;bet7k;-0.75;2.57;;1.39
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;kto;-0.75;2.75;;1.45
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;multibet;-0.75;2.57;;1.42
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;segurobet;-0.75;2.66;;1.43
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;bet365;-0.5;2.25;;1.63
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;betano;-0.5;2.32;;1.65
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;estrela_bet;-0.5;2.2;;1.62
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;superbet;-0.5;2.22;;1.61
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;betnacional;-0.5;2.21;;1.62
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;bet7k;-0.5;2.14;;1.55
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;multibet;-0.5;2.14;;1.6
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;segurobet;-0.5;2.22;;1.6
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;bet365;-0.25;1.98;;1.88
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;betano;-0.25;2.0;;1.85
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;estrela_bet;-0.25;1.88;;1.84
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;superbet;-0.25;1.92;;1.82
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;1xbet;-0.25;1.89;;1.78
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;bet7k;-0.25;1.86;;1.76
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;kto;-0.25;1.96;;1.84
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;multibet;-0.25;1.86;;1.8
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;segurobet;-0.25;1.91;;1.81
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;betano;0.0;1.67;;2.27
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;estrela_bet;0.0;1.6;;2.25
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;superbet;0.0;1.59;;2.22
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;1xbet;0.0;1.64;;2.26
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;betnacional;0.0;1.6;;2.24
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;bet7k;0.0;1.55;;2.14
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;multibet;0.0;1.57;;2.2
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;bet365;0.25;1.45;;2.68
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;betano;0.25;1.47;;2.75
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;estrela_bet;0.25;1.42;;2.71
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;superbet;0.25;1.42;;2.62
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;1xbet;0.25;1.41;;2.61
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;bet7k;0.25;1.39;;2.55
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;kto;0.25;1.46;;2.7
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;segurobet;0.25;1.44;;2.62
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;bet365;0.5;1.35;;3.1
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;betano;0.5;1.38;;3.15
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;estrela_bet;0.5;1.33;;3.14
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;superbet;0.5;1.34;;3.1
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;betnacional;0.5;1.34;;3.07
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;bet7k;0.5;1.33;;2.66
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;kto;0.5;1.36;;3.1
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;segurobet;0.5;1.34;;3.03
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;bet365;0.75;1.24;;3.9
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;betano;0.75;1.28;;3.9
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;estrela_bet;0.75;1.22;;4.0
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;superbet;0.75;1.2;;3.75
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;1xbet;0.75;1.18;;3.94
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;kto;0.75;1.24;;4.0
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;segurobet;0.75;1.23;;3.8
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;bet365;1.0;1.13;;6.0
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;estrela_bet;1.0;1.11;;6.0
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;superbet;1.0;1.13;;4.7
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;1xbet;1.0;1.06;;6.1
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;betnacional;1.0;1.12;;5.7
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;kto;1.0;1.12;;6.1
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;segurobet;1.0;1.11;;5.7
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;bet365;1.25;1.11;;6.6
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;1xbet;1.25;1.05;;6.65
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;kto;1.25;1.11;;6.5
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;bet365;1.5;1.11;;6.8
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;estrela_bet;1.5;1.08;;6.66
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;superbet;1.5;1.08;;6.8
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;1xbet;1.5;1.03;;7.2
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;betnacional;1.5;1.09;;6.57
+bZOttMQ7;Vasco vs Sao Paulo;ah_ft;ah;ft;kto;1.5;1.09;;7.0
+bZOttMQ7;Vasco vs Sao Paulo;btts;btts;ft;bet365;;1.95;;1.8
+bZOttMQ7;Vasco vs Sao Paulo;btts;btts;ft;betano;;1.88;;1.85
+bZOttMQ7;Vasco vs Sao Paulo;btts;btts;ft;estrela_bet;;1.88;;1.85
+bZOttMQ7;Vasco vs Sao Paulo;btts;btts;ft;superbet;;1.88;;1.85
+bZOttMQ7;Vasco vs Sao Paulo;btts;btts;ft;1xbet;;1.86;;1.84
+bZOttMQ7;Vasco vs Sao Paulo;btts;btts;ft;betnacional;;1.89;;1.85
+bZOttMQ7;Vasco vs Sao Paulo;btts;btts;ft;betfair_ex;;2.05;;1.75
+bZOttMQ7;Vasco vs Sao Paulo;btts;btts;ft;f12;;1.89;;1.85
+bZOttMQ7;Vasco vs Sao Paulo;btts;btts;ft;kto;;1.78;;1.86
+bZOttMQ7;Vasco vs Sao Paulo;btts;btts;ft;multibet;;1.88;;1.85
+bZOttMQ7;Vasco vs Sao Paulo;btts;btts;ft;segurobet;;1.88;;1.88
+tIQAG22K;Coritiba vs Atletico-MG;1x2_ft;1x2;ft;bet365;;2.35;3.0;3.0
+tIQAG22K;Coritiba vs Atletico-MG;1x2_ft;1x2;ft;betano;;2.5;3.2;3.0
+tIQAG22K;Coritiba vs Atletico-MG;1x2_ft;1x2;ft;estrela_bet;;2.45;3.2;2.9
+tIQAG22K;Coritiba vs Atletico-MG;1x2_ft;1x2;ft;superbet;;2.5;3.15;3.0
+tIQAG22K;Coritiba vs Atletico-MG;1x2_ft;1x2;ft;1xbet;;2.5;3.2;2.94
+tIQAG22K;Coritiba vs Atletico-MG;1x2_ft;1x2;ft;betnacional;;2.46;3.16;2.97
+tIQAG22K;Coritiba vs Atletico-MG;1x2_ft;1x2;ft;bet7k;;2.42;3.11;2.94
+tIQAG22K;Coritiba vs Atletico-MG;1x2_ft;1x2;ft;betfair_ex;;2.45;3.0;2.88
+tIQAG22K;Coritiba vs Atletico-MG;1x2_ft;1x2;ft;f12;;2.46;3.15;2.95
+tIQAG22K;Coritiba vs Atletico-MG;1x2_ft;1x2;ft;kto;;2.7;3.2;2.85
+tIQAG22K;Coritiba vs Atletico-MG;1x2_ft;1x2;ft;multibet;;2.42;3.14;2.85
+tIQAG22K;Coritiba vs Atletico-MG;1x2_ft;1x2;ft;segurobet;;2.46;3.19;2.95
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;bet365;0.5;1.08;;8.0
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;betano;0.5;1.09;;7.4
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;estrela_bet;0.5;1.05;;7.5
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;superbet;0.5;1.08;;8.0
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;1xbet;0.5;1.03;;7.5
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;betnacional;0.5;1.08;;6.94
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;betfair_ex;0.5;1.05;;8.0
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;f12;0.5;1.08;;7.0
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;kto;0.5;1.06;;8.5
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;multibet;0.5;1.07;;6.66
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;bet365;0.75;1.1;;7.0
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;estrela_bet;0.75;1.07;;7.0
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;1xbet;0.75;1.04;;6.8
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;multibet;0.75;1.08;;6.33
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;bet365;1.0;1.12;;6.4
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;estrela_bet;1.0;1.09;;6.33
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;1xbet;1.0;1.06;;6.1
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;betnacional;1.0;1.11;;5.83
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;multibet;1.0;1.1;;5.75
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;bet365;1.25;1.25;;3.8
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;estrela_bet;1.25;1.23;;3.8
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;1xbet;1.25;1.21;;3.58
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;multibet;1.25;1.25;;3.6
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;segurobet;1.25;1.25;;3.8
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;bet365;1.5;1.4;;3.0
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;betano;1.5;1.42;;2.87
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;estrela_bet;1.5;1.37;;2.85
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;superbet;1.5;1.41;;2.92
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;1xbet;1.5;1.36;;2.72
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;betnacional;1.5;1.4;;2.8
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;bet7k;1.5;1.46;;2.58
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;betfair_ex;1.5;1.36;;2.88
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;f12;1.5;1.4;;2.8
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;kto;1.5;1.4;;2.95
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;multibet;1.5;1.38;;2.8
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;segurobet;1.5;1.4;;2.8
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;bet365;1.75;1.5;;2.5
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;estrela_bet;1.75;1.46;;2.54
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;1xbet;1.75;1.47;;2.4
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;bet7k;1.75;1.49;;2.49
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;multibet;1.75;1.5;;2.42
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;segurobet;1.75;1.52;;2.45
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;bet365;2.0;1.65;;2.2
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;estrela_bet;2.0;1.62;;2.16
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;1xbet;2.0;1.64;;2.08
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;betnacional;2.0;1.68;;2.11
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;bet7k;2.0;1.65;;2.14
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;multibet;2.0;1.66;;2.08
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;segurobet;2.0;1.7;;2.13
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;bet365;2.25;2.0;;1.85
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;estrela_bet;2.25;1.88;;1.83
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;1xbet;2.25;1.93;;1.77
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;bet7k;2.25;1.95;;1.8
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;multibet;2.25;1.93;;1.77
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;segurobet;2.25;2.0;;1.82
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;bet365;2.5;2.25;;1.62
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;betano;2.5;2.25;;1.65
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;estrela_bet;2.5;2.14;;1.64
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;superbet;2.5;2.27;;1.64
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;1xbet;2.5;2.27;;1.63
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;betnacional;2.5;2.24;;1.6
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;bet7k;2.5;2.22;;1.6
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;betfair_ex;2.5;2.25;;1.57
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;f12;2.5;2.24;;1.6
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;kto;2.5;2.28;;1.62
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;multibet;2.5;2.2;;1.6
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;segurobet;2.5;2.23;;1.63
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;bet365;2.75;2.6;;1.48
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;estrela_bet;2.75;2.5;;1.48
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;1xbet;2.75;2.59;;1.43
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;bet7k;2.75;2.6;;1.45
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;multibet;2.75;2.57;;1.44
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;segurobet;2.75;2.57;;1.42
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;bet365;3.0;3.3;;1.33
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;estrela_bet;3.0;3.14;;1.32
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;1xbet;3.0;3.3;;1.27
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;betnacional;3.0;3.34;;1.3
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;multibet;3.0;3.33;;1.28
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;segurobet;3.0;3.35;;1.3
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;bet365;3.25;3.7;;1.26
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;estrela_bet;3.25;3.5;;1.26
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;1xbet;3.25;3.6;;1.22
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;multibet;3.25;3.6;;1.25
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;segurobet;3.25;3.8;;1.25
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;bet365;3.5;4.33;;1.22
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;betano;3.5;4.05;;1.24
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;estrela_bet;3.5;3.8;;1.23
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;superbet;3.5;4.2;;1.23
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;1xbet;3.5;4.0;;1.17
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;betnacional;3.5;4.04;;1.22
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;betfair_ex;3.5;4.0;;1.2
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;f12;3.5;4.0;;1.22
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;kto;3.5;4.35;;1.21
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;multibet;3.5;3.8;;1.22
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;segurobet;3.5;4.15;;1.22
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;bet365;3.75;5.25;;1.16
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;estrela_bet;3.75;4.75;;1.15
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;1xbet;3.75;5.1;;1.1
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;multibet;3.75;5.0;;1.13
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;estrela_bet;4.0;6.33;;1.09
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;1xbet;4.0;7.3;;1.03
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;multibet;4.0;6.66;;1.07
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;estrela_bet;4.25;6.66;;1.08
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;1xbet;4.25;7.7;;1.03
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;multibet;4.25;7.0;;1.06
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;bet365;4.5;9.0;;1.07
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;betano;4.5;7.8;;1.08
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;estrela_bet;4.5;7.0;;1.07
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;superbet;4.5;8.7;;1.07
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;1xbet;4.5;8.1;;1.02
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;betfair_ex;4.5;8.0;;1.05
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;f12;4.5;7.8;;1.06
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;kto;4.5;9.5;;1.05
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;multibet;4.5;7.5;;1.05
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;estrela_bet;4.75;8.0;;1.05
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;estrela_bet;5.0;11.0;;1.02
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;bet365;5.5;19.0;;1.02
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;betano;5.5;13.0;;1.03
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;superbet;5.5;20.0;;1.02
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;1xbet;5.5;15.0;;1.01
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;betfair_ex;5.5;17.0;;1.01
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;f12;5.5;12.0;;1.01
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;superbet;6.5;50.0;;1.01
+tIQAG22K;Coritiba vs Atletico-MG;ou_ft;ou;ft;1xbet;6.5;18.0;;1.01
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;estrela_bet;-2.5;9.5;;1.03
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;superbet;-2.5;12.0;;1.03
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;1xbet;-2.0;9.5;;1.01
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;bet365;-1.75;6.8;;1.11
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;estrela_bet;-1.75;6.33;;1.09
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;1xbet;-1.75;6.65;;1.05
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;bet365;-1.5;5.0;;1.17
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;estrela_bet;-1.5;4.75;;1.15
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;superbet;-1.5;5.0;;1.15
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;1xbet;-1.5;5.0;;1.1
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;betnacional;-1.5;4.84;;1.16
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;kto;-1.5;5.75;;1.14
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;segurobet;-1.5;4.85;;1.15
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;bet365;-1.25;4.5;;1.19
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;estrela_bet;-1.25;4.33;;1.18
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;1xbet;-1.25;4.55;;1.13
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;kto;-1.25;5.2;;1.16
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;segurobet;-1.25;4.38;;1.18
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;bet365;-1.0;4.0;;1.23
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;estrela_bet;-1.0;3.8;;1.22
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;superbet;-1.0;3.85;;1.19
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;1xbet;-1.0;4.05;;1.17
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;betnacional;-1.0;3.96;;1.22
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;kto;-1.0;4.7;;1.19
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;multibet;-1.0;3.75;;1.22
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;segurobet;-1.0;4.01;;1.21
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;bet365;-0.75;2.85;;1.4
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;betano;-0.75;3.0;;1.42
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;estrela_bet;-0.75;2.85;;1.37
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;superbet;-0.75;2.82;;1.36
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;1xbet;-0.75;2.88;;1.33
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;bet7k;-0.75;2.64;;1.33
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;kto;-0.75;3.2;;1.35
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;multibet;-0.75;2.8;;1.36
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;segurobet;-0.75;2.9;;1.37
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;bet365;-0.5;2.38;;1.55
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;betano;-0.5;2.47;;1.57
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;estrela_bet;-0.5;2.36;;1.52
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;superbet;-0.5;2.4;;1.53
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;betnacional;-0.5;2.38;;1.54
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;bet7k;-0.5;2.29;;1.48
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;multibet;-0.5;2.3;;1.52
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;segurobet;-0.5;2.34;;1.54
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;bet365;-0.25;2.1;;1.78
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;betano;-0.25;2.12;;1.75
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;estrela_bet;-0.25;2.05;;1.7
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;superbet;-0.25;2.05;;1.7
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;1xbet;-0.25;2.03;;1.67
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;bet7k;-0.25;1.97;;1.65
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;kto;-0.25;2.2;;1.66
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;multibet;-0.25;2.0;;1.69
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;segurobet;-0.25;2.05;;1.7
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;bet365;0.0;1.7;;2.1
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;betano;0.0;1.78;;2.1
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;estrela_bet;0.0;1.72;;2.0
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;superbet;0.0;1.71;;2.05
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;1xbet;0.0;1.77;;2.05
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;betnacional;0.0;1.71;;2.06
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;bet7k;0.0;1.67;;1.98
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;multibet;0.0;1.69;;2.0
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;bet365;0.25;1.5;;2.5
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;betano;0.25;1.55;;2.52
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;estrela_bet;0.25;1.52;;2.4
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;superbet;0.25;1.5;;2.42
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;1xbet;0.25;1.5;;2.35
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;bet7k;0.25;1.46;;2.36
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;kto;0.25;1.58;;2.35
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;multibet;0.25;1.63;;2.08
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;segurobet;0.25;1.51;;2.42
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;bet365;0.5;1.38;;3.0
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;betano;0.5;1.44;;2.92
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;estrela_bet;0.5;1.4;;2.75
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;superbet;0.5;1.4;;2.82
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;betnacional;0.5;1.39;;2.84
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;bet7k;0.5;1.35;;2.7
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;kto;0.5;1.45;;2.75
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;multibet;0.5;1.48;;2.4
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;segurobet;0.5;1.39;;2.8
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;bet365;0.75;1.26;;3.7
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;betano;0.75;1.3;;3.7
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;estrela_bet;0.75;1.26;;3.5
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;superbet;0.75;1.25;;3.4
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;1xbet;0.75;1.24;;3.42
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;kto;0.75;1.3;;3.45
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;multibet;0.75;1.35;;2.9
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;segurobet;0.75;1.27;;3.47
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;bet365;1.0;1.14;;5.75
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;estrela_bet;1.0;1.14;;5.0
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;superbet;1.0;1.12;;4.8
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;1xbet;1.0;1.1;;5.15
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;betnacional;1.0;1.14;;5.17
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;kto;1.0;1.17;;5.1
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;multibet;1.0;1.18;;4.2
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;segurobet;1.0;1.13;;5.25
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;bet365;1.25;1.12;;6.25
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;estrela_bet;1.25;1.17;;4.5
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;1xbet;1.25;1.08;;5.65
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;kto;1.25;1.14;;5.6
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;segurobet;1.25;1.11;;5.7
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;bet365;1.5;1.11;;6.8
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;estrela_bet;1.5;1.15;;5.0
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;superbet;1.5;1.1;;6.1
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;1xbet;1.5;1.06;;6.15
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;betnacional;1.5;1.1;;6.08
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;kto;1.5;1.12;;6.1
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;segurobet;1.5;1.12;;5.48
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;estrela_bet;1.75;1.09;;6.5
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;1xbet;1.75;1.02;;8.3
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;1xbet;2.0;1.01;;9.5
+tIQAG22K;Coritiba vs Atletico-MG;ah_ft;ah;ft;superbet;2.5;1.02;;13.0
+tIQAG22K;Coritiba vs Atletico-MG;btts;btts;ft;bet365;;1.95;;1.8
+tIQAG22K;Coritiba vs Atletico-MG;btts;btts;ft;betano;;1.9;;1.83
+tIQAG22K;Coritiba vs Atletico-MG;btts;btts;ft;estrela_bet;;1.92;;1.8
+tIQAG22K;Coritiba vs Atletico-MG;btts;btts;ft;superbet;;1.92;;1.82
+tIQAG22K;Coritiba vs Atletico-MG;btts;btts;ft;1xbet;;1.88;;1.82
+tIQAG22K;Coritiba vs Atletico-MG;btts;btts;ft;betnacional;;1.94;;1.8
+tIQAG22K;Coritiba vs Atletico-MG;btts;btts;ft;betfair_ex;;1.9;;1.87
+tIQAG22K;Coritiba vs Atletico-MG;btts;btts;ft;f12;;1.94;;1.8
+tIQAG22K;Coritiba vs Atletico-MG;btts;btts;ft;kto;;1.83;;1.8
+tIQAG22K;Coritiba vs Atletico-MG;btts;btts;ft;multibet;;1.94;;1.8
+tIQAG22K;Coritiba vs Atletico-MG;btts;btts;ft;segurobet;;1.93;;1.83
+27VXsrde;Flamengo RJ vs Bahia;1x2_ft;1x2;ft;bet365;;1.45;4.0;7.0
+27VXsrde;Flamengo RJ vs Bahia;1x2_ft;1x2;ft;betano;;1.5;4.3;6.6
+27VXsrde;Flamengo RJ vs Bahia;1x2_ft;1x2;ft;estrela_bet;;1.47;4.33;6.5
+27VXsrde;Flamengo RJ vs Bahia;1x2_ft;1x2;ft;superbet;;1.5;4.25;6.5
+27VXsrde;Flamengo RJ vs Bahia;1x2_ft;1x2;ft;1xbet;;1.49;4.32;6.65
+27VXsrde;Flamengo RJ vs Bahia;1x2_ft;1x2;ft;betnacional;;1.48;4.38;6.35
+27VXsrde;Flamengo RJ vs Bahia;1x2_ft;1x2;ft;bet7k;;1.47;4.17;6.3
+27VXsrde;Flamengo RJ vs Bahia;1x2_ft;1x2;ft;betfair_ex;;1.47;4.2;6.5
+27VXsrde;Flamengo RJ vs Bahia;1x2_ft;1x2;ft;f12;;1.48;4.4;6.4
+27VXsrde;Flamengo RJ vs Bahia;1x2_ft;1x2;ft;kto;;1.5;4.0;6.75
+27VXsrde;Flamengo RJ vs Bahia;1x2_ft;1x2;ft;multibet;;1.46;4.2;6.33
+27VXsrde;Flamengo RJ vs Bahia;1x2_ft;1x2;ft;segurobet;;1.48;4.33;6.6
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;bet365;0.5;1.05;;11.0
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;betano;0.5;1.06;;9.5
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;estrela_bet;0.5;1.02;;11.0
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;superbet;0.5;1.05;;11.0
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;1xbet;0.5;1.01;;10.1
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;betfair_ex;0.5;1.01;;11.0
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;f12;0.5;1.04;;9.2
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;kto;0.5;1.03;;11.5
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;estrela_bet;0.75;1.03;;9.5
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;multibet;0.75;1.04;;8.5
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;estrela_bet;1.0;1.03;;9.5
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;1xbet;1.0;1.01;;8.8
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;betnacional;1.0;1.05;;8.27
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;multibet;1.0;1.05;;8.0
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;bet365;1.25;1.16;;5.25
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;estrela_bet;1.25;1.13;;5.33
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;1xbet;1.25;1.11;;4.9
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;multibet;1.25;1.15;;4.75
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;bet365;1.5;1.25;;4.0
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;betano;1.5;1.28;;3.7
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;estrela_bet;1.5;1.23;;3.8
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;superbet;1.5;1.27;;3.8
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;1xbet;1.5;1.22;;3.54
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;betnacional;1.5;1.26;;3.63
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;betfair_ex;1.5;1.22;;3.8
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;f12;1.5;1.26;;3.65
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;kto;1.5;1.26;;3.8
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;multibet;1.5;1.25;;3.6
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;segurobet;1.5;1.26;;3.7
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;bet365;1.75;1.3;;3.45
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;estrela_bet;1.75;1.28;;3.33
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;1xbet;1.75;1.28;;3.18
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;multibet;1.75;1.3;;3.2
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;segurobet;1.75;1.32;;3.25
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;bet365;2.0;1.4;;2.85
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;estrela_bet;2.0;1.35;;3.0
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;1xbet;2.0;1.36;;2.81
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;betnacional;2.0;1.39;;2.86
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;multibet;2.0;1.37;;2.83
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;segurobet;2.0;1.4;;2.8
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;bet365;2.25;1.6;;2.3
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;estrela_bet;2.25;1.55;;2.3
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;1xbet;2.25;1.58;;2.21
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;bet7k;2.25;1.59;;2.24
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;multibet;2.25;1.58;;2.22
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;segurobet;2.25;1.62;;2.25
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;bet365;2.5;1.85;;2.0
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;betano;2.5;1.83;;1.98
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;estrela_bet;2.5;1.76;;1.96
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;superbet;2.5;1.85;;1.97
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;1xbet;2.5;1.84;;1.97
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;betnacional;2.5;1.8;;1.95
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;bet7k;2.5;1.8;;1.94
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;betfair_ex;2.5;1.75;;1.95
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;f12;2.5;1.8;;1.95
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;kto;2.5;1.89;;1.9
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;multibet;2.5;1.78;;1.92
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;segurobet;2.5;1.83;;1.98
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;bet365;2.75;2.05;;1.75
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;estrela_bet;2.75;1.95;;1.77
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;1xbet;2.75;1.99;;1.72
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;bet7k;2.75;2.01;;1.73
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;multibet;2.75;2.0;;1.72
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;segurobet;2.75;2.05;;1.77
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;bet365;3.0;2.38;;1.55
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;estrela_bet;3.0;2.3;;1.55
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;1xbet;3.0;2.33;;1.51
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;betnacional;3.0;2.37;;1.54
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;bet7k;3.0;2.39;;1.52
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;multibet;3.0;2.36;;1.52
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;segurobet;3.0;2.4;;1.55
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;bet365;3.25;2.68;;1.45
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;estrela_bet;3.25;2.57;;1.45
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;1xbet;3.25;2.61;;1.4
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;bet7k;3.25;2.67;;1.43
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;multibet;3.25;2.66;;1.41
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;segurobet;3.25;2.7;;1.43
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;bet365;3.5;3.2;;1.36
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;betano;3.5;3.05;;1.39
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;estrela_bet;3.5;2.85;;1.37
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;superbet;3.5;3.1;;1.37
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;1xbet;3.5;2.89;;1.32
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;betnacional;3.5;2.97;;1.36
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;betfair_ex;3.5;3.0;;1.33
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;f12;3.5;2.95;;1.36
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;kto;3.5;3.25;;1.33
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;multibet;3.5;2.9;;1.36
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;segurobet;3.5;2.95;;1.37
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;bet365;3.75;3.7;;1.26
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;estrela_bet;3.75;3.4;;1.28
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;1xbet;3.75;3.5;;1.22
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;multibet;3.75;3.6;;1.25
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;segurobet;3.75;3.7;;1.26
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;bet365;4.0;5.0;;1.17
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;estrela_bet;4.0;4.5;;1.17
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;1xbet;4.0;4.75;;1.12
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;betnacional;4.0;4.72;;1.17
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;multibet;4.0;4.5;;1.16
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;bet365;4.25;5.5;;1.15
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;estrela_bet;4.25;4.75;;1.15
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;1xbet;4.25;5.1;;1.1
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;multibet;4.25;5.0;;1.13
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;bet365;4.5;5.5;;1.14
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;betano;4.5;5.5;;1.15
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;estrela_bet;4.5;5.0;;1.14
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;superbet;4.5;5.9;;1.13
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;1xbet;4.5;5.45;;1.09
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;betfair_ex;4.5;5.5;;1.11
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;f12;4.5;5.4;;1.13
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;kto;4.5;6.4;;1.11
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;multibet;4.5;5.33;;1.12
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;bet365;4.75;7.0;;1.1
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;estrela_bet;4.75;6.33;;1.09
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;1xbet;4.75;6.9;;1.04
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;estrela_bet;5.0;8.0;;1.05
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;1xbet;5.0;8.7;;1.02
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;bet365;5.5;11.0;;1.05
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;betano;5.5;10.0;;1.05
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;superbet;5.5;12.0;;1.04
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;1xbet;5.5;10.5;;1.04
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;betfair_ex;5.5;11.0;;1.01
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;f12;5.5;9.4;;1.04
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;kto;5.5;13.0;;1.01
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;bet365;6.5;23.0;;1.01
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;betano;6.5;15.0;;1.02
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;superbet;6.5;26.0;;1.01
+27VXsrde;Flamengo RJ vs Bahia;ou_ft;ou;ft;1xbet;6.5;16.0;;1.01
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;estrela_bet;-3.5;8.0;;1.05
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;superbet;-3.5;8.7;;1.05
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;1xbet;-3.5;8.6;;1.01
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;1xbet;-3.0;7.8;;1.02
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;betnacional;-3.0;7.23;;1.07
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;bet365;-2.75;5.9;;1.13
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;estrela_bet;-2.75;5.33;;1.12
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;1xbet;-2.75;5.4;;1.09
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;segurobet;-2.75;5.25;;1.13
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;bet365;-2.5;4.4;;1.2
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;estrela_bet;-2.5;4.2;;1.2
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;superbet;-2.5;4.35;;1.19
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;1xbet;-2.5;4.25;;1.15
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;betnacional;-2.5;4.23;;1.2
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;kto;-2.5;4.6;;1.19
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;segurobet;-2.5;4.25;;1.19
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;bet365;-2.25;4.0;;1.23
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;estrela_bet;-2.25;3.8;;1.23
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;superbet;-2.25;3.5;;1.24
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;1xbet;-2.25;3.86;;1.18
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;kto;-2.25;4.2;;1.23
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;segurobet;-2.25;3.9;;1.22
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;bet365;-2.0;3.55;;1.27
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;estrela_bet;-2.0;3.5;;1.26
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;superbet;-2.0;3.45;;1.24
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;1xbet;-2.0;3.48;;1.22
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;betnacional;-2.0;3.51;;1.27
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;kto;-2.0;3.75;;1.27
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;multibet;-2.0;3.33;;1.26
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;segurobet;-2.0;3.47;;1.27
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;bet365;-1.75;2.75;;1.43
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;betano;-1.75;2.85;;1.45
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;estrela_bet;-1.75;2.66;;1.42
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;superbet;-1.75;2.7;;1.4
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;1xbet;-1.75;2.67;;1.37
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;bet7k;-1.75;2.49;;1.37
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;kto;-1.75;2.85;;1.43
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;multibet;-1.75;2.66;;1.4
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;segurobet;-1.75;2.73;;1.41
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;bet365;-1.5;2.35;;1.58
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;betano;-1.5;2.4;;1.6
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;estrela_bet;-1.5;2.28;;1.57
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;superbet;-1.5;2.32;;1.56
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;1xbet;-1.5;2.37;;1.58
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;betnacional;-1.5;2.31;;1.57
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;bet7k;-1.5;2.24;;1.5
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;multibet;-1.5;2.25;;1.54
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;segurobet;-1.5;2.3;;1.56
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;bet365;-1.25;2.08;;1.73
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;betano;-1.25;2.1;;1.78
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;estrela_bet;-1.25;2.05;;1.71
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;superbet;-1.25;2.05;;1.71
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;1xbet;-1.25;2.01;;1.68
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;bet7k;-1.25;1.97;;1.65
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;kto;-1.25;2.08;;1.75
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;multibet;-1.25;2.0;;1.69
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;segurobet;-1.25;2.04;;1.71
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;bet365;-1.0;1.83;;2.03
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;betano;-1.0;1.82;;2.05
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;estrela_bet;-1.0;1.76;;1.96
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;superbet;-1.0;1.78;;1.97
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;1xbet;-1.0;1.78;;1.97
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;betnacional;-1.0;1.77;;1.98
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;bet7k;-1.0;1.72;;1.92
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;kto;-1.0;1.79;;2.02
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;multibet;-1.0;1.73;;1.95
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;segurobet;-1.0;1.77;;1.96
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;bet365;-0.75;1.6;;2.3
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;betano;-0.75;1.62;;2.35
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;estrela_bet;-0.75;1.58;;2.25
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;superbet;-0.75;1.57;;2.25
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;1xbet;-0.75;1.55;;2.24
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;bet7k;-0.75;1.53;;2.2
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;kto;-0.75;1.58;;2.35
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;segurobet;-0.75;1.57;;2.28
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;bet365;-0.5;1.48;;2.6
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;betano;-0.5;1.5;;2.67
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;estrela_bet;-0.5;1.45;;2.57
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;superbet;-0.5;1.47;;2.57
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;betnacional;-0.5;1.47;;2.57
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;bet7k;-0.5;1.41;;2.48
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;kto;-0.5;1.47;;2.7
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;segurobet;-0.5;1.45;;2.59
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;bet365;-0.25;1.33;;3.3
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;betano;-0.25;1.35;;3.35
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;estrela_bet;-0.25;1.32;;3.14
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;superbet;-0.25;1.3;;3.1
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;1xbet;-0.25;1.28;;3.15
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;kto;-0.25;1.32;;3.4
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;segurobet;-0.25;1.31;;3.2
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;bet365;0.0;1.16;;5.25
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;estrela_bet;0.0;1.17;;4.5
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;superbet;0.0;1.14;;4.5
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;1xbet;0.0;1.12;;4.8
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;betnacional;0.0;1.17;;4.59
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;bet365;0.25;1.13;;5.9
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;1xbet;0.25;1.09;;5.3
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;kto;0.25;1.14;;5.8
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;segurobet;0.25;1.14;;5.02
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;bet365;0.5;1.12;;6.4
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;superbet;0.5;1.11;;5.85
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;betnacional;0.5;1.12;;5.53
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;kto;0.5;1.12;;6.25
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;segurobet;0.5;1.12;;5.48
+27VXsrde;Flamengo RJ vs Bahia;ah_ft;ah;ft;1xbet;0.75;1.02;;8.0
+27VXsrde;Flamengo RJ vs Bahia;btts;btts;ft;bet365;;1.95;;1.8
+27VXsrde;Flamengo RJ vs Bahia;btts;btts;ft;betano;;1.95;;1.8
+27VXsrde;Flamengo RJ vs Bahia;btts;btts;ft;estrela_bet;;1.96;;1.77
+27VXsrde;Flamengo RJ vs Bahia;btts;btts;ft;superbet;;1.97;;1.78
+27VXsrde;Flamengo RJ vs Bahia;btts;btts;ft;1xbet;;1.92;;1.79
+27VXsrde;Flamengo RJ vs Bahia;btts;btts;ft;betnacional;;1.97;;1.78
+27VXsrde;Flamengo RJ vs Bahia;btts;btts;ft;betfair_ex;;1.9;;1.87
+27VXsrde;Flamengo RJ vs Bahia;btts;btts;ft;f12;;1.97;;1.78
+27VXsrde;Flamengo RJ vs Bahia;btts;btts;ft;kto;;1.93;;1.72
+27VXsrde;Flamengo RJ vs Bahia;btts;btts;ft;multibet;;2.0;;1.76
+27VXsrde;Flamengo RJ vs Bahia;btts;btts;ft;segurobet;;1.98;;1.79
