@@ -41,7 +41,7 @@ class FlashscoreOddsCollector(BaseCollector):
                 self.bm_ids[row['name'].lower()] = row['bookmaker_id']
                 self.bm_ids[row['name']] = row['bookmaker_id']
 
-    async def collect_match(self, browser, conn, match_id_uuid: str, flashscore_id: str, is_closing: bool, job_id: str, is_prematch: bool = False, kickoff: datetime = None) -> int:
+    async def collect_match(self, browser, conn, match_id_uuid: str, flashscore_id: str, is_closing: bool, job_id: str, is_prematch: bool = False, kickoff: datetime = None, skip_stats: bool = False) -> int:
         """
         Para uma única partida, usa navegação SPA (cliques) para acessar a aba de odds.
         Flashscore bloqueia renderização de odds em navegação direta (goto);
@@ -188,7 +188,7 @@ class FlashscoreOddsCollector(BaseCollector):
                     is_first_market = False  # Garante progressão mesmo com erro
                     
             # 5. Coletar Estatísticas pelo DOM estendido
-            if is_prematch:
+            if is_prematch or skip_stats:
                 return total_inserted
                 
             logger.debug(f"[Flashscore] Buscando estatísticas para {flashscore_id}")

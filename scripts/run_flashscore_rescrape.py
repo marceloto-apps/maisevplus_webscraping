@@ -117,20 +117,7 @@ async def step_cleanup(pool, dry_run: bool = False):
         print(f"\n  Partidas com flashscore_id (links preservados): {total_with_fsid}")
         print(f"  Partidas com scraping_flashscore = true:         {scraped_count}")
 
-        # Prematch odds (tabela separada)
-        try:
-            prematch_ah = await conn.fetchval(
-                "SELECT count(*) FROM prematch_odds WHERE source = 'flashscore' AND market_type = 'ah'"
-            )
-            prematch_ou = await conn.fetchval(
-                "SELECT count(*) FROM prematch_odds WHERE source = 'flashscore' AND market_type = 'ou'"
-            )
-            if prematch_ah + prematch_ou > 0:
-                print(f"\n  Prematch odds (também serão deletadas):")
-                print(f"    AH: {prematch_ah:>8}")
-                print(f"    OU: {prematch_ou:>8}")
-        except Exception:
-            prematch_ah = prematch_ou = 0
+
 
         if dry_run:
             print(f"\n  [DRY-RUN] Nenhuma alteração será feita.")
@@ -149,16 +136,7 @@ async def step_cleanup(pool, dry_run: bool = False):
         """)
         print(f"  ✓ Deletadas {total_delete} odds AH/OU da odds_history")
 
-        # 2. Deletar prematch AH e OU se existir
-        if prematch_ah + prematch_ou > 0:
-            try:
-                await conn.execute("""
-                    DELETE FROM prematch_odds
-                    WHERE source = 'flashscore' AND market_type IN ('ah', 'ou')
-                """)
-                print(f"  ✓ Deletadas {prematch_ah + prematch_ou} odds AH/OU da prematch_odds")
-            except Exception:
-                pass
+
 
         # 3. Resetar flag scraping_flashscore
         await conn.execute(
@@ -238,7 +216,8 @@ async def step_rescrape(pool, limit: int, timeout_hours: float):
                         browser, conn,
                         str(match_uuid), fs_id,
                         is_closing=True,
-                        job_id="rescrape_fix_ah_ou"
+                        job_id="rescrape_fix_ah_ou",
+                        skip_stats=True
                     )
                     print(f"    -> {inserted} odds inseridas")
                     total_odds += inserted
