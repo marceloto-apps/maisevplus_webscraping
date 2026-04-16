@@ -1,36 +1,39 @@
 """
 scripts/run_flashscore_rescrape.py
 
-Script de contingência para re-capturar odds AH e OU de todas as partidas
-já coletadas. Necessário após o fix do parser que corrigiu:
+Script de contingência para DELETAR e re-capturar odds AH e OU do Flashscore.
+Necessário após fix do parser (commit 05e5a6a) que corrigiu:
   - Linhas inteiras (0, 1, 2, -3) ignoradas
-  - Quarter-goals (-1.25, 2.25) ignoradas  
+  - Quarter-goals (-1.25, 2.25) ignoradas
   - Handicap 0 (célula ausente no DOM) ignorado
   - Odds confundidas com linhas (1.16, 1.57 etc.)
 
+Os flashscore_id ficam preservados na tabela `matches` — são o link 
+de cada jogo para navegação/scraping.
+
 Estratégia:
-  1. Limpa odds AH/OU com linhas inválidas (lixo do parser antigo)
+  1. DELETA odds AH e OU com source='flashscore' da odds_history
   2. Reseta flag scraping_flashscore = false para forçar re-coleta
-  3. Re-roda o backfill apenas para os mercados AH e OU
-  
+  3. Re-roda o backfill completo
+
 Uso:
-  # Passo 1: Limpar dados ruins e resetar flags (dry-run)
+  # Passo 1: Diagnóstico (dry-run)
   python scripts/run_flashscore_rescrape.py --step cleanup --dry-run
-  
-  # Passo 2: Limpar de verdade
+
+  # Passo 2: Deletar e resetar
   python scripts/run_flashscore_rescrape.py --step cleanup
-  
-  # Passo 3: Re-coletar (usa o backfill existente, mas apenas AH e OU)
-  python scripts/run_flashscore_rescrape.py --step rescrape --limit 500
+
+  # Passo 3: Re-coletar (executar quantas vezes for preciso até esvaziar)
+  xvfb-run python scripts/run_flashscore_rescrape.py --step rescrape --limit 500 --timeout-hours 3
 
   # Ou tudo de uma vez:
-  python scripts/run_flashscore_rescrape.py --step all --limit 500
+  xvfb-run python scripts/run_flashscore_rescrape.py --step all --limit 500
 """
 import asyncio
 import os
 import sys
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 import asyncpg
 
@@ -56,105 +59,125 @@ async def init_db():
 
 async def step_cleanup(pool, dry_run: bool = False):
     """
-    Passo 1: Remove odds AH/OU com linhas inválidas (lixo do parser antigo)
-    e reseta o flag de coleta para forçar re-scrape.
+    Deleta TODAS as odds AH e OU com source='flashscore' e reseta os flags.
+    Os flashscore_id ficam intactos na tabela matches.
     """
     async with pool.acquire() as conn:
-        # 1. Diagnóstico: quantas odds existem por mercado
+        # ============ DIAGNÓSTICO ============
         print("\n" + "=" * 60)
-        print("  DIAGNÓSTICO ATUAL")
+        print("  DIAGNÓSTICO ANTES DA LIMPEZA")
         print("=" * 60)
 
-        for mkt in ['1x2', 'ah', 'ou', 'btts']:
-            total = await conn.fetchval(
-                "SELECT count(*) FROM odds_history WHERE market_type = $1", mkt
-            )
-            print(f"  {mkt:>6}: {total:>8} registros")
-        
-        # 2. Identificar odds AH com linhas inválidas (não múltiplo de 0.25)
-        invalid_ah = await conn.fetchval("""
-            SELECT count(*) FROM odds_history
-            WHERE market_type = 'ah'
-              AND line IS NOT NULL
-              AND MOD(ABS(line) * 100, 25) > 0.01
-              AND MOD(ABS(line) * 100, 25) < 24.99
+        # Total de odds por mercado e fonte
+        stats = await conn.fetch("""
+            SELECT source, market_type, count(*) as qty
+            FROM odds_history
+            WHERE source = 'flashscore'
+            GROUP BY source, market_type
+            ORDER BY market_type
         """)
-        print(f"\n  AH com linhas invalidas (nao multiplo 0.25): {invalid_ah}")
-        
-        # Mostrar exemplos de linhas inválidas
-        if invalid_ah > 0:
-            examples = await conn.fetch("""
-                SELECT DISTINCT line, count(*) as qty
-                FROM odds_history
-                WHERE market_type = 'ah'
-                  AND line IS NOT NULL
-                  AND MOD(ABS(line) * 100, 25) > 0.01
-                  AND MOD(ABS(line) * 100, 25) < 24.99
-                GROUP BY line
-                ORDER BY qty DESC
-                LIMIT 20
-            """)
-            print("  Exemplos de linhas invalidas:")
-            for ex in examples:
-                print(f"    line={ex['line']:>8.2f}  ({ex['qty']} registros)")
-        
-        # 3. Contar partidas com scraping_flashscore = true
+        print(f"\n  Odds Flashscore por mercado:")
+        for s in stats:
+            print(f"    {s['market_type']:>6}: {s['qty']:>8} registros")
+
+        # Odds AH e OU que serão deletadas
+        ah_count = await conn.fetchval(
+            "SELECT count(*) FROM odds_history WHERE source = 'flashscore' AND market_type = 'ah'"
+        )
+        ou_count = await conn.fetchval(
+            "SELECT count(*) FROM odds_history WHERE source = 'flashscore' AND market_type = 'ou'"
+        )
+        total_delete = ah_count + ou_count
+
+        print(f"\n  SERÃO DELETADAS:")
+        print(f"    AH: {ah_count:>8} registros")
+        print(f"    OU: {ou_count:>8} registros")
+        print(f"    --  {total_delete:>8} TOTAL")
+
+        # Odds que NÃO serão afetadas
+        kept = await conn.fetch("""
+            SELECT market_type, count(*) as qty
+            FROM odds_history
+            WHERE source = 'flashscore' AND market_type NOT IN ('ah', 'ou')
+            GROUP BY market_type
+            ORDER BY market_type
+        """)
+        if kept:
+            print(f"\n  PRESERVADAS (não afetadas):")
+            for k in kept:
+                print(f"    {k['market_type']:>6}: {k['qty']:>8} registros")
+
+        # Partidas com flag
         scraped_count = await conn.fetchval(
             "SELECT count(*) FROM matches WHERE scraping_flashscore = true"
         )
-        print(f"\n  Partidas com scraping_flashscore = true: {scraped_count}")
+        total_with_fsid = await conn.fetchval(
+            "SELECT count(*) FROM matches WHERE flashscore_id IS NOT NULL"
+        )
+        print(f"\n  Partidas com flashscore_id (links preservados): {total_with_fsid}")
+        print(f"  Partidas com scraping_flashscore = true:         {scraped_count}")
 
-        # 4. Contar quantas partidas têm AH 0 (para verificar pós-fix)
-        ah_zero = await conn.fetchval("""
-            SELECT count(DISTINCT match_id) FROM odds_history
-            WHERE market_type = 'ah' AND line = 0.0
-        """)
-        print(f"  Partidas com AH 0.0 no banco: {ah_zero}")
-
-        # 5. Contar partidas com OU inteiro
-        ou_integer = await conn.fetchval("""
-            SELECT count(DISTINCT match_id) FROM odds_history
-            WHERE market_type = 'ou' AND line IS NOT NULL AND line = FLOOR(line)
-        """)
-        print(f"  Partidas com OU inteiro no banco: {ou_integer}")
+        # Prematch odds (tabela separada)
+        try:
+            prematch_ah = await conn.fetchval(
+                "SELECT count(*) FROM prematch_odds WHERE source = 'flashscore' AND market_type = 'ah'"
+            )
+            prematch_ou = await conn.fetchval(
+                "SELECT count(*) FROM prematch_odds WHERE source = 'flashscore' AND market_type = 'ou'"
+            )
+            if prematch_ah + prematch_ou > 0:
+                print(f"\n  Prematch odds (também serão deletadas):")
+                print(f"    AH: {prematch_ah:>8}")
+                print(f"    OU: {prematch_ou:>8}")
+        except Exception:
+            prematch_ah = prematch_ou = 0
 
         if dry_run:
-            print(f"\n  [DRY-RUN] Nenhuma alteracao sera feita.")
-            print(f"  Para executar de verdade, remova --dry-run")
+            print(f"\n  [DRY-RUN] Nenhuma alteração será feita.")
+            print(f"  Para executar: remova --dry-run")
             return
 
-        # === EXECUTAR LIMPEZA ===
+        # ============ EXECUTAR ============
         print(f"\n{'=' * 60}")
         print(f"  EXECUTANDO LIMPEZA")
         print(f"{'=' * 60}")
 
-        # 6. Deletar odds AH com linhas inválidas
-        if invalid_ah > 0:
-            deleted = await conn.execute("""
-                DELETE FROM odds_history
-                WHERE market_type = 'ah'
-                  AND line IS NOT NULL
-                  AND MOD(ABS(line) * 100, 25) > 0.01
-                  AND MOD(ABS(line) * 100, 25) < 24.99
-            """)
-            print(f"  Deletadas {invalid_ah} odds AH com linhas invalidas")
-        else:
-            print(f"  Nenhuma odd AH invalida encontrada")
+        # 1. Deletar odds AH e OU do Flashscore
+        await conn.execute("""
+            DELETE FROM odds_history
+            WHERE source = 'flashscore' AND market_type IN ('ah', 'ou')
+        """)
+        print(f"  ✓ Deletadas {total_delete} odds AH/OU da odds_history")
 
-        # 7. Resetar flag scraping_flashscore
-        result = await conn.execute(
+        # 2. Deletar prematch AH e OU se existir
+        if prematch_ah + prematch_ou > 0:
+            try:
+                await conn.execute("""
+                    DELETE FROM prematch_odds
+                    WHERE source = 'flashscore' AND market_type IN ('ah', 'ou')
+                """)
+                print(f"  ✓ Deletadas {prematch_ah + prematch_ou} odds AH/OU da prematch_odds")
+            except Exception:
+                pass
+
+        # 3. Resetar flag scraping_flashscore
+        await conn.execute(
             "UPDATE matches SET scraping_flashscore = false WHERE scraping_flashscore = true"
         )
-        print(f"  Flag scraping_flashscore resetado para {scraped_count} partidas")
+        print(f"  ✓ Flag scraping_flashscore resetado para {scraped_count} partidas")
 
-        print(f"\n  LIMPEZA CONCLUIDA!")
-        print(f"  Proximo passo: rodar --step rescrape")
+        # 4. Verificação pós-limpeza
+        remaining = await conn.fetchval(
+            "SELECT count(*) FROM odds_history WHERE source = 'flashscore' AND market_type IN ('ah', 'ou')"
+        )
+        print(f"\n  Verificação: odds AH/OU restantes = {remaining}")
+        print(f"  flashscore_id preservados = {total_with_fsid}")
+        print(f"\n  LIMPEZA CONCLUÍDA! Próximo: --step rescrape")
 
 
 async def step_rescrape(pool, limit: int, timeout_hours: float):
     """
-    Passo 2: Re-coleta odds de todas as partidas (agora com parser corrigido).
-    Usa o mesmo fluxo do backfill, mas garante coleta de todos os mercados.
+    Re-coleta odds de todas as partidas (parser corrigido captura tudo).
     """
     from camoufox.async_api import AsyncCamoufox
     from src.collectors.flashscore.odds_collector import FlashscoreOddsCollector
@@ -162,7 +185,6 @@ async def step_rescrape(pool, limit: int, timeout_hours: float):
     await TelegramAlert.init()
 
     async with pool.acquire() as conn:
-        # Buscar partidas pendentes (flag resetado)
         matches = await conn.fetch("""
             SELECT m.match_id, m.flashscore_id, m.kickoff, l.code
             FROM matches m
@@ -175,15 +197,15 @@ async def step_rescrape(pool, limit: int, timeout_hours: float):
         """, limit)
 
     if not matches:
-        print("\n[Rescrape] Nenhuma partida pendente! Todas ja foram re-coletadas.")
-        TelegramAlert.fire("info", "Rescrape Flashscore: fila vazia, todas as partidas ja re-coletadas.")
+        print("\n[Rescrape] Fila vazia! Todas as partidas já foram re-coletadas.")
+        TelegramAlert.fire("info", "📭 Rescrape Flashscore: fila vazia.")
         await asyncio.sleep(1)
         await TelegramAlert.close()
         return
 
     print(f"\n{'=' * 60}")
     print(f"  RESCRAPE: {len(matches)} partidas a processar")
-    print(f"  Timeout: {timeout_hours}h")
+    print(f"  Timeout: {timeout_hours}h | Limit: {limit}")
     print(f"{'=' * 60}")
 
     collector = FlashscoreOddsCollector()
@@ -194,20 +216,20 @@ async def step_rescrape(pool, limit: int, timeout_hours: float):
     ) as browser:
         total_collected = 0
         total_errors = 0
+        total_odds = 0
         start_time = datetime.now()
-        from datetime import timedelta
         max_duration = timedelta(hours=timeout_hours)
 
         for idx, m in enumerate(matches):
             if datetime.now() - start_time > max_duration:
-                print(f"\n[TIMEOUT] Limite de {timeout_hours}h atingido. Continuará na próxima execução.")
+                print(f"\n[TIMEOUT] {timeout_hours}h atingido. Continuará na próxima execução.")
                 break
 
             match_uuid = m["match_id"]
             fs_id = m["flashscore_id"]
             league = m.get("code", "?")
 
-            print(f"==> [{league}] {idx+1}/{len(matches)}: {fs_id} (DB: {match_uuid})")
+            print(f"==> [{league}] {idx+1}/{len(matches)}: {fs_id}")
 
             try:
                 async with pool.acquire() as conn:
@@ -218,8 +240,8 @@ async def step_rescrape(pool, limit: int, timeout_hours: float):
                         job_id="rescrape_fix_ah_ou"
                     )
                     print(f"    -> {inserted} odds inseridas")
+                    total_odds += inserted
 
-                    # Marcar como coletado
                     await conn.execute(
                         "UPDATE matches SET scraping_flashscore = true WHERE match_id = $1",
                         match_uuid
@@ -227,39 +249,47 @@ async def step_rescrape(pool, limit: int, timeout_hours: float):
                     total_collected += 1
 
             except Exception as e:
-                print(f"[ERROR] Falha no match {fs_id}: {e}")
+                print(f"[ERROR] {fs_id}: {e}")
                 total_errors += 1
 
             await asyncio.sleep(3)
 
         elapsed = datetime.now() - start_time
+        remaining = len(matches) - idx - 1
+
         print(f"\n{'=' * 60}")
         print(f"  RESUMO RESCRAPE")
         print(f"{'=' * 60}")
-        print(f"  Coletados com sucesso: {total_collected}")
+        print(f"  Partidas processadas:  {total_collected}")
+        print(f"  Odds inseridas:        {total_odds}")
         print(f"  Erros:                 {total_errors}")
-        print(f"  Tempo total:           {elapsed}")
-        print(f"  Restantes:             {len(matches) - idx - 1}")
+        print(f"  Restantes na fila:     {remaining}")
+        print(f"  Tempo:                 {elapsed}")
 
-        if total_collected > 0:
-            TelegramAlert.fire("info",
-                f"🔄 *Rescrape Flashscore Finalizado*\n"
-                f"Coletados: {total_collected}\n"
-                f"Erros: {total_errors}\n"
-                f"Tempo: {elapsed}"
-            )
+        msg = (
+            f"🔄 *Rescrape Flashscore*\n"
+            f"Processados: {total_collected}\n"
+            f"Odds inseridas: {total_odds}\n"
+            f"Erros: {total_errors}\n"
+            f"Restantes: {remaining}\n"
+            f"Tempo: {elapsed}"
+        )
+        TelegramAlert.fire("info", msg)
 
     await asyncio.sleep(1)
     await TelegramAlert.close()
 
 
 async def main():
-    parser = argparse.ArgumentParser(description="Rescrape Flashscore - Contingência AH/OU")
+    parser = argparse.ArgumentParser(description="Rescrape Flashscore — Contingência AH/OU")
     parser.add_argument("--step", choices=["cleanup", "rescrape", "all"], required=True,
-                        help="cleanup: limpar dados ruins e resetar flags | rescrape: re-coletar | all: ambos")
-    parser.add_argument("--dry-run", action="store_true", help="Apenas diagnostico, sem alterar dados")
-    parser.add_argument("--limit", type=int, default=500, help="Max partidas por execucao (default: 500)")
-    parser.add_argument("--timeout-hours", type=float, default=3.0, help="Timeout em horas (default: 3.0)")
+                        help="cleanup: deletar AH/OU + resetar flags | rescrape: re-coletar | all: ambos")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Apenas diagnóstico, sem alterar dados")
+    parser.add_argument("--limit", type=int, default=500,
+                        help="Max partidas por execução (default: 500)")
+    parser.add_argument("--timeout-hours", type=float, default=3.0,
+                        help="Timeout em horas (default: 3.0)")
     args = parser.parse_args()
 
     pool = await init_db()
@@ -270,7 +300,6 @@ async def main():
 
         if args.step in ("rescrape", "all") and not args.dry_run:
             await step_rescrape(pool, limit=args.limit, timeout_hours=args.timeout_hours)
-
     finally:
         await pool.close()
 
