@@ -208,7 +208,8 @@ async def step_rescrape(pool, limit: int, timeout_hours: float):
     print(f"  Timeout: {timeout_hours}h | Limit: {limit}")
     print(f"{'=' * 60}")
 
-    collector = FlashscoreOddsCollector()
+    # Apenas AH e OU — 1x2, BTTS etc. já estão corretos no banco
+    collector = FlashscoreOddsCollector(markets=["ou_ft", "ou_ht", "ah_ft", "ah_ht"])
 
     async with AsyncCamoufox(
         headless=False,
