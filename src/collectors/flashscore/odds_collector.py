@@ -91,8 +91,10 @@ class FlashscoreOddsCollector(BaseCollector):
                     logger.warning(f"[Flashscore] Tabela de odds não renderizou para {flashscore_id}")
                     return 0
             
-            # 4. Iterar pelos mercados — o primeiro (1x2_ft) já está carregado após o clique
-            is_first_market = True
+            # 4. Iterar pelos mercados — o primeiro (1x2_ft) já está carregado após o clique na aba Odds.
+            #    Se o filtro de mercados NÃO inclui 1x2_ft, precisamos navegar para o primeiro mercado.
+            first_market_key = next(iter(self.markets_to_scrape), None)
+            is_first_market = (first_market_key == "1x2_ft")
             for m_key, m_config in self.markets_to_scrape.items():
                 logger.debug(f"[Flashscore] Coletando {m_key} para {flashscore_id}")
                 
