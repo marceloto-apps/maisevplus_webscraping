@@ -101,6 +101,16 @@ def _parse_line_from_text(full_text: str, signed: bool = False) -> Optional[floa
     
     return None
 
+
+def _is_valid_line(val: float) -> bool:
+    """
+    Valida se um valor parece ser uma linha AH/OU legítima.
+    Linhas válidas são sempre múltiplos de 0.25: inteiros, .25, .5, .75.
+    Valores como 1.16, 2.33, 4.35 são odds — não linhas.
+    """
+    remainder = abs(val) % 0.25
+    return remainder < 0.001 or remainder > 0.249
+
 class FlashscoreParser:
     """
     Parser para conteúdo HTML da página do Flashscore.
@@ -197,6 +207,9 @@ class FlashscoreParser:
                     if line_val is None:
                         line_text = row.get_text(separator=' ', strip=True)
                         line_val = _parse_line_from_text(line_text, signed=False)
+                        # Validar que o fallback não pegou uma odd como linha
+                        if line_val is not None and not _is_valid_line(line_val):
+                            line_val = None
                     
                     if len(parsed_vals) >= 2 and line_val is not None:
                         # Frequentemente, a própria linha parseou no parsed_vals. 
@@ -225,6 +238,9 @@ class FlashscoreParser:
                     if line_val is None:
                         line_text = row.get_text(separator=' ', strip=True)
                         line_val = _parse_line_from_text(line_text, signed=True)
+                        # Validar que o fallback não pegou uma odd como linha
+                        if line_val is not None and not _is_valid_line(line_val):
+                            line_val = None
                     
                     # As odds geralmente são as últimas duas colunas da row
                     if line_val is not None and len(parsed_vals) >= 2:
