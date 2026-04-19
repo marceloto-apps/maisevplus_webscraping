@@ -35,10 +35,10 @@ CREATE TABLE matches (
     api_football_id     INTEGER,
 
     created_at          TIMESTAMPTZ DEFAULT NOW(),
-    updated_at          TIMESTAMPTZ DEFAULT NOW(),
-
-    UNIQUE(league_id, home_team_id, away_team_id, kickoff::date)
+    updated_at          TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE UNIQUE INDEX idx_matches_unique_day ON matches (league_id, home_team_id, away_team_id, (kickoff::date));
 
 COMMENT ON TABLE matches IS '~57.500 rows backfill + ~11.500/temporada.';
 COMMENT ON COLUMN matches.goals_home_minutes IS '[23, 67, 89]. NULL se sem gols.';
