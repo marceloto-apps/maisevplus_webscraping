@@ -35,15 +35,15 @@ async def init_db():
     )
 
 async def setup_queue(pool):
-    \"\"\"
+    """
     Cria a tabela de fila e insere as partidas faltantes restritas ao JSON inicial (idempotente).
     Garante que APENAS as partidas identificadas no escopo (ex: as 2.303 partidas iniciais)
     entrem na fila para esse processo complementar.
-    \"\"\"
+    """
     import json
     
     async with pool.acquire() as conn:
-        await conn.execute(\"\"\"
+        await conn.execute("""
             CREATE TABLE IF NOT EXISTS fc_complementary_queue (
                 match_id UUID PRIMARY KEY,
                 flashscore_id VARCHAR(50),
@@ -53,7 +53,7 @@ async def setup_queue(pool):
                 processed_at TIMESTAMP WITH TIME ZONE,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
             );
-        \"\"\")
+        """)
         
         # Popula a fila estritamente com base no arquivo JSON exportado (missing_matches_fs.json)
         json_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "missing_matches_fs.json")
@@ -64,11 +64,11 @@ async def setup_queue(pool):
                 
             for match in matches_to_insert:
                 try:
-                    res = await conn.execute(\"\"\"
+                    res = await conn.execute("""
                         INSERT INTO fc_complementary_queue (match_id, flashscore_id, kickoff)
                         VALUES ($1, $2, $3)
                         ON CONFLICT (match_id) DO NOTHING;
-                    \"\"\", match["match_id"], match["flashscore_id"], datetime.fromisoformat(match["kickoff"]) if match.get("kickoff") else None)
+                    """, match["match_id"], match["flashscore_id"], datetime.fromisoformat(match["kickoff"]) if match.get("kickoff") else None)
                     if res.endswith(" 1"):
                         inserted += 1
                 except Exception as e:
