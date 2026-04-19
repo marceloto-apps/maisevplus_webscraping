@@ -339,15 +339,15 @@ class FlashscoreOddsCollector(BaseCollector):
                                 $2, $3, $4, $5, $6, $7, $8, $9, NOW()
                             )
                             ON CONFLICT (match_id) DO UPDATE SET
-                                xg_fs_home = EXCLUDED.xg_fs_home,
-                                xg_fs_away = EXCLUDED.xg_fs_away,
-                                xgot_fs_home = EXCLUDED.xgot_fs_home,
-                                xgot_fs_away = EXCLUDED.xgot_fs_away,
-                                xa_fs_home = EXCLUDED.xa_fs_home,
-                                xa_fs_away = EXCLUDED.xa_fs_away,
-                                crosses_fs_home = EXCLUDED.crosses_fs_home,
-                                crosses_fs_away = EXCLUDED.crosses_fs_away,
-                                collected_at = EXCLUDED.collected_at
+                                xg_fs_home = COALESCE(EXCLUDED.xg_fs_home, match_stats.xg_fs_home),
+                                xg_fs_away = COALESCE(EXCLUDED.xg_fs_away, match_stats.xg_fs_away),
+                                xgot_fs_home = COALESCE(EXCLUDED.xgot_fs_home, match_stats.xgot_fs_home),
+                                xgot_fs_away = COALESCE(EXCLUDED.xgot_fs_away, match_stats.xgot_fs_away),
+                                xa_fs_home = COALESCE(EXCLUDED.xa_fs_home, match_stats.xa_fs_home),
+                                xa_fs_away = COALESCE(EXCLUDED.xa_fs_away, match_stats.xa_fs_away),
+                                crosses_fs_home = COALESCE(EXCLUDED.crosses_fs_home, match_stats.crosses_fs_home),
+                                crosses_fs_away = COALESCE(EXCLUDED.crosses_fs_away, match_stats.crosses_fs_away),
+                                collected_at = NOW()
                         """, match_id_uuid, xg_home, xg_away, xgot_home, xgot_away, xa_home, xa_away, crosses_home, crosses_away)
                         logger.debug(f"[Flashscore] Estatísticas avançadas salvas para {flashscore_id}")
             except Exception as e:
