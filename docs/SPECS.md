@@ -100,11 +100,14 @@ O sistema carimba `is_closing=True` nos snapshots armazenados do Flashscore extr
 ## 5. Schedule de Coleta e Orquestração
 
 ### Lógica Produtiva (Daily)
-Durante o dia, um agendador APScheduler desperta os Runners baseados nos `kickoffs` resgatados da tabela de `matches`.
-- T-60min: Dispara API-Football para colher Lineups Iniciais.
-- T-35min: Flashscore pré-snap.
-- T-2min: Flashscore closing edge.
-- T+2h30: Dispara FootyStats para selar Placares. Dispara API-Football para raspar Events e Full Match Stats.
+A orquestração agora utiliza uma **grade rígida no APScheduler** configurada em `src/scheduler/orchestrator.py` dividindo os backfills e rastreamentos diários em janelas horárias desencontradas para contornar sobreposições.
+Janelas notáveis Flashscore:
+- **Traking Prematch:** Rastreamentos de `phase: tracking_2x` fixados às `16:35` (e execuções dinâmicas engatilhadas).
+- **Backfill Múltiplo:** 5 janelas cadenciadas de *Historical Backfill* (`00:40`, `06:15`, `08:50`, `14:00`, `21:45`).
+- **Rescrape Complementar:** 2 janelas independentes (`11:25`, `19:10`) focadas no saneamento de dados com fila idempotente.
+- **Limites Globais:** O runtime de todos os crawlers acoplados ao Flashscore usam limite temporal hard de **2h30m (2.5h)** (`--timeout-hours 2.5`) para desligamento suave e sem travamentos no sistema OS.
+
+Em paralelo, a rotina `schedule_gameday_jobs` (acionada `00:30 BRT`) orquestra coletas on-demand ao longo do dia para as *partidas confirmadas daquele ciclo* (T-60, T-30, etc).
 
 ### Gestão Limites (API-Football)
 O cluster tem keys espalhadas geridas no `KeyManager`. Se é limite diário (ex: 7000 req), o sistema paralisa e hiberna via exception, relatando no Telegram e reiniciando na virada do cronjob a meia noite UTC.
@@ -141,5 +144,10 @@ A etapa vigente do projeto consiste em robustecer a base de dados utilizando scr
 ### 7.2. Flashscore Backfill (`run_flashscore_backfill.py`)
 - Filtra jogos terminados `status = 'finished'` contendo `flashscore_id` e cuja flag boolean `scraping_flashscore` é falsa/nula.
 - Interfere num Chromium isolado rodando o wrapper `FlashscoreOddsCollector`. Injeta o dump de odds brutas históricas na bucket TimescaleDB. Modera IPs entre requests evitando Shadow Ban.
+- Desliga graciosamente ao atingir 2.5 horas de operação constante (`--timeout-hours 2.5`).
+
+### 7.3. Flashscore Complementary (`run_flashscore_complementary.py`)
+- Um braço cirúrgico do backfill voltado apenas a suprir lacunas dos mercados ("btts", "1x2", "dc", "dnb" e "stats") em partidas que outrora extraíram com sucesso *apenas* "ah" (Asian Handicap) e "ou".
+- Opera sobre table fila `fc_complementary_queue` populada com base em exports estáticos JSON de segurança, não tocando em dados regulares. Upsert usa `COALESCE` para não sobrepor outras estatísticas pré-existentes limpas.
 
 **Mapeamento e Progresso:** Prioridade MÁXIMA nestes pipelines. Qualquer novo desenvolvimento que não seja para fix de selectors nesses scripts não agregará valor neste subciclo, portanto manter atenção concentrada em estabilidade de runtime nesses arquivos pesados.

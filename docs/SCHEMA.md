@@ -373,6 +373,22 @@ CREATE TABLE ingestion_log (
 COMMENT ON TABLE ingestion_log IS 'Log de jobs. Critério de aceite: sem failed por 48h.';
 ```
 
+### 6.2 fc_complementary_queue
+
+```sql
+CREATE TABLE IF NOT EXISTS fc_complementary_queue (
+    match_id UUID PRIMARY KEY,
+    flashscore_id VARCHAR(50),
+    kickoff TIMESTAMP WITH TIME ZONE,
+    status VARCHAR(20) DEFAULT 'pending',
+    attempts INT DEFAULT 0,
+    processed_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+COMMENT ON TABLE fc_complementary_queue IS 'Fila idempotente e apartada para suprir buracos de AH/OU no Flashscore. Injetada por payload JSON estático para segurança.';
+```
+
 ---
 
 ## 7. Seeds
