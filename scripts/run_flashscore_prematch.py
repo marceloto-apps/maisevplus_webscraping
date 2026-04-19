@@ -2,7 +2,7 @@ import asyncio
 import os
 import sys
 import argparse
-from datetime import datetime
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import asyncpg
 
@@ -31,6 +31,7 @@ async def main():
     parser = argparse.ArgumentParser(description="Prematch Odds Tracker Flashscore")
     parser.add_argument("--phase", type=str, default="tracking_2x", help="Fase indicadora: tracking_2x, tracking_daily, tracking_4h, tracking_2h, pre30, pre2")
     parser.add_argument("--match_id", type=str, default=None, help="Processa apenas um match específico")
+    parser.add_argument("--timeout-hours", type=float, default=2.5, help="Tempo máximo de execução (horas)")
     args = parser.parse_args()
 
     from src.alerts.telegram_mini import TelegramAlert
@@ -64,7 +65,14 @@ async def main():
         ) as browser:
             total_collected = 0
             
+            start_time = datetime.now()
+            max_duration = timedelta(hours=args.timeout_hours)
+            
             for idx, m in enumerate(matches):
+                if datetime.now() - start_time > max_duration:
+                    print(f"\n[TIMEOUT] Limite de {args.timeout_hours}h atingido. Interrompendo prematch suavemente.")
+                    break
+                    
                 match_uuid = m["match_id"]
                 fs_id = m["flashscore_id"]
                 kickoff = m["kickoff"]
