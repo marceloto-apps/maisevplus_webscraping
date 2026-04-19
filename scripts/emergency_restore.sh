@@ -41,7 +41,8 @@ if [ ! -f "$PYTHON_BIN" ]; then
     PYTHON_BIN="python" # Fallback global
 fi
 
-$PYTHON_BIN "$(dirname "$0")/import_aliases.py" --file "$(dirname "$0")/../output/team_aliases_seed.csv"
+cd "$(dirname "$0")/.."
+PYTHONPATH=. "$PYTHON_BIN" -m scripts.import_aliases --file output/team_aliases_seed.csv
 
 echo "=========================================="
 echo " RESTAURAÇÃO FINALIZADA COM SUCESSO!      "
