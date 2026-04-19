@@ -693,5 +693,238 @@ async def health_check():
         f"{schedule_txt}"
     )
 
-    return {"heartbeat": True}
+
+
+@safe_job
+async def run_data_quality_routine():
+    """
+    Trigger: 00:20 BRT (diário)
+    Avalia a qualidade e cobertura dos dados dos jogos finalizados.
+    Gera relatório detalhado em log e relatório resumido no Telegram.
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # 1. Upsert da qualidade dos dados das partidas finalizadas
+        await conn.execute('''
+            WITH stats_flags AS (
+                SELECT
+                    ms.match_id,
+                    MAX(CASE WHEN ms.shots_home IS NOT NULL THEN 1 ELSE 0 END) AS has_footystats_stats,
+                    MAX(CASE WHEN ms.total_passes_home IS NOT NULL OR ms.expected_goals_home IS NOT NULL THEN 1 ELSE 0 END) AS has_apifootball_stats,
+                    MAX(CASE WHEN ms.xg_fs_home IS NOT NULL OR ms.xgot_fs_home IS NOT NULL THEN 1 ELSE 0 END) AS has_flashscore_stats
+                FROM match_stats ms
+                GROUP BY ms.match_id
+            ),
+            odds_flags AS (
+                SELECT
+                    match_id,
+                    MAX(CASE WHEN source = 'football_data' THEN 1 ELSE 0 END) AS has_fd_odds,
+                    MAX(CASE WHEN source = 'flashscore' THEN 1 ELSE 0 END) AS has_fs_odds
+                FROM odds_history
+                GROUP BY match_id
+            )
+            INSERT INTO match_data_quality (
+                match_id, 
+                missing_footystats_stats, 
+                missing_apifb_stats, 
+                missing_flashscore_stats, 
+                missing_fd_odds, 
+                missing_fs_odds,
+                updated_at
+            )
+            SELECT
+                m.match_id,
+                COALESCE(sf.has_footystats_stats, 0) = 0,
+                COALESCE(sf.has_apifootball_stats, 0) = 0,
+                COALESCE(sf.has_flashscore_stats, 0) = 0,
+                COALESCE(of_.has_fd_odds, 0) = 0,
+                COALESCE(of_.has_fs_odds, 0) = 0,
+                NOW()
+            FROM matches m
+            LEFT JOIN stats_flags sf ON sf.match_id = m.match_id
+            LEFT JOIN odds_flags of_ ON of_.match_id = m.match_id
+            WHERE m.status = 'finished'
+            ON CONFLICT (match_id) DO UPDATE SET
+                missing_footystats_stats = EXCLUDED.missing_footystats_stats,
+                missing_apifb_stats = EXCLUDED.missing_apifb_stats,
+                missing_flashscore_stats = EXCLUDED.missing_flashscore_stats,
+                missing_fd_odds = EXCLUDED.missing_fd_odds,
+                missing_fs_odds = EXCLUDED.missing_fs_odds,
+                updated_at = EXCLUDED.updated_at
+        ''')
+
+        # 1.5. Update odds quality flags
+        await conn.execute('''
+            WITH match_odds_data AS (
+                SELECT 
+                    match_id, 
+                    market_type, 
+                    line, 
+                    odds_1, 
+                    odds_x, 
+                    odds_2,
+                    LAG(odds_1) OVER (PARTITION BY match_id, market_type ORDER BY line) as prev_odds_1,
+                    LAG(odds_2) OVER (PARTITION BY match_id, market_type ORDER BY line) as prev_odds_2,
+                    MAX(odds_1) OVER (PARTITION BY match_id, market_type) as max_odds_1,
+                    MIN(odds_1) OVER (PARTITION BY match_id, market_type) as min_odds_1,
+                    COUNT(*) OVER (PARTITION BY match_id, market_type) as line_count
+                FROM odds_history
+                WHERE period = 'ft'
+            ),
+            eval_flags AS (
+                SELECT
+                    match_id,
+                    -- 1x2 flags
+                    MAX(CASE WHEN market_type IN ('1x2', 'match_odds') AND (
+                        odds_1 <= 1.00 OR odds_1 > 50.0 OR
+                        odds_x <= 1.00 OR odds_x > 50.0 OR
+                        odds_2 <= 1.00 OR odds_2 > 50.0 OR
+                        odds_1 = odds_x OR odds_1 = odds_2 OR odds_x = odds_2 OR
+                        odds_1 IS NULL OR odds_x IS NULL OR odds_2 IS NULL OR
+                        ((1.0/NULLIF(odds_1,0)) + (1.0/NULLIF(odds_x,0)) + (1.0/NULLIF(odds_2,0))) < 1.02 OR
+                        ((1.0/NULLIF(odds_1,0)) + (1.0/NULLIF(odds_x,0)) + (1.0/NULLIF(odds_2,0))) > 1.20
+                    ) THEN 1 ELSE 0 END) AS suspicious_1x2_odds,
+                    
+                    -- OU flags (over_odds = odds_1, under_odds = odds_2)
+                    MAX(CASE WHEN market_type IN ('ou', 'over_under') AND (
+                        odds_1 <= 1.00 OR odds_1 > 30.0 OR
+                        odds_2 <= 1.00 OR odds_2 > 30.0 OR
+                        odds_1 IS NULL OR odds_2 IS NULL OR
+                        odds_1 = odds_2 OR
+                        (line_count > 1 AND max_odds_1 = min_odds_1) OR
+                        (prev_odds_1 IS NOT NULL AND odds_1 <= prev_odds_1) OR
+                        (prev_odds_2 IS NOT NULL AND odds_2 >= prev_odds_2) 
+                    ) THEN 1 ELSE 0 END) AS suspicious_ou_odds,
+                    
+                    -- AH flags
+                    MAX(CASE WHEN market_type IN ('ah', 'asian_handicap') AND (
+                        odds_1 <= 1.00 OR odds_1 > 20.0 OR
+                        odds_2 <= 1.00 OR odds_2 > 20.0 OR
+                        odds_1 IS NULL OR odds_2 IS NULL OR
+                        odds_1 = odds_2 OR
+                        (line_count > 1 AND max_odds_1 = min_odds_1) OR
+                        (prev_odds_1 IS NOT NULL AND odds_1 >= prev_odds_1) OR
+                        (prev_odds_2 IS NOT NULL AND odds_2 <= prev_odds_2)
+                    ) THEN 1 ELSE 0 END) AS suspicious_ah_odds
+                FROM match_odds_data
+                GROUP BY match_id
+            )
+            UPDATE match_data_quality mdq
+            SET 
+                suspicious_1x2_odds = (COALESCE(ef.suspicious_1x2_odds, 0) = 1),
+                suspicious_ou_odds  = (COALESCE(ef.suspicious_ou_odds, 0) = 1),
+                suspicious_ah_odds  = (COALESCE(ef.suspicious_ah_odds, 0) = 1)
+            FROM eval_flags ef
+            WHERE mdq.match_id = ef.match_id
+              AND NOT (mdq.missing_fd_odds = TRUE AND mdq.missing_fs_odds = TRUE);
+        ''')
+
+        # 2. Obter totais de cobertura global e odds suspeitas
+        totals_row = await conn.fetchrow('''
+            SELECT
+                COUNT(*) AS total_matches,
+                COUNT(*) FILTER (WHERE NOT mq.missing_footystats_stats) AS footystats_stats,
+                COUNT(*) FILTER (WHERE NOT mq.missing_apifb_stats) AS apifootball_stats,
+                COUNT(*) FILTER (WHERE NOT mq.missing_flashscore_stats) AS flashscore_stats,
+                COUNT(*) FILTER (WHERE NOT mq.missing_fd_odds) AS football_data_odds,
+                COUNT(*) FILTER (WHERE NOT mq.missing_fs_odds) AS flashscore_odds,
+                COUNT(*) FILTER (WHERE mq.suspicious_1x2_odds) AS susp_1x2,
+                COUNT(*) FILTER (WHERE mq.suspicious_ou_odds) AS susp_ou,
+                COUNT(*) FILTER (WHERE mq.suspicious_ah_odds) AS susp_ah
+            FROM matches m
+            JOIN match_data_quality mq ON mq.match_id = m.match_id
+            WHERE m.status = 'finished'
+        ''')
+        
+        total_matches = totals_row['total_matches'] or 0
+        if total_matches == 0:
+            return {"status": "no_matches"}
+            
+        def pct(count):
+            return round((count * 100.0) / total_matches, 1)
+
+        from datetime import date
+        today_str = date.today().strftime("%d/%m/%Y")
+        
+        tg_msg = [
+            f"📊 *Data Quality Report — {today_str}*",
+            f"Jogos finalizados analisados: `{total_matches}`",
+            "",
+            "✅ *Cobertura Geral:*",
+            f"  FootyStats:  `{totals_row['footystats_stats']}/{total_matches} ({pct(totals_row['footystats_stats'])}%)`",
+            f"  APIFootball:  `{totals_row['apifootball_stats']}/{total_matches} ({pct(totals_row['apifootball_stats'])}%)`",
+            f"  FlashScore:   `{totals_row['flashscore_stats']}/{total_matches} ({pct(totals_row['flashscore_stats'])}%)`",
+            f"  FD Odds:      `{totals_row['football_data_odds']}/{total_matches} ({pct(totals_row['football_data_odds'])}%)`",
+            f"  FS Odds:      `{totals_row['flashscore_odds']}/{total_matches} ({pct(totals_row['flashscore_odds'])}%)`",
+            "",
+            "🔍 *Auditoria de Odds:*",
+            f"  Odds 1x2 suspeitas: `{totals_row['susp_1x2']}/{total_matches} ({pct(totals_row['susp_1x2'])}%)`",
+            f"  Odds OU suspeitas:  `{totals_row['susp_ou']}/{total_matches} ({pct(totals_row['susp_ou'])}%)`",
+            f"  Odds AH suspeitas:  `{totals_row['susp_ah']}/{total_matches} ({pct(totals_row['susp_ah'])}%)`",
+            ""
+        ]
+
+        # 3. Obter Top 5 Offenders (Gaps e Odds)
+        offenders = await conn.fetch('''
+            SELECT 
+                l.code AS league_code, 
+                s.label AS season, 
+                COUNT(*) AS total_issues
+            FROM matches m
+            JOIN leagues l ON l.league_id = m.league_id
+            JOIN seasons s ON s.season_id = m.season_id
+            JOIN match_data_quality mq ON mq.match_id = m.match_id
+            WHERE m.status = 'finished'
+              AND (mq.missing_footystats_stats OR mq.missing_apifb_stats 
+                   OR mq.missing_flashscore_stats OR mq.missing_fd_odds OR mq.missing_fs_odds
+                   OR mq.suspicious_1x2_odds OR mq.suspicious_ah_odds OR mq.suspicious_ou_odds)
+            GROUP BY l.code, s.label
+            ORDER BY total_issues DESC
+            LIMIT 5
+        ''')
+
+        if offenders:
+            tg_msg.append("⚠️ *Ligas com mais inconsistências (Top 5):*")
+            for row in offenders:
+                tg_msg.append(f"  {row['league_code']} {row['season']}: `{row['total_issues']} jogos com falhas`")
+        else:
+            tg_msg.append("🎉 *Todas as ligas estão 100% completas!*")
+            
+        tg_msg.append("")
+        tg_msg.append("🔗 _Relatório completo salvo no log._")
+        
+        # 4. Notificar via telegram
+        TelegramAlert.fire("info", "\n".join(tg_msg))
+        
+        # 5. Log Detalhado (Breakdown)
+        details = await conn.fetch('''
+            SELECT 
+                l.code AS league_code, 
+                s.label AS season, 
+                COUNT(*) AS count_matches,
+                COUNT(*) FILTER (WHERE NOT mq.missing_footystats_stats) AS count_footystats,
+                COUNT(*) FILTER (WHERE NOT mq.missing_apifb_stats) AS count_apifb,
+                COUNT(*) FILTER (WHERE NOT mq.missing_flashscore_stats) AS count_fs_stats,
+                COUNT(*) FILTER (WHERE NOT mq.missing_fd_odds) AS count_fd_odds,
+                COUNT(*) FILTER (WHERE NOT mq.missing_fs_odds) AS count_fs_odds,
+                COUNT(*) FILTER (WHERE mq.suspicious_1x2_odds OR mq.suspicious_ah_odds OR mq.suspicious_ou_odds) AS count_suspicious
+            FROM matches m
+            JOIN leagues l ON l.league_id = m.league_id
+            JOIN seasons s ON s.season_id = m.season_id
+            JOIN match_data_quality mq ON mq.match_id = m.match_id
+            WHERE m.status = 'finished'
+            GROUP BY l.code, s.label
+            ORDER BY l.code ASC, s.label DESC
+        ''')
+        
+        logger.info("data_quality_detailed_breakdown_start")
+        for r in details:
+            logger.info("dqr_league", 
+                        league=r['league_code'], season=r['season'], 
+                        total=r['count_matches'], 
+                        fs_st=r['count_footystats'], ap_st=r['count_apifb'], fl_st=r['count_fs_stats'],
+                        fd_od=r['count_fd_odds'], fs_od=r['count_fs_odds'], susp_odds=r['count_suspicious'])
+        logger.info("data_quality_detailed_breakdown_end")
+
+        return {"total_matches": total_matches, "jobs": "run_data_quality_routine"}
 

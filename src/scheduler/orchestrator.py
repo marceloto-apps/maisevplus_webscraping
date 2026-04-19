@@ -28,7 +28,8 @@ from src.scheduler.jobs import (
     prematch_tracking_evening,
     health_check,
     health_check,
-    set_scheduler
+    set_scheduler,
+    run_data_quality_routine
 )
 
 logger = get_logger(__name__)
@@ -48,6 +49,15 @@ class AppOrchestrator:
         from src.scheduler.jobs import flashscore_complementary
         set_scheduler(self.scheduler)
         
+        # 00:20 - Data Quality Routine
+        self.scheduler.add_job(
+            run_data_quality_routine,
+            'cron',
+            hour=0, minute=20,
+            id="data_quality_routine",
+            misfire_grace_time=3600
+        )
+
         # 00:30 - Schedule Dinâmico
         self.scheduler.add_job(
             schedule_gameday_jobs,
