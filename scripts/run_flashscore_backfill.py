@@ -112,7 +112,7 @@ async def main():
     parser = argparse.ArgumentParser(description="Backfill Flashscore Odds")
     parser.add_argument("--league", type=str, default=None, help="Código da liga (ex: ENG_PL, BRA_SA). Se omitido, roda todas.")
     parser.add_argument("--limit", type=int, default=380, help="Máximo de partidas para processar (default: 380)")
-    parser.add_argument("--timeout-hours", type=float, default=2.0, help="Tempo máximo de execução (horas)")
+    parser.add_argument("--timeout-hours", type=float, default=2.5, help="Tempo máximo de execução (horas)")
     args = parser.parse_args()
 
     if args.league and args.league not in LEAGUE_FLASHSCORE_PATHS:

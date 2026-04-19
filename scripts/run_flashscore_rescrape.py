@@ -268,8 +268,8 @@ async def main():
                         help="Apenas diagnóstico, sem alterar dados")
     parser.add_argument("--limit", type=int, default=500,
                         help="Max partidas por execução (default: 500)")
-    parser.add_argument("--timeout-hours", type=float, default=3.0,
-                        help="Timeout em horas (default: 3.0)")
+    parser.add_argument("--timeout-hours", type=float, default=2.5,
+                        help="Timeout em horas (default: 2.5)")
     args = parser.parse_args()
 
     pool = await init_db()

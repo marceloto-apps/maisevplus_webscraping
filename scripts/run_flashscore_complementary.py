@@ -85,7 +85,7 @@ async def setup_queue(pool):
 async def main():
     parser = argparse.ArgumentParser(description="Flashscore Complementary Rescrape (Missing Markets/Stats)")
     parser.add_argument("--limit", type=int, default=150, help="Máximo de partidas por rodada (default: 150)")
-    parser.add_argument("--timeout-hours", type=float, default=2.41, help="Timeout em horas (default: 2.41 = ~2h25)")
+    parser.add_argument("--timeout-hours", type=float, default=2.5, help="Timeout em horas (default: 2.5 = 2h30)")
     args = parser.parse_args()
 
     await TelegramAlert.init()
