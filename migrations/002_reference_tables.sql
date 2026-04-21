@@ -20,6 +20,7 @@ CREATE TABLE leagues (
     fbref_id            VARCHAR(20),
     flashscore_path     VARCHAR(100),
     footystats_name     VARCHAR(100),
+    api_football_league_id INTEGER,
     xg_source           VARCHAR(20) DEFAULT 'fbref',
     is_active           BOOLEAN DEFAULT TRUE,
     created_at          TIMESTAMPTZ DEFAULT NOW()
@@ -37,6 +38,7 @@ CREATE TABLE teams (
     team_id             SERIAL PRIMARY KEY,
     name_canonical      VARCHAR(100) NOT NULL,
     country             VARCHAR(50),
+    api_football_id     INTEGER,
     created_at          TIMESTAMPTZ DEFAULT NOW()
 );
 
