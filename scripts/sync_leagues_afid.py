@@ -17,7 +17,7 @@ async def sync_leagues():
         leagues_data = yaml.safe_load(f)
 
     updated = 0
-    for code, info in leagues_data.items():
+    for code, info in leagues_data.get('leagues', {}).items():
         af_id = info.get('api_football_league_id')
         if af_id is not None:
             await conn.execute(
