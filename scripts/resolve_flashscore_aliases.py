@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.db.pool import get_pool
 
-AUTO_THRESHOLD = 0.90
+AUTO_THRESHOLD = 0.87
 
 
 def similarity(a: str, b: str) -> float:
@@ -226,21 +226,19 @@ async def main():
                 manual_id = input("     team_id: ").strip()
                 try:
                     tid = int(manual_id)
-                    alias_input = input(f"     Alias a salvar [{name}]: ").strip() or name
-                    await save_alias(pool, tid, alias_input)
-                    existing_aliases[alias_input.lower()] = tid
+                    await save_alias(pool, tid, name)
+                    existing_aliases[name.lower()] = tid
                     total_manual += 1
-                    print(f"  ✓  Manual: \"{alias_input}\" → team_id {tid}")
+                    print(f"  ✓  Manual: \"{name}\" → team_id {tid}")
                 except ValueError:
                     print("  ✗  ID inválido, pulando.")
                     total_skipped += 1
             elif choice.isdigit() and 1 <= int(choice) <= len(candidates):
                 selected = candidates[int(choice) - 1][0]
-                alias_input = input(f"     Alias a salvar [{name}]: ").strip() or name
-                await save_alias(pool, selected["team_id"], alias_input)
-                existing_aliases[alias_input.lower()] = selected["team_id"]
+                await save_alias(pool, selected["team_id"], name)
+                existing_aliases[name.lower()] = selected["team_id"]
                 total_manual += 1
-                print(f"  ✓  Selecionado: \"{alias_input}\" → {selected['ref_name']} (id={selected['team_id']})")
+                print(f"  ✓  Selecionado: \"{name}\" → {selected['ref_name']} (id={selected['team_id']})")
             else:
                 total_skipped += 1
 
