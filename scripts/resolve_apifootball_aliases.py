@@ -170,6 +170,17 @@ async def main():
             scored.sort(key=lambda x: x[1], reverse=True)
             top = scored[:5]
 
+            # Auto-aceita se o melhor candidato tiver score >= 0.87
+            best_team, best_score = top[0]
+            if best_score >= 0.87:
+                await save_alias(pool, best_team["team_id"], api_name)
+                await save_api_football_id(pool, best_team["team_id"], api_id)
+                existing_aliases[api_name.lower()] = best_team["team_id"]
+                total_resolved += 1
+                total_new += 1
+                print(f"    ✓ Auto-fuzzy ({best_score:.0%}): \"{api_name}\" → {best_team['name_canonical']} (id {best_team['team_id']})")
+                continue
+
             print(f"\n    ❓ Não resolvido: \"{api_name}\" (api_id={api_id})")
             print(f"       Candidatos mais próximos:")
             for idx, (t, score) in enumerate(top):
