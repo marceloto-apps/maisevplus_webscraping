@@ -168,7 +168,7 @@ async def main():
             # ── Tentativa 4: fuzzy matching — sugere candidatos ──
             scored = [(t, similarity(api_name, t["name_canonical"])) for t in all_teams]
             scored.sort(key=lambda x: x[1], reverse=True)
-            top = scored[:5]
+            top = scored[:8]
 
             # Auto-aceita se o melhor candidato tiver score >= 0.87
             best_team, best_score = top[0]
@@ -184,7 +184,7 @@ async def main():
             print(f"\n    ❓ Não resolvido: \"{api_name}\" (api_id={api_id})")
             print(f"       Candidatos mais próximos:")
             for idx, (t, score) in enumerate(top):
-                print(f"         [{idx+1}] {t['name_canonical']} (id={t['team_id']}, score={score:.2f})")
+                print(f"         [{idx+1}] {t['name_canonical']} (id={t['team_id']}, score={score:.0%})")
             print(f"         [0] Pular")
             print(f"         [m] Digitar team_id manualmente")
 
@@ -213,7 +213,7 @@ async def main():
                 existing_aliases[api_name.lower()] = selected["team_id"]
                 total_resolved += 1
                 total_new += 1
-                print(f"    ✓ Selecionado: {api_name} → {selected['name_canonical']} (id {selected['team_id']})")
+                print(f"    ✓ Selecionado: {api_name} → {selected['name_canonical']} (id {selected['team_id']})") 
             else:
                 total_skipped += 1
 
