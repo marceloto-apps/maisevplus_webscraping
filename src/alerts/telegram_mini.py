@@ -52,6 +52,7 @@ class TelegramAlert:
     _chat_id: Optional[str] = None
     _enabled: bool = False
     _limiter: RateLimiter = RateLimiter(max_calls=20, period=60.0)
+    _pending_tasks: set = set()  # rastreia tasks fire-and-forget em voo
 
     @classmethod
     async def init(cls):
@@ -67,6 +68,11 @@ class TelegramAlert:
 
     @classmethod
     async def close(cls):
+        # Aguarda todas as tasks de envio em voo antes de fechar o client.
+        # Sem isso, o client é destruído antes do último fire() ser entregue.
+        if cls._pending_tasks:
+            await asyncio.gather(*cls._pending_tasks, return_exceptions=True)
+            cls._pending_tasks.clear()
         if cls._client:
             await cls._client.aclose()
             cls._client = None
@@ -82,6 +88,8 @@ class TelegramAlert:
             logger.debug("telegram_throttled", wait_s=round(wait or 0, 1))
             return
         task = asyncio.create_task(cls._send(level, message))
+        cls._pending_tasks.add(task)
+        task.add_done_callback(cls._pending_tasks.discard)  # remove ao concluir
         task.add_done_callback(cls._handle_task_error)
 
     @classmethod
