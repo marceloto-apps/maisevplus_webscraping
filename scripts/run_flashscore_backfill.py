@@ -48,7 +48,7 @@ async def mark_match_as_scraped(pool, match_id: str):
             await conn.execute("ALTER TABLE matches ADD COLUMN IF NOT EXISTS scraping_flashscore boolean DEFAULT false;")
             await conn.execute("UPDATE matches SET scraping_flashscore = true WHERE match_id = $1", match_id)
 
-async def get_target_matches(pool, league_code: str = None, limit: int = 380):
+async def get_target_matches(pool, league_code: str = None, limit: int = 999999):
     """
     Busca partidas finalizadas com flashscore_id preenchido
     mas sem scraping_flashscore = true.
@@ -111,7 +111,7 @@ async def get_target_matches(pool, league_code: str = None, limit: int = 380):
 async def main():
     parser = argparse.ArgumentParser(description="Backfill Flashscore Odds")
     parser.add_argument("--league", type=str, default=None, help="Código da liga (ex: ENG_PL, BRA_SA). Se omitido, roda todas.")
-    parser.add_argument("--limit", type=int, default=380, help="Máximo de partidas para processar (default: 380)")
+    parser.add_argument("--limit", type=int, default=999999, help="Máximo de partidas para processar (default: 999999)")
     parser.add_argument("--timeout-hours", type=float, default=2.5, help="Tempo máximo de execução (horas)")
     args = parser.parse_args()
 
