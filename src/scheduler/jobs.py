@@ -589,15 +589,32 @@ async def flashscore_historical_backfill():
         logger.error("nordvpn_failed", error=e.stderr.strip())
         TelegramAlert.fire("warning", f"NordVPN rodízio falhou no srv {target_server}:\n{e.stderr.strip()}")
 
+    # Janela de tempo por execução (horas). O filho para sozinho nesse limite;
+    # o pai tem um guard de +6 min para não bloquear o orchestrator para sempre.
+    WINDOW_HOURS = 2.4
+    GUARD_SECONDS = int(WINDOW_HOURS * 3600) + 360  # +6 min de margem
+
     # 2. Spawn subprocess para limpar memória após a execução (o browser come muito)
     try:
-        logger.info("spawning_flashscore_backfill_subprocess")
+        logger.info("spawning_flashscore_backfill_subprocess", timeout_hours=WINDOW_HOURS)
         proc = await asyncio.create_subprocess_exec(
             "xvfb-run", "-a", sys.executable, "scripts/run_flashscore_backfill.py",
+            "--timeout-hours", str(WINDOW_HOURS),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        stdout_bytes, stderr_bytes = await proc.communicate()
+
+        try:
+            stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                proc.communicate(), timeout=GUARD_SECONDS
+            )
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+            logger.error("flashscore_backfill_subprocess_timeout", guard_s=GUARD_SECONDS)
+            raise RuntimeError(
+                f"Subprocess não encerrou em {GUARD_SECONDS}s — processo morto forçadamente."
+            )
 
         if proc.returncode != 0:
             stderr_text = (stderr_bytes or b"").decode("utf-8", errors="replace")[-600:]
