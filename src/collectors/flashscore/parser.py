@@ -147,9 +147,20 @@ class FlashscoreParser:
             if index == 0:
                 logger.debug(f"FIRST ODDS ROW DOM:\n{row.prettify()}")
             # 1. Tenta identificar o bookmaker
+            # IMPORTANTE: row.find("a", title=True) NÃO pode ser usado aqui pois os
+            # a.oddsCell__odd também possuem title="X.XX » Y.YY" (histórico de movimento
+            # de odds), fazendo o find() retornar a odd ao invés do nome do bookmaker.
+            # Sempre buscar primeiro pelo elemento específico a.oddsCell__bookmaker.
             bm_title = None
             bm_img = row.find("img")
-            bm_link = row.find("a", title=True)
+            # Busca o link do bookmaker pela classe CSS específica
+            bm_link = row.find("a", class_=lambda c: c and "oddsCell__bookmaker" in c)
+            # Fallback: qualquer <a> com title que NÃO seja uma célula de odd
+            if not bm_link:
+                bm_link = row.find(
+                    "a",
+                    title=lambda t: t and "»" not in t and len(t) < 60,
+                )
             
             if bm_img and bm_img.get("alt"):
                 bm_title = bm_img.get("alt")
