@@ -28,6 +28,7 @@ NOTIFY_ON_SUCCESS: set[str] = {
     "football_data_daily",
     "fixtures_weekly",
     "flashscore_discovery",
+    "db_backup",
 }
 
 def set_scheduler(scheduler):
@@ -639,6 +640,58 @@ async def flashscore_historical_backfill():
 
     return {"job": "flashscore_historical_backfill", "records_count": records_count}
 
+
+@safe_job
+async def db_backup():
+    """
+    Trigger: `20 4 * * *` BRT (diário às 04:20)
+    Objetivo: Backup comprimido do PostgreSQL enviado ao OneDrive via rclone.
+    Mantém os 5 últimos backups no OneDrive e 2 dias localmente.
+    """
+    import re as _re
+
+    # Timeout generoso: pg_dump + upload podem demorar em bases grandes
+    BACKUP_TIMEOUT_S = 600  # 10 minutos
+
+    try:
+        logger.info("db_backup_starting")
+        proc = await asyncio.create_subprocess_exec(
+            "/bin/bash", "scripts/backup_db.sh",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        try:
+            stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                proc.communicate(), timeout=BACKUP_TIMEOUT_S
+            )
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+            logger.error("db_backup_timeout", timeout_s=BACKUP_TIMEOUT_S)
+            raise RuntimeError(f"Backup excedeu o timeout de {BACKUP_TIMEOUT_S}s — processo encerrado.")
+
+        stdout_text = (stdout_bytes or b"").decode("utf-8", errors="replace")
+        stderr_text = (stderr_bytes or b"").decode("utf-8", errors="replace")
+
+        if proc.returncode != 0:
+            logger.error("db_backup_failed", returncode=proc.returncode, stderr=stderr_text[-400:])
+            raise RuntimeError(f"backup_db.sh encerrou com código {proc.returncode}.\n{stderr_text[-400:]}")
+
+        # Extrai tamanho do backup do stdout (ex: "SIZE: 42M")
+        m = _re.search(r"SIZE:\s*([\d\.]+\s*\w+)", stdout_text)
+        backup_size = m.group(1) if m else "?"
+
+        logger.info("db_backup_success", size=backup_size)
+
+    except RuntimeError:
+        raise
+    except Exception as e:
+        logger.error("db_backup_spawn_failed", error=str(e))
+        raise
+
+    return {"job": "db_backup", "records_count": backup_size}
+
 # ---------------------------------------------------------------------------
 @safe_job
 async def odds_prematch_30(): pass
@@ -683,12 +736,14 @@ async def health_check():
 
     schedule_lines = [
         "🗓 *Rotinas Fixas de hoje:*",
+        "  `00:20` — Data Quality Routine",
         "  `00:30` — Schedule Gameday Dinâmico",
         "  `00:40` — Flashscore Backfill (janela 1)",
         "  `03:15` — Heartbeat / Notificações",
         "  `03:20` — API-Football Backfill",
         "  `04:00` — FootyStats Daily",
         "  `04:10` — Football-Data Daily",
+        "  `04:20` — 💾 Backup DB → OneDrive",
         "  `05:25` — Flashscore Discovery Fixtures",
         "  `05:50` — Flashscore Discovery Results",
         "  `06:15` — Flashscore Backfill (janela 2)",

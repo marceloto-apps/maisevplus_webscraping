@@ -29,7 +29,8 @@ from src.scheduler.jobs import (
     health_check,
     health_check,
     set_scheduler,
-    run_data_quality_routine
+    run_data_quality_routine,
+    db_backup,
 )
 
 logger = get_logger(__name__)
@@ -110,6 +111,15 @@ class AppOrchestrator:
             hour=4, minute=10,
             id="football_data_daily",
             misfire_grace_time=7200
+        )
+
+        # 04:20 - Backup DB → OneDrive
+        self.scheduler.add_job(
+            db_backup,
+            'cron',
+            hour=4, minute=20,
+            id="db_backup",
+            misfire_grace_time=3600
         )
 
         # 05:25 - Flashscore Discovery Fixtures
