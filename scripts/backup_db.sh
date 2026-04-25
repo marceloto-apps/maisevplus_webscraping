@@ -20,13 +20,25 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 
 # Carrega .env se existir (para execução manual fora do orchestrator)
+# Parser robusto: suporta valores com espaços, strips de aspas e \r (Windows)
 ENV_FILE="$(dirname "$(realpath "$0")")/../.env"
 if [[ -f "$ENV_FILE" ]]; then
-    # Exporta apenas variáveis válidas, ignorando comentários e linhas em branco
-    set -a
-    # shellcheck disable=SC1090
-    source <(grep -E '^[A-Z_]+=.*' "$ENV_FILE" | sed 's/\r//')
-    set +a
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        # Ignora comentários e linhas em branco
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "${line//[[:space:]]/}" ]] && continue
+        # Processa apenas linhas KEY=VALUE válidas
+        if [[ "$line" =~ ^([A-Z_][A-Z0-9_]*)=(.*)$ ]]; then
+            _key="${BASH_REMATCH[1]}"
+            _val="${BASH_REMATCH[2]}"
+            # Remove \r (arquivos editados no Windows)
+            _val="${_val//$'\r'/}"
+            # Remove aspas duplas ou simples envolvendo o valor
+            _val="${_val#\"}" && _val="${_val%\"}"
+            _val="${_val#\'}" && _val="${_val%\'}"
+            export "$_key=$_val"
+        fi
+    done < "$ENV_FILE"
 fi
 
 RCLONE_REMOTE="${RCLONE_REMOTE:-onedrive}"
