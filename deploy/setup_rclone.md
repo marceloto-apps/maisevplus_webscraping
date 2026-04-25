@@ -73,7 +73,12 @@ config_token>               # ← COLE AQUI o token JSON copiado do Windows
 Continue a configuração após colar o token:
 ```
 config_type> 1              # onedrive (OneDrive Personal or Business)
-config_driveid> 0           # Pressione Enter para selecionar o drive padrão
+
+# O rclone listará os drives disponíveis. Escolha o número correspondente
+# a "OneDrive (personal)" — geralmente aparece com esse nome exato.
+# Exemplo: se aparecer como opção 4 → digite 4
+config_driveid> [número do "OneDrive (personal)" na lista]
+
 root_folder_id>             # Pressione Enter (deixe em branco)
 Keep this "onedrive" remote? y
 q) Quit config
@@ -87,11 +92,11 @@ q) Quit config
 # Testa se o rclone consegue listar o OneDrive
 rclone ls onedrive:
 
-# Cria a pasta de backups no OneDrive
-rclone mkdir onedrive:maisevplus_backups
+# Cria a estrutura de pastas no OneDrive (cria todas as subpastas necessárias)
+rclone mkdir "onedrive:Projetos/Trade Esportivo/MaisEVPlus/Backups"
 
 # Confirma que a pasta foi criada
-rclone ls onedrive:maisevplus_backups
+rclone ls "onedrive:Projetos/Trade Esportivo/MaisEVPlus"
 ```
 
 ---
@@ -103,7 +108,7 @@ Adicione ao arquivo `/root/maisevplus_webscraping/.env`:
 ```bash
 # --- Backup OneDrive ---
 RCLONE_REMOTE=onedrive
-BACKUP_ONEDRIVE_PATH=maisevplus_backups
+BACKUP_ONEDRIVE_PATH=Projetos/Trade Esportivo/MaisEVPlus/Backups
 BACKUP_LOCAL_RETENTION_DAYS=2
 BACKUP_ONEDRIVE_RETENTION_COUNT=5
 ```
