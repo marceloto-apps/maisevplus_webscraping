@@ -22,9 +22,37 @@ rclone version   # Verifica instalação
 ## Passo 2 — Configurar o remote do OneDrive
 
 O rclone precisa de uma autenticação OAuth com o OneDrive.
-Como a VPS não tem navegador, usamos **autenticação remota via túnel**.
+Como a VPS não tem navegador, geramos o token no Windows e colamos na VPS.
 
-### 2.1 — Iniciar a configuração na VPS
+> **Nota:** Versões recentes do rclone (v1.55+) usam o campo `config_token>` no lugar do antigo fluxo `Use auto config? n`. O processo abaixo cobre esse fluxo moderno.
+
+### 2.1 — Gerar o token no seu computador Windows (com browser)
+
+Abra o PowerShell local e execute:
+
+```powershell
+# Instale rclone localmente se ainda não tiver:
+winget install Rclone.Rclone
+
+# Gera o token OAuth para OneDrive:
+rclone authorize "onedrive"
+```
+
+O browser abrirá automaticamente para login Microsoft. Após autenticar, o terminal exibirá um **token JSON** como este:
+
+```
+Paste the following into your remote machine --->
+{"access_token":"eyJ0...","token_type":"Bearer","refresh_token":"0.A...","expiry":"2026-..."}
+<---End paste
+```
+
+**Copie o bloco JSON inteiro** (da `{` até a `}` inclusive).
+
+---
+
+### 2.2 — Configurar o remote na VPS
+
+Na VPS, execute:
 
 ```bash
 rclone config
@@ -34,40 +62,19 @@ Responda às perguntas:
 ```
 n) New remote
 name> onedrive
-Storage> onedrive           # (escolha o número correspondente a "Microsoft OneDrive")
+Storage> onedrive           # escolha o número correspondente a "Microsoft OneDrive"
 client_id>                  # deixe em branco (Enter)
 client_secret>              # deixe em branco (Enter)
 region>                     # 1 (Microsoft Cloud Global)
 Edit advanced config? n
-Use auto config? n          # ← IMPORTANTE: escolha "n" pois a VPS não tem browser
+config_token>               # ← COLE AQUI o token JSON copiado do Windows
 ```
 
-A VPS exibirá uma URL longa. **Copie essa URL.**
-
-### 2.2 — Autenticar no seu computador local
-
-No seu computador Windows (com browser disponível):
-
-```powershell
-# Instale rclone localmente se ainda não tiver:
-winget install Rclone.Rclone
-
-# Execute o authorize passando a URL copiada da VPS
-rclone authorize "onedrive"
+Continue a configuração após colar o token:
 ```
-
-O browser abrirá para login Microsoft. Após autenticar, o terminal exibirá um **token JSON**.
-Copie o token inteiro (começa com `{"access_token":...}`).
-
-### 2.3 — Cole o token na VPS
-
-De volta ao terminal da VPS, cole o token quando solicitado.
-
-Continue a configuração:
-```
-config_type> onedrive       # 1 (OneDrive Personal or Business)
-drive_id>                   # pressione Enter para selecionar o drive padrão
-root_folder_id>             # pressione Enter
+config_type> 1              # onedrive (OneDrive Personal or Business)
+config_driveid> 0           # Pressione Enter para selecionar o drive padrão
+root_folder_id>             # Pressione Enter (deixe em branco)
 Keep this "onedrive" remote? y
 q) Quit config
 ```
