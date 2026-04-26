@@ -96,14 +96,23 @@ class TelegramAlert:
     async def _send(cls, level: str, message: str):
         emoji = LEVEL_EMOJI.get(level, "ℹ️")
         text = f"{emoji} *[{level.upper()}]*\n\n{message}"
+        # Telegram rejeita mensagens acima de 4096 chars com 400 Bad Request.
+        # Truncamos com aviso para garantir a entrega.
+        MAX_CHARS = 4000
+        if len(text) > MAX_CHARS:
+            text = text[:MAX_CHARS] + "\n\n_...mensagem truncada..._"
         url = TELEGRAM_API.format(token=cls._token)
         payload = {
             "chat_id": cls._chat_id,
             "text": text,
             "parse_mode": "Markdown",
         }
-        resp = await cls._client.post(url, json=payload)
-        resp.raise_for_status()
+        try:
+            resp = await cls._client.post(url, json=payload)
+            resp.raise_for_status()
+        except Exception:
+            # Re-raise para o _handle_task_error capturar e logar
+            raise
 
     @staticmethod
     def _handle_task_error(task: asyncio.Task):
@@ -111,4 +120,10 @@ class TelegramAlert:
             return
         exc = task.exception()
         if exc:
-            logger.error("telegram_send_failed", error=type(exc).__name__, detail=str(exc))
+            status_code = getattr(getattr(exc, "response", None), "status_code", None)
+            logger.error(
+                "telegram_send_failed",
+                error=type(exc).__name__,
+                detail=str(exc),
+                status_code=status_code,
+            )

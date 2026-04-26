@@ -751,8 +751,8 @@ async def health_check():
         "  `11:25` — Flashscore Complementary (janela 1)",
         "  `14:00` — Flashscore Backfill (janela 4)",
         "  `16:35` — Flashscore Prematch Tracking",
-        "  `19:10` — Flashscore Complementary (janela 2)",
-        "  `21:45` — Flashscore Backfill (janela 5)",
+        "  `19:10` — Flashscore Backfill (janela 5)",
+        "  `21:45` — Flashscore Backfill (janela 6)",
         "  `23:50` — Reset Daily Keys"
     ]
 

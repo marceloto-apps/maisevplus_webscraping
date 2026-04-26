@@ -187,21 +187,21 @@ class AppOrchestrator:
             replace_existing=True
         )
 
-        # 19:10 - Flashscore Complementary (janela 2)
+        # 19:10 - Flashscore Backfill (janela 5)
         self.scheduler.add_job(
-            flashscore_complementary,
+            flashscore_historical_backfill,
             'cron',
             hour=19, minute=10,
-            id="flashscore_complementary_2",
+            id="flashscore_backfill_5",
             misfire_grace_time=3600
         )
         
-        # 21:45 - Flashscore Backfill (janela 5)
+        # 21:45 - Flashscore Backfill (janela 6)
         self.scheduler.add_job(
             flashscore_historical_backfill,
             'cron',
             hour=21, minute=45,
-            id="flashscore_backfill_5",
+            id="flashscore_backfill_6",
             misfire_grace_time=3600
         )
 
