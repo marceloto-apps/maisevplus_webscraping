@@ -59,11 +59,11 @@ async def main():
             if not league_id:
                 continue
 
-            # Temporada atual e imediatamente anterior (limite 2, mais nova primeiro)
+            # Temporada atual e as 4 anteriores (limite 5, mais nova primeiro)
             seasons = await conn.fetch("""
                 SELECT label, is_current FROM seasons 
                 WHERE league_id = $1
-                ORDER BY label DESC LIMIT 2
+                ORDER BY label DESC LIMIT 5
             """, league_id)
                 
             urls = []

@@ -14,6 +14,37 @@ from src.normalizer.match_resolver import MatchResolver
 
 logger = get_logger(__name__)
 
+# Padrões de sufixo que o Flashscore injeta como elementos filho dentro do nó do participante.
+# Ex: "Beerschot VAAdvancing to next round: Beerschot VA" → "Beerschot VA"
+#     "OldhamWinner" → "Oldham"
+_TEAM_SUFFIX_RE = re.compile(
+    r'(Advancing to next round.*|Winner.*|Eliminated.*|Qualified.*|Relegated.*|Promoted.*)$',
+    re.IGNORECASE
+)
+
+def _extract_team_name(node) -> str:
+    """
+    Extrai o nome limpo do time de um nó BeautifulSoup do tipo homeParticipant/awayParticipant.
+
+    O Flashscore injeta elementos filho com textos de status ("Winner", "Advancing to next round: X",
+    etc.) dentro do mesmo nó pai. O get_text() ingênuo os concatena ao nome.
+
+    Estratégia:
+      1. Tenta o primeiro NavigableString direto do nó (normalmente é só o nome do time).
+      2. Se não encontrar, usa get_text() com strip e remove sufixos conhecidos via regex.
+    """
+    from bs4 import NavigableString
+    # 1. Primeiro NavigableString direto — geralmente é o nome puro do time
+    for child in node.children:
+        if isinstance(child, NavigableString):
+            text = str(child).strip()
+            if text:
+                return text
+    # 2. Fallback: get_text() completo, removendo sufixos de status
+    raw = node.get_text(strip=True)
+    return _TEAM_SUFFIX_RE.sub("", raw).strip()
+
+
 class FlashscoreDiscovery(BaseCollector):
     """
     Coleta IDs de partidas do Flashscore (fixtures ou results) e mapeia
@@ -101,8 +132,8 @@ class FlashscoreDiscovery(BaseCollector):
                 if not home_node or away_node is None or not time_node:
                     continue
                     
-                home_team = home_node.get_text(strip=True)
-                away_team = away_node.get_text(strip=True)
+                home_team = _extract_team_name(home_node)
+                away_team = _extract_team_name(away_node)
                 date_text = time_node.get_text(strip=True) # Ex: "22.03. 15:15" ou "16.12.2023 15:15"
                 
                 date_match = re.search(r'(\d{1,2})\.(\d{1,2})\.\s*(\d{4})?', date_text)
