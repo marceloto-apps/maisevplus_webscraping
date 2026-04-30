@@ -4,7 +4,6 @@ KeyManager — rotação multi-key.
 from typing import Optional
 from src.db import helpers
 from src.db.logger import get_logger
-from src.alerts.telegram_mini import TelegramAlert
 
 logger = get_logger(__name__)
 
@@ -51,10 +50,7 @@ class KeyManager:
             usage_pct = usage_today / limit_daily
             if usage_pct >= 0.8 and key_id not in cls._alerted_keys:
                 cls._alerted_keys.add(key_id)
-                TelegramAlert.fire(
-                    "warning",
-                    f"🔑 Key *{service}* (ID: {key_id}) atingiu {usage_pct:.0%} do limite diário [{usage_today}/{limit_daily}]."
-                )
+                logger.warning("key_approaching_daily_limit", service=service, key_id=key_id, usage_pct=round(usage_pct, 2))
 
         logger.info("key_allocated", service=service, key_id=key_id, requests=requests_needed)
         return key_value

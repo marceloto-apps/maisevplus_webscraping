@@ -187,9 +187,6 @@ async def main():
             print(f"Completados com sucesso:    {total_collected}")
             print(f"Erros encontrados:          {total_errors}")
 
-            if total_collected > 0:
-                msg = f"Backfill Flashscore finalizado!\nLiga: {args.league or 'Múltiplas'}\nColetados: {total_collected}\nErros: {total_errors}"
-                TelegramAlert.fire("info", msg)
             if total_errors > 0:
                 TelegramAlert.fire("warning", f"Backfill Flashscore teve erros.\n{total_errors} jogos falharam nesta janela.")
 

@@ -581,14 +581,11 @@ async def flashscore_historical_backfill():
         new_ip = ip_match.group(1) if ip_match else "Desconhecido"
         
         logger.info("nordvpn_reconnected", server=target_server, ip=new_ip)
-        # Dispara sucesso para o Telegram
-        TelegramAlert.fire("info", f"🔄 Rodízio de IP (NordVPN)\nSrv: `{target_server}`\nIP: `{new_ip}`")
         
     except FileNotFoundError:
         logger.warning("nordvpn_binary_not_found_skipping_rotation")
     except subprocess.CalledProcessError as e:
         logger.error("nordvpn_failed", error=e.stderr.strip())
-        TelegramAlert.fire("warning", f"NordVPN rodízio falhou no srv {target_server}:\n{e.stderr.strip()}")
 
     # Janela de tempo por execução (horas). O filho para sozinho nesse limite;
     # o pai tem um guard de +6 min para não bloquear o orchestrator para sempre.
@@ -965,8 +962,11 @@ async def run_data_quality_routine():
         tg_msg.append("")
         tg_msg.append("🔗 _Relatório completo salvo no log._")
         
-        # 4. Notificar via telegram
+        # 4. Notificar via telegram (relatório consolidado)
         TelegramAlert.fire("info", "\n".join(tg_msg))
+        # Retorna logo após o fire para que o safe_job NÃO envie uma segunda notificação SUCCESS.
+        # O records_count é injetado no retorno apenas para telemetria de log.
+
         
         # 5. Log Detalhado (Breakdown)
         details = await conn.fetch('''
@@ -998,5 +998,5 @@ async def run_data_quality_routine():
                         fd_od=r['count_fd_odds'], fs_od=r['count_fs_odds'], susp_odds=r['count_suspicious'])
         logger.info("data_quality_detailed_breakdown_end")
 
-        return {"total_matches": total_matches, "jobs": "run_data_quality_routine"}
+        return {"records_count": total_matches}
 
