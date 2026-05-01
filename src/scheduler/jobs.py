@@ -76,11 +76,12 @@ def safe_job(func):
 
             # Notificação Telegram de sucesso (apenas para jobs que precisam de visibilidade)
             if job_name in NOTIFY_ON_SUCCESS:
-                count_line = f"Registros: `{records_count}`\n" if records_count is not None else ""
+                safe_name = job_name.replace('_', r'\_')
+                count_line = f"Registros: {records_count}\n" if records_count is not None else ""
                 TelegramAlert.fire(
                     "success", 
-                    f"*{job_name}*\n"
-                    f"Duração: `{duration_min} min`\n"
+                    f"*{safe_name}*\n"
+                    f"Duração: {duration_min} min\n"
                     f"{count_line}"
                 )
 
@@ -89,10 +90,12 @@ def safe_job(func):
             raise  # Propaga para o orchestrator encerrar
         except NoKeysAvailableError as e:
             logger.warning("job_skipped_no_keys", job_name=job_name, error=str(e))
-            TelegramAlert.fire("critical", f"🔑 *{job_name}*\nTodas as API keys esgotadas.\n`{e}`")
+            safe_name = job_name.replace('_', r'\_')
+            TelegramAlert.fire("critical", f"🔑 *{safe_name}*\nTodas as API keys esgotadas.\n{e}")
         except Exception as e:
             logger.exception("job_failed_unhandled", job_name=job_name, error=str(e))
-            TelegramAlert.fire("error", f"💥 *{job_name}*\nFalha não tratada.\n`{type(e).__name__}: {e}`")
+            safe_name = job_name.replace('_', r'\_')
+            TelegramAlert.fire("error", f"💥 *{safe_name}*\nFalha não tratada.\n{type(e).__name__}: {e}")
         finally:
             # Tenta disparar o flush após a finalização (ou falha)
             try:
@@ -732,25 +735,25 @@ async def health_check():
     is_monday = now_brt.weekday() == 0  # segunda
 
     schedule_lines = [
-        "🗓 *Rotinas Fixas de hoje:*",
-        "  `00:20` — Data Quality Routine",
-        "  `00:30` — Schedule Gameday Dinâmico",
-        "  `00:40` — Flashscore Backfill (janela 1)",
-        "  `03:15` — Heartbeat / Notificações",
-        "  `03:20` — API-Football Backfill",
-        "  `04:00` — FootyStats Daily",
-        "  `04:10` — Football-Data Daily",
-        "  `04:20` — 💾 Backup DB → OneDrive",
-        "  `05:25` — Flashscore Discovery Fixtures",
-        "  `05:50` — Flashscore Discovery Results",
-        "  `06:15` — Flashscore Backfill (janela 2)",
-        "  `08:50` — Flashscore Backfill (janela 3)",
-        "  `11:25` — Flashscore Backfill (janela 4)",
-        "  `14:00` — Flashscore Backfill (janela 5)",
-        "  `16:35` — Flashscore Prematch Tracking",
-        "  `19:10` — Flashscore Backfill (janela 6)",
-        "  `21:45` — Flashscore Backfill (janela 7)",
-        "  `23:50` — Reset Daily Keys"
+        "🗓 Rotinas Fixas de hoje:",
+        "  00:20 — Data Quality Routine",
+        "  00:30 — Schedule Gameday Dinâmico",
+        "  00:40 — Flashscore Backfill (janela 1)",
+        "  03:15 — Heartbeat / Notificações",
+        "  03:20 — API-Football Backfill",
+        "  04:00 — FootyStats Daily",
+        "  04:10 — Football-Data Daily",
+        "  04:20 — 💾 Backup DB → OneDrive",
+        "  05:25 — Flashscore Discovery Fixtures",
+        "  05:50 — Flashscore Discovery Results",
+        "  06:15 — Flashscore Backfill (janela 2)",
+        "  08:50 — Flashscore Backfill (janela 3)",
+        "  11:25 — Flashscore Backfill (janela 4)",
+        "  14:00 — Flashscore Backfill (janela 5)",
+        "  16:35 — Flashscore Prematch Tracking",
+        "  19:10 — Flashscore Backfill (janela 6)",
+        "  21:45 — Flashscore Backfill (janela 7)",
+        "  23:50 — Reset Daily Keys"
     ]
 
     schedule_txt = "\n".join(schedule_lines)
@@ -915,21 +918,31 @@ async def run_data_quality_routine():
         from datetime import date
         today_str = date.today().strftime("%d/%m/%Y")
         
+        # Valores seguros para formatação (evita None literal)
+        fs_st = totals_row['footystats_stats'] or 0
+        ap_st = totals_row['apifootball_stats'] or 0
+        fl_st = totals_row['flashscore_stats'] or 0
+        fd_od = totals_row['football_data_odds'] or 0
+        fs_od = totals_row['flashscore_odds'] or 0
+        s_1x2 = totals_row['susp_1x2'] or 0
+        s_ou  = totals_row['susp_ou'] or 0
+        s_ah  = totals_row['susp_ah'] or 0
+
         tg_msg = [
             f"📊 *Data Quality Report — {today_str}*",
-            f"Jogos finalizados analisados: `{total_matches}`",
+            f"Jogos finalizados analisados: {total_matches}",
             "",
             "✅ *Cobertura Geral:*",
-            f"  FootyStats:  `{totals_row['footystats_stats']}/{total_matches} ({pct(totals_row['footystats_stats'])}%)`",
-            f"  APIFootball:  `{totals_row['apifootball_stats']}/{total_matches} ({pct(totals_row['apifootball_stats'])}%)`",
-            f"  FlashScore:   `{totals_row['flashscore_stats']}/{total_matches} ({pct(totals_row['flashscore_stats'])}%)`",
-            f"  FD Odds:      `{totals_row['football_data_odds']}/{total_matches} ({pct(totals_row['football_data_odds'])}%)`",
-            f"  FS Odds:      `{totals_row['flashscore_odds']}/{total_matches} ({pct(totals_row['flashscore_odds'])}%)`",
+            f"  FootyStats:  {fs_st}/{total_matches} ({pct(fs_st)}%)",
+            f"  APIFootball: {ap_st}/{total_matches} ({pct(ap_st)}%)",
+            f"  FlashScore:  {fl_st}/{total_matches} ({pct(fl_st)}%)",
+            f"  FD Odds:     {fd_od}/{total_matches} ({pct(fd_od)}%)",
+            f"  FS Odds:     {fs_od}/{total_matches} ({pct(fs_od)}%)",
             "",
             "🔍 *Auditoria de Odds:*",
-            f"  Odds 1x2 suspeitas: `{totals_row['susp_1x2']}/{total_matches} ({pct(totals_row['susp_1x2'])}%)`",
-            f"  Odds OU suspeitas:  `{totals_row['susp_ou']}/{total_matches} ({pct(totals_row['susp_ou'])}%)`",
-            f"  Odds AH suspeitas:  `{totals_row['susp_ah']}/{total_matches} ({pct(totals_row['susp_ah'])}%)`",
+            f"  Odds 1x2 suspeitas: {s_1x2}/{total_matches} ({pct(s_1x2)}%)",
+            f"  Odds OU suspeitas:  {s_ou}/{total_matches} ({pct(s_ou)}%)",
+            f"  Odds AH suspeitas:  {s_ah}/{total_matches} ({pct(s_ah)}%)",
             ""
         ]
 
@@ -955,12 +968,13 @@ async def run_data_quality_routine():
         if offenders:
             tg_msg.append("⚠️ *Ligas com mais inconsistências (Top 5):*")
             for row in offenders:
-                tg_msg.append(f"  {row['league_code']} {row['season']}: `{row['total_issues']} jogos com falhas`")
+                league_code = (row['league_code'] or '?').replace('_', r'\_')
+                tg_msg.append(f"  {league_code} {row['season']}: {row['total_issues']} jogos com falhas")
         else:
             tg_msg.append("🎉 *Todas as ligas estão 100% completas!*")
             
         tg_msg.append("")
-        tg_msg.append("🔗 _Relatório completo salvo no log._")
+        tg_msg.append("🔗 Relatório completo salvo no log.")
         
         # 4. Notificar via telegram (relatório consolidado)
         TelegramAlert.fire("info", "\n".join(tg_msg))

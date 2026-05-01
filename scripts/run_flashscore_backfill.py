@@ -134,8 +134,8 @@ async def main():
                 "info",
                 f"📭 *Backfill Flashscore*\n"
                 f"Fila vazia — 0 partidas pendentes.\n"
-                f"Liga: `{league_label}`\n"
-                f"_Aguardando discovery popular novos flashscore\\_ids._"
+                f"Liga: {league_label}\n"
+                f"Aguardando discovery popular novos flashscore ids."
             )
             print("Completados com sucesso:    0")
             return

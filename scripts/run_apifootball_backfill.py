@@ -340,8 +340,8 @@ async def run_backfill(is_cron=False):
                 TelegramAlert.fire(
                     "warning",
                     f"*API-Football Backfill* pausado por limite\n"
-                    f"Requisições usadas: `{reqs_used}/{MAX_REQUESTS_PER_RUN}`\n"
-                    f"Ano: `{l_year}` | Liga pausada: `{l_code}`\n"
+                    f"Requisições usadas: {reqs_used}/{MAX_REQUESTS_PER_RUN}\n"
+                    f"Ano: {l_year} | Liga pausada: {l_code}\n"
                     f"O restante será retomado na próxima execução."
                 )
                 # Preserva current_year e last_processed_fixture_id para retomada exata
@@ -377,16 +377,16 @@ async def run_backfill(is_cron=False):
         TelegramAlert.fire(
             "error",
             f"*API-Football Backfill* finalizado com erros\n"
-            f"Requisições usadas: `{reqs_used}/{MAX_REQUESTS_PER_RUN}`\n"
+            f"Requisições usadas: {reqs_used}/{MAX_REQUESTS_PER_RUN}\n"
             f"Status: ❌ Com erros\n\n"
-            f"*Erros encontrados:*\n{erros_txt}"
+            f"Erros encontrados:\n{erros_txt}"
         )
     else:
         status_txt = "🔄 Parcial (limite atingido)" if reqs_used >= MAX_REQUESTS_PER_RUN else "✅ Concluído sem erros"
         TelegramAlert.fire(
             "success",
             f"*API-Football Backfill* finalizado\n"
-            f"Requisições usadas: `{reqs_used}/{MAX_REQUESTS_PER_RUN}`\n"
+            f"Requisições usadas: {reqs_used}/{MAX_REQUESTS_PER_RUN}\n"
             f"Status: {status_txt}"
         )
 

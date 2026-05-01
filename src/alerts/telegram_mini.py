@@ -95,12 +95,12 @@ class TelegramAlert:
     @classmethod
     async def _send(cls, level: str, message: str):
         emoji = LEVEL_EMOJI.get(level, "ℹ️")
-        text = f"{emoji} *[{level.upper()}]*\n\n{message}"
+        text = f"{emoji} [{level.upper()}]\n\n{message}"
         # Telegram rejeita mensagens acima de 4096 chars com 400 Bad Request.
         # Truncamos com aviso para garantir a entrega.
         MAX_CHARS = 4000
         if len(text) > MAX_CHARS:
-            text = text[:MAX_CHARS] + "\n\n_...mensagem truncada..._"
+            text = text[:MAX_CHARS] + "\n\n...mensagem truncada..."
         url = TELEGRAM_API.format(token=cls._token)
         payload = {
             "chat_id": cls._chat_id,
@@ -110,8 +110,27 @@ class TelegramAlert:
         try:
             resp = await cls._client.post(url, json=payload)
             resp.raise_for_status()
+            return
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 400:
+                # Markdown inválido — retry como texto plano
+                logger.warning("telegram_markdown_failed_retrying_plain",
+                               status=400, preview=text[:120])
+            else:
+                raise
         except Exception:
             # Re-raise para o _handle_task_error capturar e logar
+            raise
+
+        # Fallback: texto plano (sem parse_mode) para garantir entrega
+        payload_plain = {
+            "chat_id": cls._chat_id,
+            "text": text,
+        }
+        try:
+            resp = await cls._client.post(url, json=payload_plain)
+            resp.raise_for_status()
+        except Exception:
             raise
 
     @staticmethod

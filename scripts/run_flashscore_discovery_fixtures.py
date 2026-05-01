@@ -40,7 +40,7 @@ async def main():
     
     print(f"Discovery FIXTURES CONCLUÍDO! Status: {res.status.name}. Matches atualizados: {res.records_new}")
     
-    msg = f"🔎 *Flashscore Fixtures Discovery*\nStatus: `{res.status.name}`\nMatches Associados: `{res.records_new}`"
+    msg = f"🔎 *Flashscore Fixtures Discovery*\nStatus: {res.status.name}\nMatches Associados: {res.records_new}"
     if res.status.name == "FAILED":
         TelegramAlert.fire("error", msg)
     else:

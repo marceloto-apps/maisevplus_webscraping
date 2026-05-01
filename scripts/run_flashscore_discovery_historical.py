@@ -214,11 +214,11 @@ async def main():
 
     msg = (
         f"🔍 *Flashscore Historical Discovery*\n"
-        f"Status: `{res.status.name}`\n"
-        f"Temporadas processadas: `{total_season_urls}`\n"
-        f"Temporadas puladas (100%): `{skipped_seasons}`\n"
-        f"Matches Associados: `{res.records_new}`\n"
-        f"Unknowns pendentes: `{len(unknowns)}`"
+        f"Status: {res.status.name}\n"
+        f"Temporadas processadas: {total_season_urls}\n"
+        f"Temporadas puladas (100%): {skipped_seasons}\n"
+        f"Matches Associados: {res.records_new}\n"
+        f"Unknowns pendentes: {len(unknowns)}"
     )
     if res.status.name == "FAILED":
         TelegramAlert.fire("error", msg)
