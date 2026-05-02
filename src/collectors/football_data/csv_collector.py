@@ -364,26 +364,16 @@ class FootballDataCollector(BaseCollector):
                 )
                 
                 if not match_id:
-                    status = 'finished'
-                    ft_home = int(row['FTHG']) if pd.notna(row.get('FTHG')) else None
-                    ft_away = int(row['FTAG']) if pd.notna(row.get('FTAG')) else None
-                    match_id = await conn.fetchval(
-                        """
-                        INSERT INTO matches (
-                            season_id, league_id, home_team_id, away_team_id, 
-                            kickoff, status, ft_home, ft_away, updated_at
-                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
-                        RETURNING match_id
-                        """,
-                        season_id, league_id, home_id, away_id, kickoff_dt, status, ft_home, ft_away
-                    )
+                    # Match não existe na base — NÃO criar novo
+                    # (evita duplicatas; matches devem vir do footystats/api-football)
+                    continue
 
                 inserted_count += 1
 
                 # ===========================================================
                 # Inserção de Closing Odds (football-data.co.uk)
-                # Main leagues: colunas com 'C' (B365CH, PSCH, BFECH...)
-                # Extra leagues: colunas normais já são closing
+                # Ambos main e extra usam colunas com 'C' para closing:
+                # B365CH, PSCH, BFECH, etc.
                 # ===========================================================
                 pin_id = self._bookmaker_ids.get('pinnacle')
                 bet_id = self._bookmaker_ids.get('bet365')
@@ -392,12 +382,10 @@ class FootballDataCollector(BaseCollector):
                 def parse_odd(val):
                     return float(val) if pd.notna(val) and val != "" else None
 
-                is_extra = meta.get('type') == 'extra'
-
                 # --- 1. Bet365 1x2 Closing ---
-                b1 = parse_odd(row.get('B365H' if is_extra else 'B365CH'))
-                bx = parse_odd(row.get('B365D' if is_extra else 'B365CD'))
-                b2 = parse_odd(row.get('B365A' if is_extra else 'B365CA'))
+                b1 = parse_odd(row.get('B365CH'))
+                bx = parse_odd(row.get('B365CD'))
+                b2 = parse_odd(row.get('B365CA'))
                 if b1 and bx and b2:
                     await insert_odds_if_new(
                         conn=conn, match_id=match_id, bookmaker_id=bet_id, market_type='1x2',
@@ -407,8 +395,8 @@ class FootballDataCollector(BaseCollector):
                     )
 
                 # --- 2. Bet365 OU 2.5 Closing ---
-                b_over = parse_odd(row.get('B365>2.5' if is_extra else 'B365C>2.5'))
-                b_under = parse_odd(row.get('B365<2.5' if is_extra else 'B365C<2.5'))
+                b_over = parse_odd(row.get('B365C>2.5'))
+                b_under = parse_odd(row.get('B365C<2.5'))
                 if b_over and b_under:
                     await insert_odds_if_new(
                         conn=conn, match_id=match_id, bookmaker_id=bet_id, market_type='ou',
@@ -418,9 +406,9 @@ class FootballDataCollector(BaseCollector):
                     )
 
                 # --- 3. Pinnacle 1x2 Closing ---
-                p1 = parse_odd(row.get('PSH' if is_extra else 'PSCH'))
-                px = parse_odd(row.get('PSD' if is_extra else 'PSCD'))
-                p2 = parse_odd(row.get('PSA' if is_extra else 'PSCA'))
+                p1 = parse_odd(row.get('PSCH'))
+                px = parse_odd(row.get('PSCD'))
+                p2 = parse_odd(row.get('PSCA'))
                 if p1 and px and p2:
                     await insert_odds_if_new(
                         conn=conn, match_id=match_id, bookmaker_id=pin_id, market_type='1x2',
@@ -430,8 +418,8 @@ class FootballDataCollector(BaseCollector):
                     )
 
                 # --- 4. Pinnacle OU 2.5 Closing ---
-                p_over = parse_odd(row.get('P>2.5' if is_extra else 'PC>2.5'))
-                p_under = parse_odd(row.get('P<2.5' if is_extra else 'PC<2.5'))
+                p_over = parse_odd(row.get('PC>2.5'))
+                p_under = parse_odd(row.get('PC<2.5'))
                 if p_over and p_under:
                     await insert_odds_if_new(
                         conn=conn, match_id=match_id, bookmaker_id=pin_id, market_type='ou',
@@ -441,9 +429,9 @@ class FootballDataCollector(BaseCollector):
                     )
 
                 # --- 5. Betfair Exchange 1x2 Closing ---
-                f1 = parse_odd(row.get('BFH' if is_extra else 'BFECH'))
-                fx = parse_odd(row.get('BFD' if is_extra else 'BFECD'))
-                f2 = parse_odd(row.get('BFA' if is_extra else 'BFECA'))
+                f1 = parse_odd(row.get('BFECH'))
+                fx = parse_odd(row.get('BFECD'))
+                f2 = parse_odd(row.get('BFECA'))
                 if f1 and fx and f2 and bfe_id:
                     await insert_odds_if_new(
                         conn=conn, match_id=match_id, bookmaker_id=bfe_id, market_type='1x2',
@@ -453,8 +441,8 @@ class FootballDataCollector(BaseCollector):
                     )
 
                 # --- 6. Betfair Exchange OU 2.5 Closing ---
-                f_over = parse_odd(row.get('BF>2.5' if is_extra else 'BFEC>2.5'))
-                f_under = parse_odd(row.get('BF<2.5' if is_extra else 'BFEC<2.5'))
+                f_over = parse_odd(row.get('BFEC>2.5'))
+                f_under = parse_odd(row.get('BFEC<2.5'))
                 if f_over and f_under and bfe_id:
                     await insert_odds_if_new(
                         conn=conn, match_id=match_id, bookmaker_id=bfe_id, market_type='ou',
