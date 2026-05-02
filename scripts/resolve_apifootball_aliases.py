@@ -33,7 +33,30 @@ def similarity(a: str, b: str) -> float:
 
 async def get_all_db_teams(pool) -> list:
     async with pool.acquire() as conn:
-        return await conn.fetch("SELECT team_id, name_canonical, api_football_id FROM teams ORDER BY name_canonical")
+        # Puxa o nome canônico e todos os aliases conhecidos para cada team_id
+        rows = await conn.fetch("""
+            SELECT t.team_id, t.name_canonical, t.api_football_id, 
+                   array_agg(DISTINCT ta.alias_name) FILTER (WHERE ta.alias_name IS NOT NULL) as aliases
+            FROM teams t
+            LEFT JOIN team_aliases ta ON t.team_id = ta.team_id
+            GROUP BY t.team_id, t.name_canonical, t.api_football_id
+            ORDER BY t.name_canonical
+        """)
+        
+        teams = []
+        for row in rows:
+            aliases = row["aliases"] or []
+            # Adiciona o nome canônico na lista de nomes comparáveis
+            if row["name_canonical"] not in aliases:
+                aliases.append(row["name_canonical"])
+            
+            teams.append({
+                "team_id": row["team_id"],
+                "name_canonical": row["name_canonical"],
+                "api_football_id": row["api_football_id"],
+                "search_names": aliases
+            })
+        return teams
 
 
 async def get_existing_aliases(pool) -> dict:
@@ -165,8 +188,13 @@ async def main():
                 print(f"    ✓ Auto: {api_name} → {exact['name_canonical']} (id {exact['team_id']})")
                 continue
 
-            # ── Tentativa 4: fuzzy matching — sugere candidatos ──
-            scored = [(t, similarity(api_name, t["name_canonical"])) for t in all_teams]
+            # ── Tentativa 4: fuzzy matching usando TODOS os aliases do time ──
+            scored = []
+            for t in all_teams:
+                # Calcula a similaridade contra o nome canônico e todos os aliases conhecidos
+                best_score = max(similarity(api_name, name) for name in t["search_names"])
+                scored.append((t, best_score))
+                
             scored.sort(key=lambda x: x[1], reverse=True)
             top = scored[:8]
 
