@@ -255,6 +255,18 @@ class FootballDataCollector(BaseCollector):
             if diff > 0:
                 logger.warning("bad_lines_skipped", url=url, skip_count=diff)
 
+        # Normaliza colunas do formato "extra" para o formato "main"
+        # Extra CSVs usam Home/Away/HG/AG/Res ao invés de HomeTeam/AwayTeam/FTHG/FTAG/FTR
+        if meta.get('type') == 'extra':
+            rename_map = {
+                'Home': 'HomeTeam',
+                'Away': 'AwayTeam',
+                'HG': 'FTHG',
+                'AG': 'FTAG',
+                'Res': 'FTR',
+            }
+            df = df.rename(columns={k: v for k, v in rename_map.items() if k in df.columns})
+
         if df.empty or 'HomeTeam' not in df.columns or 'AwayTeam' not in df.columns:
             return set() if mode == 'seed-aliases' else 0
 
