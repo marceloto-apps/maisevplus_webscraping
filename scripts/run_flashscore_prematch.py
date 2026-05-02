@@ -101,7 +101,7 @@ async def main():
             print(f"Fase: {args.phase}")
             print(f"Partidas vistoriadas: {total_collected}")
 
-            if total_collected > 0:
+            if total_collected > 0 and not args.match_id:
                 safe_phase = args.phase.replace('_', r'\_')
                 msg = f"📈 *Prematch Tracking Finalizado* ({safe_phase})\nPartidas vistoriadas: {total_collected}"
                 TelegramAlert.fire("info", msg)

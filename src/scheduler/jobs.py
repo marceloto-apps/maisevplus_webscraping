@@ -29,6 +29,7 @@ NOTIFY_ON_SUCCESS: set[str] = {
     "fixtures_weekly",
     "flashscore_discovery",
     "db_backup",
+    "run_data_quality_routine",
 }
 
 def set_scheduler(scheduler):
@@ -46,6 +47,7 @@ def safe_job(func):
         job_name = func.__name__
         start_time = time.monotonic()
         logger.info("job_started", job_name=job_name)
+        _notified = False  # Flag para garantir que alguma notificação foi tentada
 
         try:
             # A execução da lógica da task
@@ -84,24 +86,47 @@ def safe_job(func):
                     f"Duração: {duration_min} min\n"
                     f"{count_line}"
                 )
+                _notified = True
 
         except asyncio.CancelledError:
             logger.info("job_cancelled", job_name=job_name)
+            _notified = True  # Não precisa notificar cancelamento
             raise  # Propaga para o orchestrator encerrar
         except NoKeysAvailableError as e:
             logger.warning("job_skipped_no_keys", job_name=job_name, error=str(e))
             safe_name = job_name.replace('_', r'\_')
-            TelegramAlert.fire("critical", f"🔑 *{safe_name}*\nTodas as API keys esgotadas.\n{e}")
+            TelegramAlert.fire("critical", f"\U0001f511 *{safe_name}*\nTodas as API keys esgotadas.\n{e}")
+            _notified = True
         except Exception as e:
             logger.exception("job_failed_unhandled", job_name=job_name, error=str(e))
-            safe_name = job_name.replace('_', r'\_')
-            TelegramAlert.fire("error", f"💥 *{safe_name}*\nFalha não tratada.\n{type(e).__name__}: {e}")
+            try:
+                safe_name = job_name.replace('_', r'\_')
+                err_text = f"{type(e).__name__}: {str(e)[:300]}"
+                TelegramAlert.fire("error", f"\U0001f4a5 *{safe_name}*\nFalha nao tratada.\n{err_text}")
+                _notified = True
+            except Exception:
+                # Se até o fire falhar, o finally fallback cuidará
+                logger.error("telegram_fire_in_except_failed", job_name=job_name)
         finally:
             # Tenta disparar o flush após a finalização (ou falha)
             try:
                 await TeamResolver.flush_unknowns()
             except Exception as flush_err:
                 logger.error("flush_unknowns_failed", error=str(flush_err))
+            
+            # Fallback: se nenhuma notificação foi enviada para um job que deveria
+            # notificar, envia uma notificação genérica de segurança
+            if not _notified and job_name in NOTIFY_ON_SUCCESS:
+                duration = time.monotonic() - start_time
+                duration_min = round(duration / 60, 1)
+                try:
+                    TelegramAlert.fire(
+                        "warning",
+                        f"[FALLBACK] Job {job_name} finalizou em {duration_min} min "
+                        f"sem notificacao de sucesso ou erro. Verifique os logs."
+                    )
+                except Exception:
+                    pass  # Desistir silenciosamente — o log já foi gravado
     
     return wrapped
 
