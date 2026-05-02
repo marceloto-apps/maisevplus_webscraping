@@ -31,7 +31,7 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 STATE_FILE = os.path.join(DATA_DIR, "apifootball_stats_only_state.json")
 
 MAX_REQUESTS_PER_RUN = 1500
-SKIP_LEAGUES = {"ENG_NL"}  # Ligas sem estatísticas no API-Football
+SKIP_LEAGUES = {"ENG_NL", "SCO_CH", "SCO_L1", "SCO_L2"}  # Ligas sem stats no API-Football
 
 
 def load_state() -> dict:

@@ -36,7 +36,7 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 STATE_FILE = os.path.join(DATA_DIR, "apifootball_backfill_state.json")
 
 MAX_REQUESTS_PER_RUN = 7300  # VIP plan: 7500/dia, margem de segurança
-SKIP_LEAGUES = set()   # Ligas sem estatísticas no API-Football
+SKIP_LEAGUES = {"ENG_NL", "SCO_CH", "SCO_L1", "SCO_L2"}  # Ligas sem stats/events no API-Football
 EARLIEST_YEAR = 2021  # Minimum season year to backfill
 
 
@@ -253,10 +253,15 @@ async def run_backfill(is_cron=False):
             save_state(state)
             continue
 
-        # Reset per‑year tracking
-        completed_leagues = []
-        state["completed_leagues"] = completed_leagues
-        save_state(state)
+        # Use completed_leagues from state if resuming the same year;
+        # only reset when advancing to a new year
+        if current_year == state.get("current_year"):
+            completed_leagues = state.get("completed_leagues", [])
+        else:
+            completed_leagues = []
+            state["completed_leagues"] = completed_leagues
+            state["current_year"] = current_year
+            save_state(state)
 
         limit_reached = False
         for l_data in season_leagues:
@@ -267,6 +272,10 @@ async def run_backfill(is_cron=False):
 
             if l_code in SKIP_LEAGUES:
                 print(f"⏭ [{l_code}] Pulando (sem stats no API-Football).")
+                continue
+
+            if l_code in completed_leagues:
+                print(f"⏭ [{l_code}] ({l_year}) Já concluída nesta temporada.")
                 continue
 
             print(f"▶ [{l_code}] ({l_year}) Puxando fixtures...")
