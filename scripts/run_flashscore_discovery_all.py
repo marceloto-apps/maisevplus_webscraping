@@ -59,24 +59,18 @@ async def main():
             if not league_id:
                 continue
 
-            # Temporada atual e as 4 anteriores (limite 5, mais nova primeiro)
-            seasons = await conn.fetch("""
+            # Apenas temporada atual (histórico já foi 100% descoberto)
+            season = await conn.fetchrow("""
                 SELECT label, is_current FROM seasons 
-                WHERE league_id = $1
-                ORDER BY label DESC LIMIT 5
+                WHERE league_id = $1 AND is_current = TRUE
+                LIMIT 1
             """, league_id)
+
+            if not season:
+                continue
                 
-            urls = []
-            for s in seasons:
-                label = s["label"]
-                if s.get("is_current"):
-                    urls.append(f"https://www.flashscore.com/{base_path}/results/")
-                else:
-                    slug = build_flashscore_season_slug(label)
-                    urls.append(f"https://www.flashscore.com/{base_path}-{slug}/results/")
-            
-            if urls:
-                target_urls[code] = urls
+            # Temporada atual usa a URL default de results
+            target_urls[code] = [f"https://www.flashscore.com/{base_path}/results/"]
 
     print(f"Alvos construídos para {len(target_urls)} ligas.")
     
