@@ -37,6 +37,7 @@ class FootballDataCollector(BaseCollector):
         self._league_map: Dict[str, int] = {}  # football_data_code -> league_id
         self._season_map: Dict[tuple[int, str], int] = {}  # (league_id, fd_season) -> season_id
         self._extra_seasons: List[dict] = []   # [{season_id, league_id, start, end}, ...]
+        self._season_label_map: Dict[tuple[int, str], int] = {}  # (league_id, label) -> season_id
 
     async def _init_db_and_caches(self):
         """Inicializa conexões e caches dinâmicos do DB."""
@@ -75,12 +76,15 @@ class FootballDataCollector(BaseCollector):
 
             # Load Seasons
             db_seasons = await conn.fetch(
-                "SELECT season_id, league_id, football_data_season, start_date, end_date FROM seasons"
+                "SELECT season_id, league_id, label, football_data_season, start_date, end_date FROM seasons"
             )
             for s in db_seasons:
                 if s["football_data_season"]:
                     self._season_map[(s["league_id"], s["football_data_season"])] = s["season_id"]
-                # For extra leagues, store intervals
+                # Label-based lookup (used by extra leagues via CSV Season column)
+                if s["label"]:
+                    self._season_label_map[(s["league_id"], s["label"])] = s["season_id"]
+                # For extra leagues, store intervals as fallback
                 self._extra_seasons.append({
                     "season_id": s["season_id"],
                     "league_id": s["league_id"],
@@ -334,15 +338,20 @@ class FootballDataCollector(BaseCollector):
                 if meta['type'] == 'main':
                     season_id = self._season_map.get((league_id, meta['fd_season']))
                 else:
-                    # Extra leagues: buscar por range de data
-                    d_obj = kickoff_dt.date()
-                    for s_cfg in self._extra_seasons:
-                        if s_cfg['league_id'] == league_id:
-                            start = s_cfg['start']
-                            end = s_cfg['end']
-                            if start <= d_obj <= end:
-                                season_id = s_cfg['season_id']
-                                break
+                    # Extra leagues: usar coluna Season do CSV para lookup direto
+                    csv_season = str(row.get('Season', '')).strip()
+                    if csv_season:
+                        season_id = self._season_label_map.get((league_id, csv_season))
+                    # Fallback: buscar por range de data (com guard contra None)
+                    if not season_id:
+                        d_obj = kickoff_dt.date()
+                        for s_cfg in self._extra_seasons:
+                            if s_cfg['league_id'] == league_id:
+                                start = s_cfg['start']
+                                end = s_cfg['end']
+                                if start and end and start <= d_obj <= end:
+                                    season_id = s_cfg['season_id']
+                                    break
                 
                 if not season_id:
                     continue  # Safely ignore matches outside registered seasons
