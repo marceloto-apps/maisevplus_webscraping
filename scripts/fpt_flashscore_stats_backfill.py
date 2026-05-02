@@ -6,6 +6,9 @@ from datetime import datetime
 import pandas as pd
 import requests
 
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from src.db.pool import get_pool
 from src.db.logger import get_logger
 from src.normalizer.team_resolver import TeamResolver
