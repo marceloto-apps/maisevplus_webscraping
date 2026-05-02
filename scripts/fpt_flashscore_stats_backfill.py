@@ -56,7 +56,8 @@ class FPTStatsBackfill:
         await TeamResolver.load_cache()
 
     def _convert_season_label(self, label: str) -> str:
-        return label
+        # FPT bet365 API expects '2025-2026' instead of '2025/2026'
+        return label.replace("/", "-")
 
     def fetch_fpt_data(self, fpt_league: str, season: str) -> pd.DataFrame:
         params = {"league": fpt_league, "season": season}

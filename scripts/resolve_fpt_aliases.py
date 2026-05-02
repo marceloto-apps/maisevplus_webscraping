@@ -111,7 +111,8 @@ async def main():
         print(f"\n▶ [{l_code}] {league['name']} (FPT: {fpt_league}, Season: {season_label})")
         print("  Baixando CSV de dados da API FPT...", end=" ", flush=True)
 
-        df = fpt_client.fetch_fpt_data(fpt_league, season_label)
+        fpt_season = fpt_client._convert_season_label(season_label)
+        df = fpt_client.fetch_fpt_data(fpt_league, fpt_season)
         reqs_used += 1
 
         if df.empty:
