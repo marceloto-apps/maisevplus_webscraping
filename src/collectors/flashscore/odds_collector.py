@@ -193,13 +193,13 @@ class FlashscoreOddsCollector(BaseCollector):
             if is_prematch or skip_stats:
                 return total_inserted
                 
-            logger.debug(f"[Flashscore] Buscando estatísticas para {flashscore_id}")
+            logger.info(f"[Flashscore] [STATS] Buscando estatísticas para {flashscore_id}")
             try:
-                match_url = f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary"
+                # Mudança crucial: ir DIRETO para a aba de estatísticas
+                match_url = f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary/match-statistics/0"
                 await page.goto(match_url, wait_until="domcontentloaded", timeout=15000)
-                await page.wait_for_timeout(3000)
                 
-                # O banner de privacidade "I Accept" bloqueia o scroll e os cliques na aba
+                # O banner de privacidade "I Accept" bloqueia o scroll
                 try:
                     accept_btn = page.locator('button#onetrust-accept-btn-handler')
                     if await accept_btn.count() > 0:
@@ -207,36 +207,25 @@ class FlashscoreOddsCollector(BaseCollector):
                 except Exception:
                     pass
                 
-                # Clica na aba Stats de fato, pois ir pela URL direto redireciona para a Summary (onde só há 3 Stats)
-                clicked = False
-                patterns = [
-                    f'a[href="#/match-summary/match-statistics/0"]',
-                    f'a[href*="match-statistics/0"]',
-                    f'button:has-text("Stats")', 
-                    f'a:has-text("Stats")'
-                ]
-                
-                for attempt in range(2):
-                    for href_pattern in patterns:
-                        try:
-                            tab = page.locator(href_pattern).first
-                            if await tab.count() > 0:
-                                await tab.click()
-                                clicked = True
-                                logger.debug(f"[Flashscore] Aba Statistics clicada com sucesso ({href_pattern}) (tentativa {attempt + 1})")
-                                break
-                        except Exception:
-                            pass
-                            
-                    if clicked:
+                # Aguardar especificamente algum container de stats
+                # Adicionados múltiplos seletores conhecidos como fallback
+                stats_loaded = False
+                for stat_selector in [
+                    '[data-testid="wcl-statistics"]', 
+                    '.stat__row', 
+                    'div._row_96r0d_9', # Classe obscura comum no flashscore
+                    '.statCategory'
+                ]:
+                    try:
+                        await page.wait_for_selector(stat_selector, timeout=8000)
+                        stats_loaded = True
+                        logger.info(f"[Flashscore] [STATS] Container de stats carregado via {stat_selector}")
                         break
-                        
-                    if attempt == 0:
-                        logger.debug(f"[Flashscore] Aba Statistics não carregada imediatamente para {flashscore_id}. Aguardando 3s...")
-                        await page.wait_for_timeout(3000)
+                    except Exception:
+                        pass
                 
-                if not clicked:
-                    logger.debug(f"[Flashscore] Partida {flashscore_id} não possui aba de estatísticas visível após espera. Pulando stats.")
+                if not stats_loaded:
+                    logger.warning(f"[Flashscore] [STATS] Partida {flashscore_id} não possui container de estatísticas detectável. Pulando stats.")
                 else:
                     await page.wait_for_timeout(2000)
                     
@@ -255,6 +244,8 @@ class FlashscoreOddsCollector(BaseCollector):
                     # Executar a busca de TODAS as linhas wcl-statistics e stat__row (fallback)
                     stats_extracted = await page.evaluate('''() => {
                         let results = {};
+                        
+                        // Estratégia 1: Test IDs (mais robusto)
                         let rows = document.querySelectorAll('[data-testid="wcl-statistics"]');
                         for (let row of rows) {
                             let textContent = row.innerText || "";
@@ -267,7 +258,6 @@ class FlashscoreOddsCollector(BaseCollector):
                             if (category) {
                                 let catIdx = parts.indexOf(category);
                                 if (catIdx > 0 && catIdx < parts.length - 1) {
-                                    // Junta pedaços ignorados como '25%' e '(9/36)' numa unica string '25% (9/36)'
                                     let home = parts.slice(0, catIdx).join(' ');
                                     let away = parts.slice(catIdx + 1).join(' ');
                                     results[category.toLowerCase()] = { "home": home, "away": away };
@@ -275,19 +265,48 @@ class FlashscoreOddsCollector(BaseCollector):
                             }
                         }
                         
+                        // Estratégia 2: Classes clássicas ou ofuscadas (fallback)
                         if (Object.keys(results).length === 0) {
-                            let statRows = document.querySelectorAll('.stat__row');
+                            // Tenta classes legadas e ofuscadas comuns
+                            let statRows = document.querySelectorAll('.stat__row, div[class*="row_"]');
                             for (let row of statRows) {
+                                // Tenta achar o elemento do meio (categoria) e os da ponta (valores)
+                                let texts = Array.from(row.querySelectorAll('div, span'))
+                                                .map(el => el.innerText?.trim())
+                                                .filter(t => t && t.length > 0);
+                                                
+                                // Normalmente são 3 elementos principais: [Home Value, Category, Away Value]
+                                if (texts.length >= 3) {
+                                    // Pega o maior texto como categoria (heurística)
+                                    let category = texts.find(t => /[A-Za-z]{3,}/.test(t));
+                                    if (category) {
+                                        let catIdx = texts.indexOf(category);
+                                        if (catIdx > 0 && catIdx < texts.length - 1) {
+                                            results[category.toLowerCase()] = { 
+                                                "home": texts[catIdx - 1], 
+                                                "away": texts[catIdx + 1] 
+                                            };
+                                        }
+                                    }
+                                }
+                                
+                                // Classes muito explícitas
                                 let cat = row.querySelector('.stat__categoryName')?.innerText || "";
                                 let hVal = row.querySelector('.stat__homeValue')?.innerText || "";
                                 let aVal = row.querySelector('.stat__awayValue')?.innerText || "";
-                                if (cat) results[cat.toLowerCase()] = { "home": hVal, "away": aVal };
+                                if (cat && hVal && aVal) {
+                                    results[cat.toLowerCase()] = { "home": hVal, "away": aVal };
+                                }
                             }
                         }
                         return results;
                     }''')
                     
-                    logger.debug(f"[Flashscore] DOM extraído ({len(stats_extracted)} items): {list(stats_extracted.keys())}")
+                    if not stats_extracted:
+                        html_dump = await page.content()
+                        logger.warning(f"[Flashscore] [STATS] Nenhum stat extraído para {flashscore_id}. DOM size: {len(html_dump)}")
+                    else:
+                        logger.info(f"[Flashscore] [STATS] DOM extraído ({len(stats_extracted)} items): {list(stats_extracted.keys())}")
                 
                     xg_home = xg_away = xgot_home = xgot_away = None
                     xa_home = xa_away = crosses_home = crosses_away = None
@@ -323,7 +342,7 @@ class FlashscoreOddsCollector(BaseCollector):
                             crosses_home = parse_crosses(vals["home"])
                             crosses_away = parse_crosses(vals["away"])
                             
-                    logger.debug(f"[Flashscore] Stats parsed: xG={xg_home}/{xg_away} xGOT={xgot_home}/{xgot_away} xA={xa_home}/{xa_away} Crosses={crosses_home}/{crosses_away}")
+                    logger.info(f"[Flashscore] [STATS] Stats parsed: xG={xg_home}/{xg_away} xGOT={xgot_home}/{xgot_away} xA={xa_home}/{xa_away} Crosses={crosses_home}/{crosses_away}")
                     
                     if any(v is not None for v in [xg_home, xgot_home, xa_home, crosses_home]):
                         await conn.execute("""
@@ -349,9 +368,11 @@ class FlashscoreOddsCollector(BaseCollector):
                                 crosses_fs_away = COALESCE(EXCLUDED.crosses_fs_away, match_stats.crosses_fs_away),
                                 collected_at = NOW()
                         """, match_id_uuid, xg_home, xg_away, xgot_home, xgot_away, xa_home, xa_away, crosses_home, crosses_away)
-                        logger.debug(f"[Flashscore] Estatísticas avançadas salvas para {flashscore_id}")
+                        logger.info(f"[Flashscore] [STATS] Estatísticas avançadas salvas com sucesso para {flashscore_id}")
+                    else:
+                        logger.info(f"[Flashscore] [STATS] Partida {flashscore_id} processou a página mas não encontrou xG/xGOT/xA/Crosses.")
             except Exception as e:
-                logger.warning(f"[Flashscore] Falha ao coletar/salvar estatísticas para {flashscore_id}: {e}")
+                logger.error(f"[Flashscore] [STATS] Falha ao coletar/salvar estatísticas para {flashscore_id}: {e}")
 
         finally:
             await page.close()

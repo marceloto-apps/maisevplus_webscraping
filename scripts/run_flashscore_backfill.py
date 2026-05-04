@@ -91,7 +91,7 @@ async def get_target_matches(pool, league_code: str = None, limit: int = 999999)
                   AND m.status = 'finished'
                   AND m.flashscore_id IS NOT NULL
                   AND (m.scraping_flashscore IS NULL OR m.scraping_flashscore = false)
-                ORDER BY m.kickoff ASC
+                ORDER BY m.kickoff DESC
                 LIMIT $2
             """, league_code, limit)
         else:
@@ -102,7 +102,7 @@ async def get_target_matches(pool, league_code: str = None, limit: int = 999999)
                 WHERE m.status = 'finished'
                   AND m.flashscore_id IS NOT NULL
                   AND (m.scraping_flashscore IS NULL OR m.scraping_flashscore = false)
-                ORDER BY m.kickoff ASC
+                ORDER BY m.kickoff DESC
                 LIMIT $1
             """, limit)
 

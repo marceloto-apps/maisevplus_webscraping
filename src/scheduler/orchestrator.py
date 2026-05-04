@@ -27,7 +27,6 @@ from src.scheduler.jobs import (
     prematch_tracking_morning,
     prematch_tracking_evening,
     health_check,
-    health_check,
     set_scheduler,
     run_data_quality_routine,
     db_backup,
