@@ -35,7 +35,7 @@ BRT = ZoneInfo("America/Sao_Paulo")
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 STATE_FILE = os.path.join(DATA_DIR, "apifootball_backfill_state.json")
 
-MAX_REQUESTS_PER_RUN = 7300  # VIP plan: 7500/dia, margem de segurança
+MAX_REQUESTS_PER_RUN = 100  # Free plan: 100/dia
 SKIP_LEAGUES = {"ENG_NL", "SCO_CH", "SCO_L1", "SCO_L2"}  # Ligas sem stats/events no API-Football
 EARLIEST_YEAR = 2021  # Minimum season year to backfill
 

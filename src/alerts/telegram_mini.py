@@ -62,20 +62,15 @@ class TelegramAlert:
             logger.info("telegram_alerts_disabled")
             cls._enabled = False
             return
-        cls._client = httpx.AsyncClient(timeout=10)
         cls._enabled = True
         logger.info("telegram_alerts_enabled")
 
     @classmethod
     async def close(cls):
-        # Aguarda todas as tasks de envio em voo antes de fechar o client.
-        # Sem isso, o client é destruído antes do último fire() ser entregue.
+        # Aguarda todas as tasks de envio em voo antes de fechar.
         if cls._pending_tasks:
             await asyncio.gather(*cls._pending_tasks, return_exceptions=True)
             cls._pending_tasks.clear()
-        if cls._client:
-            await cls._client.aclose()
-            cls._client = None
         cls._enabled = False
 
     @classmethod
@@ -97,7 +92,6 @@ class TelegramAlert:
         emoji = LEVEL_EMOJI.get(level, "ℹ️")
         text = f"{emoji} [{level.upper()}]\n\n{message}"
         # Telegram rejeita mensagens acima de 4096 chars com 400 Bad Request.
-        # Truncamos com aviso para garantir a entrega.
         MAX_CHARS = 4000
         if len(text) > MAX_CHARS:
             text = text[:MAX_CHARS] + "\n\n...mensagem truncada..."
@@ -107,31 +101,33 @@ class TelegramAlert:
             "text": text,
             "parse_mode": "Markdown",
         }
-        try:
-            resp = await cls._client.post(url, json=payload)
-            resp.raise_for_status()
-            return
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 400:
-                # Markdown inválido — retry como texto plano
-                logger.warning("telegram_markdown_failed_retrying_plain",
-                               status=400, preview=text[:120])
-            else:
+        
+        async with httpx.AsyncClient(timeout=10) as client:
+            try:
+                resp = await client.post(url, json=payload)
+                resp.raise_for_status()
+                return
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 400:
+                    # Markdown inválido — retry como texto plano
+                    logger.warning("telegram_markdown_failed_retrying_plain",
+                                   status=400, preview=text[:120])
+                else:
+                    raise
+            except Exception:
+                # Re-raise para o _handle_task_error capturar e logar
                 raise
-        except Exception:
-            # Re-raise para o _handle_task_error capturar e logar
-            raise
-
-        # Fallback: texto plano (sem parse_mode) para garantir entrega
-        payload_plain = {
-            "chat_id": cls._chat_id,
-            "text": text,
-        }
-        try:
-            resp = await cls._client.post(url, json=payload_plain)
-            resp.raise_for_status()
-        except Exception:
-            raise
+    
+            # Fallback: texto plano (sem parse_mode) para garantir entrega
+            payload_plain = {
+                "chat_id": cls._chat_id,
+                "text": text,
+            }
+            try:
+                resp = await client.post(url, json=payload_plain)
+                resp.raise_for_status()
+            except Exception:
+                raise
 
     @staticmethod
     def _handle_task_error(task: asyncio.Task):
