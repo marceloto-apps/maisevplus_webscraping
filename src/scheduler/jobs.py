@@ -154,19 +154,6 @@ async def odds_gameday_hourly():
     result = await collector.collect(mode="prematch")
     return {"provider": "odds_api", "mode": "prematch", "total": result.records_collected}
 
-@safe_job
-async def fixtures_weekly():
-    """
-    Trigger: `0 5 * * 1`
-    Objetivo: Atualizar calendário semanal. API-Football Discovery para pareamento de IDs externos.
-    """
-    now = datetime.now(timezone.utc)
-    date_from = now.strftime('%Y-%m-%d')
-    date_to = (now + timedelta(days=7)).strftime('%Y-%m-%d')
-    
-    collector = ApiFootballCollector()
-    result = await collector.collect(mode="discovery", date_from=date_from, date_to=date_to)
-    return {"provider": "api_football", "job": "fixtures_weekly", "total": result.records_collected}
 
 
 # ====================================================================
@@ -431,15 +418,6 @@ async def odds_single_match(match_id: str, label: str):
     return {"match_id": match_id, "label": label, "total": result.records_collected}
 
 @safe_job
-async def lineups_single_match(match_id: str):
-    """
-    Extrai lineups confirmadas T-60.
-    """
-    collector = ApiFootballCollector()
-    result = await collector.collect(mode="lineup", match_id=match_id)
-    return {"match_id": match_id, "total": result.records_collected}
-
-@safe_job
 async def reset_daily_keys():
     """
     Trigger: `0 0 * * *` UTC
@@ -481,7 +459,8 @@ async def schedule_gameday_jobs():
         # Array de Triggers que faremos para o Jogo:
         # T-60 (Lineups & Odds Inicial), T-30 (Odds Finais 1), T-5 (Closing)
         placements = [
-            (-60, "pre60_lineups", lineups_single_match),
+            # Desativados devido ao limite rígido de 100 requests diários da API-Football
+            # (-60, "pre60_lineups", lineups_single_match),
             # Desativados os triggers Odds API enquanto o pipeline backfill avança
             # (-60, "pre60_odds", odds_single_match),
             # (-30, "pre30_odds", odds_single_match),
@@ -558,7 +537,7 @@ async def apifootball_backfill():
     """
     Trigger: `0 4 * * *` BRT (04:15 após ajuste)
     Objetivo: Backfill reversivo das temporadas atuais (a partir de 03/04).
-    Lê estado local e consome até ~650 requisições diárias.
+    Lê estado local e consome até 100 requisições diárias (limite da conta grátis).
     Desconecta a NordVPN antes de rodar para garantir IP real na API-Football.
     """
     import subprocess
