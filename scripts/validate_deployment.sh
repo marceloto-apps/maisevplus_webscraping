@@ -8,6 +8,11 @@ echo ""
 
 cd "$(dirname "$0")/.."
 
+if [ -d "venv" ]; then
+    echo "Ativando ambiente virtual..."
+    source venv/bin/activate
+fi
+
 echo "--- 1/6: Verificando que COALESCE -9999 sumiu ---"
 if grep -rn "COALESCE.*9999" src/ --include="*.py"; then
     echo "❌ FALHA: Ainda existe -9999 no código!"

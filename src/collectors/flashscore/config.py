@@ -43,6 +43,7 @@ _RAW_BOOKMAKER_MAP: Dict[str, str] = {
     "Betano.br": "betano",
     "1xBet.br": "1xbet",
     "Superbet.br": "superbet",
+    "Pinnacle": "pinnacle",
     # Casas secundárias ativas
     "Betnacional": "betnacional",
     "KTO.br": "kto",
