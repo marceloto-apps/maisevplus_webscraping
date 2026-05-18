@@ -673,9 +673,6 @@ async def lineups_prematch(): pass
 async def csv_weekly(): pass
 
 @safe_job
-async def odds_api_validation(): pass
-
-@safe_job
 async def health_check():
     """
     Trigger: 03:00 BRT (diário)

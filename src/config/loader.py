@@ -9,7 +9,6 @@ logger = get_logger(__name__)
 
 LEAGUE_DEFAULTS = {
     "api_football_league_id": None,
-    "odds_api_sport_key": None,
     "understat_name": None,
     "fbref_id": None,
     "football_data_code": None,
