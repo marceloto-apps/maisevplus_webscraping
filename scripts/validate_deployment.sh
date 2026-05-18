@@ -27,7 +27,7 @@ fi
 echo ""
 
 echo "--- 3/6: Testando resolve_bookmaker case-insensitive ---"
-python -c "
+python3 -c "
 from src.collectors.flashscore.config import resolve_bookmaker
 assert resolve_bookmaker('bet365') is not None
 assert resolve_bookmaker('BET365') is not None
@@ -38,7 +38,7 @@ print('✅ OK')
 echo ""
 
 echo "--- 4/6: Verificando colunas scraping_health ---"
-python -c "
+python3 -c "
 import asyncio, asyncpg, os
 from dotenv import load_dotenv
 load_dotenv()
@@ -62,11 +62,11 @@ asyncio.run(run())
 echo ""
 
 echo "--- 5/6: Rodando backfill de 2 jogos (teste E2E) ---"
-xvfb-run -a python scripts/run_flashscore_backfill.py --league ENG_PL --limit 2
+xvfb-run -a python3 scripts/run_flashscore_backfill.py --league ENG_PL --limit 2
 echo ""
 
 echo "--- 6/6: Verificando Bet365 1x2 FT no banco ---"
-python -c "
+python3 -c "
 import asyncio, asyncpg, os
 from dotenv import load_dotenv
 load_dotenv()
