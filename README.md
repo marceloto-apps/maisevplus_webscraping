@@ -17,7 +17,7 @@ Este repositório contém o **Módulo 1 (M1) — Coleta de Dados (Ingestão)** d
 | **Football-Data.co.uk** | HTTP (CSV) | Backfill histórico |
 | **FBRef** | HTTP + BeautifulSoup | xG para 19 ligas |
 | **Understat** | HTTP (lib Python async) | xG granular Top 5 ligas |
-| **The Odds API** | HTTP REST | Validação cruzada de odds |
+| **The Odds API** | Descontinuada | Odds API descontinuada. Flashscore (Camoufox) é a fonte única de odds. |
 | **API-Football** | HTTP REST | Escalações confirmadas |
 
 ---

@@ -10,7 +10,6 @@ from src.db.logger import get_logger
 from src.alerts.telegram_mini import TelegramAlert
 from src.scheduler.key_manager import KeyManager, NoKeysAvailableError
 from src.normalizer.team_resolver import TeamResolver
-from src.collectors.odds_api.api_collector import OddsApiCollector
 from src.collectors.api_football.api_collector import ApiFootballCollector
 from src.collectors.flashscore.odds_collector import FlashscoreOddsCollector
 
@@ -129,32 +128,6 @@ def safe_job(func):
                     pass  # Desistir silenciosamente — o log já foi gravado
     
     return wrapped
-
-# ====================================================================
-# DEFINIÇÃO DOS JOBS
-# ====================================================================
-
-@safe_job
-async def odds_standard():
-    """
-    Trigger: `0 6,10,14,20 * * *`
-    Objetivo: Buscar via OddsAPI os matches (Tier > ampla cobertura).
-    """
-    collector = OddsApiCollector()
-    result = await collector.collect(mode="validation")
-    return {"provider": "odds_api", "mode": "validation", "total": result.records_collected}
-
-@safe_job
-async def odds_gameday_hourly():
-    """
-    Trigger: cron '8-23', minute=0
-    Objetivo: Buscar as Odds dos Matches D+0 (Hoje) não iniciados via OddsApi (Tiers 1 e 2).
-    """
-    collector = OddsApiCollector()
-    result = await collector.collect(mode="prematch")
-    return {"provider": "odds_api", "mode": "prematch", "total": result.records_collected}
-
-
 
 # ====================================================================
 # FLASHSCORE JOBS
@@ -408,16 +381,6 @@ async def flashscore_closing_odds():
 
 
 @safe_job
-async def odds_single_match(match_id: str, label: str):
-    """
-    Coleta odds de um jogo específico próximo ao kickoff.
-    Usado no dinamismo T-60, T-30, etc.
-    """
-    collector = OddsApiCollector()
-    result = await collector.collect(mode="single_match", match_id=match_id)
-    return {"match_id": match_id, "label": label, "total": result.records_collected}
-
-@safe_job
 async def reset_daily_keys():
     """
     Trigger: `0 0 * * *` UTC
@@ -461,10 +424,6 @@ async def schedule_gameday_jobs():
         placements = [
             # Desativados devido ao limite rígido de 100 requests diários da API-Football
             # (-60, "pre60_lineups", lineups_single_match),
-            # Desativados os triggers Odds API enquanto o pipeline backfill avança
-            # (-60, "pre60_odds", odds_single_match),
-            # (-30, "pre30_odds", odds_single_match),
-            # (-5, "pre5_odds", odds_single_match),
             # Flashscore Tracking Dinâmicos reducao temporaria: pre30 removido, preservando pre2
             (-2, "pre2", flashscore_dynamic_prematch),
         ]
@@ -482,9 +441,7 @@ async def schedule_gameday_jobs():
                 continue
                 
             kwargs = {"match_id": match_id_uuid}
-            if job_func == odds_single_match:
-                kwargs["label"] = label
-            elif job_func == flashscore_dynamic_prematch:
+            if job_func == flashscore_dynamic_prematch:
                 kwargs["phase"] = label
                 
             _scheduler_ref.add_job(

@@ -10,8 +10,6 @@ from src.alerts.telegram_mini import TelegramAlert
 from src.config.loader import ConfigLoader
 from src.normalizer.team_resolver import TeamResolver
 from src.scheduler.jobs import (
-    odds_standard,
-    odds_gameday_hourly,
     footystats_daily,
     football_data_daily,
     apifootball_backfill,

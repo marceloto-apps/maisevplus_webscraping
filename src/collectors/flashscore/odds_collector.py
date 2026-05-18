@@ -4,6 +4,7 @@ from typing import List, Dict
 from bs4 import BeautifulSoup
 
 from camoufox.async_api import AsyncCamoufox
+from dataclasses import dataclass
 
 from src.collectors.base import BaseCollector, CollectResult, CollectStatus
 from src.collectors.flashscore.config import FlashscoreConfig, FLASHSCORE_BOOKMAKER_MAP
@@ -14,6 +15,41 @@ from src.db.pool import get_pool
 from src.db.logger import get_logger
 
 logger = get_logger(__name__)
+
+@dataclass
+class CollectionMetrics:
+    total_processed: int = 0
+    with_odds: int = 0
+    bet365_found: int = 0
+    pinnacle_found: int = 0
+    unidentified_rows: int = 0
+    unknown_bookmakers: set = None
+    parse_errors: int = 0
+    total_bookmakers_extracted: int = 0
+    
+    def __post_init__(self):
+        if self.unknown_bookmakers is None:
+            self.unknown_bookmakers = set()
+            
+    @property
+    def avg_bookmakers(self) -> float:
+        if self.total_processed == 0:
+            return 0.0
+        return self.total_bookmakers_extracted / self.total_processed
+    
+    @property
+    def success_rate(self) -> float:
+        if self.total_processed == 0:
+            return 0.0
+        return self.with_odds / self.total_processed
+        
+    def check_degradation(self) -> str:
+        sr = self.success_rate
+        if sr < 0.3 or self.bet365_found == 0:
+            return '🔴'
+        if sr < 0.5 or self.avg_bookmakers < 3:
+            return '🟡'
+        return '🟢'
 
 class FlashscoreOddsCollector(BaseCollector):
     def __init__(self, markets: List[str] = None):
@@ -41,7 +77,7 @@ class FlashscoreOddsCollector(BaseCollector):
                 self.bm_ids[row['name'].lower()] = row['bookmaker_id']
                 self.bm_ids[row['name']] = row['bookmaker_id']
 
-    async def collect_match(self, browser, conn, match_id_uuid: str, flashscore_id: str, is_closing: bool, job_id: str, is_prematch: bool = False, kickoff: datetime = None, skip_stats: bool = False) -> int:
+    async def collect_match(self, browser, conn, match_id_uuid: str, flashscore_id: str, is_closing: bool, job_id: str, metrics: CollectionMetrics, is_prematch: bool = False, kickoff: datetime = None, skip_stats: bool = False) -> int:
         """
         Para uma única partida, usa navegação SPA (cliques) para acessar a aba de odds.
         Flashscore bloqueia renderização de odds em navegação direta (goto);
@@ -51,6 +87,7 @@ class FlashscoreOddsCollector(BaseCollector):
         await self._init_bm_ids(conn)
         
         total_inserted = 0
+        match_unique_bookmakers = set()
         now = datetime.now(timezone.utc)
         
         page = await browser.new_page()
@@ -133,11 +170,20 @@ class FlashscoreOddsCollector(BaseCollector):
                     
                     # Capturar HTML e parsear
                     html = await page.content()
-                    odds_entries = FlashscoreParser.parse_odds_table(html, m_config, FLASHSCORE_BOOKMAKER_MAP)
-                    logger.debug(f"[Flashscore] {m_key}: parsou {len(odds_entries)} linhas de odds")
+                    try:
+                        odds_entries, parsing_stats = FlashscoreParser.parse_odds_table(html, m_config, FLASHSCORE_BOOKMAKER_MAP)
+                        logger.debug(f"[Flashscore] {m_key}: parsou {len(odds_entries)} linhas de odds")
+                        metrics.unidentified_rows += parsing_stats["unidentified_rows"]
+                        metrics.unknown_bookmakers.update(parsing_stats["unknown_bookmakers"])
+                    except Exception as e:
+                        logger.error(f"[Flashscore] Erro no parse_odds_table para {flashscore_id}: {e}")
+                        metrics.parse_errors += 1
+                        odds_entries = []
+                    
                     
                     for entry in odds_entries:
                         our_bm_key = entry["bookmaker"]
+                        match_unique_bookmakers.add(our_bm_key)
                         bm_db_id = self.bm_ids.get(our_bm_key)
                         
                         if not bm_db_id:
@@ -188,6 +234,12 @@ class FlashscoreOddsCollector(BaseCollector):
                 except Exception as e:
                     logger.warning(f"[Flashscore] Erro no mercado {m_key} para {flashscore_id}: {e}")
                     is_first_market = False  # Garante progressão mesmo com erro
+                    
+            if 'bet365' in match_unique_bookmakers:
+                metrics.bet365_found += 1
+            if 'pinnacle' in match_unique_bookmakers:
+                metrics.pinnacle_found += 1
+            metrics.total_bookmakers_extracted += len(match_unique_bookmakers)
                     
             # 5. Coletar Estatísticas pelo DOM estendido
             if is_prematch or skip_stats:
@@ -400,6 +452,8 @@ class FlashscoreOddsCollector(BaseCollector):
         total_skipped = 0
         errors = []
 
+        metrics = CollectionMetrics()
+        
         pool = await get_pool()
         async with pool.acquire() as conn:
             await self._init_bm_ids(conn)
@@ -417,14 +471,42 @@ class FlashscoreOddsCollector(BaseCollector):
                             total_skipped += 1
                             continue
                             
+                        metrics.total_processed += 1
                         logger.info(f"[Flashscore] Progresso: {idx+1}/{len(match_ids)} | Match: {fs_id}")
                         inserted = await self.collect_match(browser, conn, m_uuid, fs_id, is_closing, job_id, is_prematch, kickoff)
                         
+                        if inserted > 0:
+                            metrics.with_odds += 1
+                            
                         total_collected += 1  # Conta matches processados
                         total_new += inserted
                         
                         # Respeitar rate limits / evitar bans parecendo scripts
                         await asyncio.sleep(2)
+                        
+                    # Ao final do loop, salva a saúde
+                    if metrics.total_processed > 0:
+                        alert_level = metrics.check_degradation()
+                        try:
+                            await conn.execute('''
+                                INSERT INTO scraping_health (
+                                    source, total_matches, matches_with_odds,
+                                    bet365_found, pinnacle_found, avg_bookmakers,
+                                    unidentified_rows, unknown_bookmakers, parse_errors,
+                                    success_rate, alert_level, job_id
+                                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                            ''', 
+                            self.source_name, metrics.total_processed, metrics.with_odds,
+                            metrics.bet365_found, metrics.pinnacle_found, metrics.avg_bookmakers,
+                            metrics.unidentified_rows, list(metrics.unknown_bookmakers), metrics.parse_errors,
+                            metrics.success_rate, alert_level, job_id)
+                            logger.info(f"[Flashscore] HealthMetrics salvas: {metrics.success_rate:.1%} success rate | Level: {alert_level}")
+                        except Exception as e:
+                            logger.error(f"[Flashscore] Falha ao salvar scraping_health: {e}")
+                            
+                        if alert_level == '🔴':
+                            logger.critical(f"DEGRADAÇÃO CRÍTICA DETECTADA: Taxa={metrics.success_rate:.1%}, bet365={metrics.bet365_found}")
+                            raise SystemExit("CRITICAL: scraping degradado")
                         
             except Exception as e:
                 logger.error(f"[Flashscore] Erro crítico no Browser: {e}")

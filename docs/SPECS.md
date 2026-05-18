@@ -26,11 +26,11 @@ Documentos complementares: `SCHEMA.md` (DDL + indexes), `TASKS.md` (breakdown de
 | --- | --- |
 | **Resultados Base** | Footystats API (key ilimitada) — Responsável por popular a base de matches e as competições ao longo do tempo. |
 | **Estatísticas Detalhadas** | API-Football — Oficialmente assumiu o lugar do Understat e FBRef. Cobre `match_stats` avançadas, Lineups, Eventos (Gols/Cartões) e Players. Alta cobertura (7 chaves × 100/dia = 700 req/dia no limit básico, e chaves VIP 7500/dia). |
-| **Odds Tempo Real e Handi.** | Flashscore (Camoufox headless + VPN proxy) — Fonte primária definitiva para extrair a rede de odds. Obsoletou a The Odds API e BetExplorer. |
+| **Odds Tempo Real e Handi.** | Flashscore (Camoufox headless + VPN proxy) — Odds API descontinuada. Flashscore (Camoufox) é a fonte única de odds. |
 | Período histórico | 5 temporadas fechadas + atual em andamento: 2021/22 a 2025/26. |
 | Total de ligas | **26 ligas em 14 países**, subdivididas em Tiers priorizados. |
 | Casas Primárias (CLV) | Pinnacle (1) → Betfair (2) → Bet365 (3). Mais ~10 casas BR e Internacionais em captura complementar no Flashscore. |
-| Resumo do Refatoramento | Understat e FBRef suspensos devido à complexidade fragmentada. Odds API suspensa pela restrição de plan versus eficiência monstra do Flashscore Camoufox. |
+| Resumo do Refatoramento | Understat e FBRef suspensos devido à complexidade fragmentada. Odds API descontinuada. Flashscore (Camoufox) é a fonte única de odds. |
 
 ---
 

@@ -36,7 +36,7 @@ LEAGUE_FLASHSCORE_PATHS: Dict[str, str] = {
 # Mapeamento de como a casa de apostas aparece no DOM (title/alt do img) 
 # para o nosso canonical name (precisa bater exatamente com a tabela bookmakers)
 # A VPS deve rodar com NordVPN conectada ao Brasil para receber bookmakers BR.
-FLASHSCORE_BOOKMAKER_MAP: Dict[str, str] = {
+_RAW_BOOKMAKER_MAP: Dict[str, str] = {
     # Casas principais
     "bet365": "bet365",
     "Betfair": "betfair_ex",
@@ -55,6 +55,17 @@ FLASHSCORE_BOOKMAKER_MAP: Dict[str, str] = {
     # luvabet, betdasorte, betboom, esportivabet, brasilbet, brasildasorte,
     # goldebet, jogodeouro, lotogreen, alfabet
 }
+
+FLASHSCORE_BOOKMAKER_MAP = {k.strip().lower(): v for k, v in _RAW_BOOKMAKER_MAP.items()}
+
+def resolve_bookmaker(raw_name: str) -> str | None:
+    """
+    Resolve o nome raw extraído do DOM para o nome canônico.
+    Retorna None se não encontrar (bookmaker desconhecido).
+    """
+    if not raw_name:
+        return None
+    return FLASHSCORE_BOOKMAKER_MAP.get(raw_name.strip().lower())
 
 
 @dataclass

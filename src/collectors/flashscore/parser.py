@@ -2,8 +2,62 @@ import re
 from bs4 import BeautifulSoup
 from typing import List, Dict, Optional
 from src.db.logger import get_logger
+from src.collectors.flashscore.config import resolve_bookmaker
 
 logger = get_logger(__name__)
+
+# Padrões conhecidos que NÃO são bookmakers (filtrar)
+_NOISE_PATTERNS = re.compile(
+    r'livebet|livescore|advert|promo|banner|badge',
+    re.IGNORECASE
+)
+
+def _log_unidentified_row(row):
+    """
+    Log de diagnóstico para rows que falham em todas as camadas da cascata.
+    """
+    try:
+        snippet = str(row)[:300]
+        logger.warning(f"Row sem bookmaker identificado | HTML snippet: {snippet}")
+    except Exception:
+        logger.warning("Row sem bookmaker identificado (não foi possível extrair snippet)")
+
+def _extract_bookmaker_from_row(row) -> Optional[str]:
+    """
+    Tenta extrair o nome do bookmaker de uma row da tabela de odds.
+    Usa cascata de 3 camadas, da mais estável à menos estável.
+    """
+    name = None
+
+    # ── CAMADA 1: Seletor semântico por href (mais resistente) ──
+    # Links para páginas de bookmaker contêm "/bookmaker/" no href
+    link = row.find('a', href=lambda h: h and '/bookmaker/' in h)
+    if link:
+        name = link.get('title') or link.get_text(strip=True)
+        if name and not _NOISE_PATTERNS.search(name):
+            logger.debug(f"Bookmaker via href semântico: {name}")
+            return name.strip()
+
+    # ── CAMADA 2: Seletor clássico por classe CSS (fallback) ──
+    # Pode voltar a funcionar se o Flashscore restaurar a classe
+    link = row.find('a', class_=lambda c: c and 'oddsCell__bookmaker' in c)
+    if link:
+        name = link.get('title') or link.get_text(strip=True)
+        if name and not _NOISE_PATTERNS.search(name):
+            logger.debug(f"Bookmaker via classe CSS: {name}")
+            return name.strip()
+
+    # ── CAMADA 3: Busca por <img> com alt descritivo ──
+    # Algumas variações do DOM usam só o ícone com alt text
+    img = row.find('img', alt=True)
+    if img:
+        alt = img.get('alt', '').strip()
+        if alt and not _NOISE_PATTERNS.search(alt):
+            if resolve_bookmaker(alt) is not None:
+                logger.debug(f"Bookmaker via img alt: {alt}")
+                return alt
+
+    return None
 
 
 def _parse_line_value(raw_text: str, signed: bool = False) -> Optional[float]:
@@ -118,12 +172,17 @@ class FlashscoreParser:
     """
     
     @staticmethod
-    def parse_odds_table(html: str, market_config: dict, bm_map: dict) -> List[Dict]:
+    def parse_odds_table(html: str, market_config: dict, bm_map: dict = None) -> tuple[List[Dict], Dict]:
         """
         Extrai as odds de uma aba de comparação de odds.
-        Retorna uma lista contendo dicionários padronizados para o banco de dados.
+        Retorna (odds_entries, parsing_stats).
         """
         soup = BeautifulSoup(html, "html.parser")
+        
+        parsing_stats = {
+            "unidentified_rows": 0,
+            "unknown_bookmakers": set()
+        }
         
         # Seletor específico para as linhas de bookmakers na tabela de odds
         # Confirmado no DOM real: div.ui-table__row contém bookmaker + odds cells
@@ -143,37 +202,25 @@ class FlashscoreParser:
         sys_market = market_config["sys_market"]
         period = market_config["period"]
         
+        _unknown_bookmakers_in_batch = parsing_stats["unknown_bookmakers"]
+        
         for index, row in enumerate(rows):
             if index == 0:
                 logger.debug(f"FIRST ODDS ROW DOM:\n{row.prettify()}")
-            # 1. Tenta identificar o bookmaker
-            # IMPORTANTE: row.find("a", title=True) NÃO pode ser usado aqui pois os
-            # a.oddsCell__odd também possuem title="X.XX » Y.YY" (histórico de movimento
-            # de odds), fazendo o find() retornar a odd ao invés do nome do bookmaker.
-            # Sempre buscar primeiro pelo elemento específico a.oddsCell__bookmaker.
-            bm_title = None
-            bm_img = row.find("img")
-            # Busca o link do bookmaker pela classe CSS específica
-            bm_link = row.find("a", class_=lambda c: c and "oddsCell__bookmaker" in c)
-            # Fallback: qualquer <a> com title que NÃO seja uma célula de odd
-            if not bm_link:
-                bm_link = row.find(
-                    "a",
-                    title=lambda t: t and "»" not in t and len(t) < 60,
-                )
             
-            if bm_img and bm_img.get("alt"):
-                bm_title = bm_img.get("alt")
-            elif bm_link and bm_link.get("title"):
-                bm_title = bm_link.get("title")
-                
-            if not bm_title:
+            # 1. Tenta identificar o bookmaker com a cascata
+            raw_name = _extract_bookmaker_from_row(row)
+            
+            if raw_name is None:
+                _log_unidentified_row(row)
+                parsing_stats["unidentified_rows"] += 1
                 continue
                 
-            our_bm_key = bm_map.get(bm_title)
-            if not our_bm_key:
-                if index < 3:  # Log apenas os primeiros para não poluir
-                    logger.debug(f"[FlashscoreParser] Bookmaker '{bm_title}' não está no map, pulando")
+            our_bm_key = resolve_bookmaker(raw_name)
+            if our_bm_key is None:
+                if raw_name.lower() not in _unknown_bookmakers_in_batch:
+                    _unknown_bookmakers_in_batch.add(raw_name.lower())
+                    logger.warning(f"Bookmaker desconhecido: '{raw_name}'")
                 continue
                 
             # 2. Extrai os valores numéricos da linha
@@ -319,7 +366,7 @@ class FlashscoreParser:
                 logger.debug(f"[FlashscoreParser] Ignorando row {bm_title} mal formatada: {e}")
                 continue
                 
-        return results
+        return results, parsing_stats
 
     @staticmethod
     def extract_match_ids_from_schedule(html: str) -> List[str]:
