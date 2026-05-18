@@ -9,8 +9,11 @@ echo ""
 cd "$(dirname "$0")/.."
 
 if [ -d "venv" ]; then
-    echo "Ativando ambiente virtual..."
+    echo "Ativando ambiente virtual (venv)..."
     source venv/bin/activate
+elif [ -d ".venv" ]; then
+    echo "Ativando ambiente virtual (.venv)..."
+    source .venv/bin/activate
 fi
 
 echo "--- 1/6: Verificando que COALESCE -9999 sumiu ---"
