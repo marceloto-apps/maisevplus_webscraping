@@ -45,7 +45,7 @@
 | xG demais ligas cobertas | FBRef (por jogo) |
 | xG fallback | Footystats (básico, 2 ligas sem FBRef) |
 | Escalações | API-Football (7 contas, 700 req/dia) |
-| Validação de odds | The Odds API (5 contas, 2.500 req/mês) |
+| Validação de odds | Flashscore via Camoufox |
 | BetExplorer | Desativada no MVP |
 | CLV | Pinnacle → Betfair → Bet365 (Footystats NÃO — odds compiladas) |
 | Período histórico | 2021/22 a 2025/26 (5 temporadas + atual) |
@@ -76,7 +76,7 @@
 │         │ fallback                                                  │
 │         ▼                                                           │
 │  ┌──────────────┐   VALIDAÇÃO CRUZADA                              │
-│  │ The Odds API  │   Pinnacle via API                              │
+│  │ Flashscore  │   Pinnacle via API                              │
 │  │ (5 keys)      │   2.500 req/mês                                 │
 │  └──────────────┘                                                   │
 │                                                                     │
@@ -114,7 +114,7 @@
 | [**Football-Data.co.uk**](http://football-data.co.uk/) | HTTP (CSV) | Backfill histórico (seed matches + odds Pinnacle/B365) | — |
 | **FBRef** | HTTP (requests + BS4) | xG para 19 ligas fora do Understat | Stats avançadas |
 | **Understat** | HTTP (lib Python async) | xG granular Top 5 (por chute, por situação) | — |
-| **The Odds API** | HTTP REST (5 keys grátis) | Validação cruzada de odds | Fallback quando BetExplorer falha |
+| **Flashscore** | HTTP REST (5 keys grátis) | Validação cruzada de odds | Fallback quando BetExplorer falha |
 | **API-Football** | HTTP REST (7 keys grátis) | Escalações confirmadas | Fallback fixtures |
 
 ### 2.3 Hierarquia de Fallback
@@ -124,7 +124,7 @@ RESULTADOS + STATS:
   Footystats → API-Football → BetExplorer → Football-Data.co.uk
 
 ODDS TEMPO REAL:
-  BetExplorer → The Odds API
+  BetExplorer → Flashscore
 
 ODDS FECHAMENTO (CLV):
   BetExplorer (Pinnacle último snapshot) → Football-Data (Pinnacle CSV)
@@ -405,7 +405,7 @@ Linha POSITIVA = handicap a favor do home (home pode perder por até X)
 | `lineups_prematch` | Dinâmico: T-60min | API-Football | Escalações confirmadas |
 | `fixtures_weekly` | `0 5 * * 1` BRT | Footystats | Calendário semanal |
 | `csv_weekly` | `0 4 * * 1` BRT | Football-Data | CSV bulk semanal |
-| `odds_api_validation` | A cada 3h (dias com jogos) | The Odds API | Validação cruzada Pinnacle |
+| `odds_api_validation` | A cada 3h (dias com jogos) | Flashscore | Validação cruzada Pinnacle |
 | `health_check` | A cada 5min | Todas | Verificação de disponibilidade |
 | `reset_daily_keys` | `0 0 * * *` UTC | — | Reseta `usage_today` em `api_keys` |
 
@@ -1173,7 +1173,7 @@ class FBRefMatchRecord:
     source: str = "fbref"
 ```
 
-### 8.7 The Odds API Collector
+### 8.7 Flashscore Collector
 
 **Input:**
 
@@ -1293,7 +1293,7 @@ scheduled → cancelled
 | Football-Data | Coluna vazia / `NaN` | Indisponível | → `NULL` |
 | Understat | xG = `None` | Não processado | Não inserir, retry dia seguinte |
 | FBRef | xG vazia | Sem dados | → `NULL` |
-| The Odds API | Bookmaker ausente | Não cobre o jogo | Não inserir |
+| Flashscore | Bookmaker ausente | Não cobre o jogo | Não inserir |
 | API-Football | `lineups: []` | Não confirmada | Não inserir, retry T-30min |
 
 ### 9.5 Overround
@@ -2549,7 +2549,7 @@ BackfillRunner
 | BetExplorer selector quebrado | `test_betexplorer_collector.py` | → FAILED + alerta |
 | Understat 1 liga | `test_understat_collector.py` | → xG por jogo |
 | FBRef 1 liga | `test_fbref_collector.py` | → xG por jogo |
-| Odds API | `test_odds_api_collector.py` | → odds Pinnacle |
+| Flashscore | `test_odds_api_collector.py` | → odds Pinnacle |
 | Dedup e2e | `test_dedup.py` | 2x insert mesma odd → 1 registro |
 | Backfill mini | `test_backfill_pipeline.py` | 1 liga × 1 temp → matches + stats + odds |
 | Match resolver cross | `test_backfill_pipeline.py` | 2 fontes → mesmo match_id |
@@ -2677,7 +2677,7 @@ async def send_alert(message: str, level: str = "warning"):
 | 6 | Schedule 48h | 0 `failed` em `ingestion_log` por 48h |
 | 7 | Dedup | Zero duplicatas (query GROUP BY HAVING count > 1) |
 | 8 | Normalização | `SELECT COUNT(*) FROM unknown_aliases WHERE resolved=FALSE` = 0 |
-| 9 | Fallback | BetExplorer off → The Odds API assume (teste manual) |
+| 9 | Fallback | BetExplorer off → Flashscore assume (teste manual) |
 | 10 | Multi-key | Keys rotacionando dentro dos limites |
 | 11 | 13 casas | Pinnacle + Bet365 + ≥3 BR coletadas para jogos do dia |
 | 12 | is_opening/closing | Marcados corretamente para jogos finished |
@@ -2701,7 +2701,7 @@ async def send_alert(message: str, level: str = "warning"):
 | 7 | Understat collector + backfill Top 5 | 1 | Schema + Normalizer |
 | 8 | FBRef collector + backfill 19 ligas | 2 | Schema + Normalizer |
 | 9 | BetExplorer collector (Selenium + 13 casas × 9 mercados) | 4 | Schema + Normalizer + Pool |
-| 10 | The Odds API collector (5 keys) | 1 | KeyManager |
+| 10 | Flashscore collector (5 keys) | 1 | KeyManager |
 | 11 | API-Football collector (7 keys) | 1 | KeyManager |
 | 12 | KeyManager (multi-key rotation + reset) | 1 | — |
 | 13 | Scheduler (todos os jobs + gameday dinâmico) | 2 | Coletores |
@@ -2715,7 +2715,7 @@ async def send_alert(message: str, level: str = "warning"):
 ```
 Schema(2d) → Normalizer(2d) → Football-Data(2.5d) → ⏸️ Aliases(1.5d) → Footystats(3d) → Scheduler(2d) → Testes(2d) → Backfill(1.5d)
                                                                         ↗ BetExplorer(4d) ↗
-                                                        KeyManager(1d) → Odds API(1d) ──↗
+                                                        KeyManager(1d) → Flashscore(1d) ──↗
                                                                        → API-Football(1d)↗
                                                         Understat(1d) ────────────────↗
                                                         FBRef(2d) ────────────────────↗
@@ -2728,14 +2728,14 @@ Schema(2d) → Normalizer(2d) → Football-Data(2.5d) → ⏸️ Aliases(1.5d) �
 
 | # | Risco | Prob | Impacto | Mitigação |
 | --- | --- | --- | --- | --- |
-| 1 | BetExplorer muda selectors | **Alta** | Médio | `selectors.py` isolado; alerta automático; The Odds API fallback |
+| 1 | BetExplorer muda selectors | **Alta** | Médio | `selectors.py` isolado; alerta automático; Flashscore fallback |
 | 2 | CAPTCHA/bloqueio BetExplorer | Média | Alto | Rate limiting; UA rotation; delay humanizado; proxies pós-MVP |
 | 3 | Footystats HT indisponível | Média | Baixo | NULL aceito; GENERATED com NULL handling |
 | 4 | Footystats retorna -1 | **Certa** | Baixo | Transform → NULL antes do INSERT |
 | 5 | FBRef não cobre SCO_L1/SCO_L2 | **Certa** | Baixo | xG via Footystats (básico) |
 | 6 | Football-Data extras têm menos odds | **Certa** | Baixo | Colunas ausentes → NULL; odds real-time via BetExplorer |
 | 7 | API-Football bloqueia multi-conta | Baixa | Médio | 3 contas reserva; IPs diferentes |
-| 8 | The Odds API 2.500 req insuficientes | Média | Baixo | Priorizar Pinnacle; upgrade $30/mês se necessário |
+| 8 | Flashscore 2.500 req insuficientes | Média | Baixo | Priorizar Pinnacle; upgrade $30/mês se necessário |
 | 9 | Aliases não resolvidos | **Alta** (início) | Alto | `unknown_aliases` + alerta Telegram; pipeline skip + log |
 | 10 | 580 times para mapear | **Certa** | Médio | CSV bem formatado; revisão incremental por liga |
 | 11 | Volume BetExplorer (180 jogos/dia pico) | Média | Médio | Priorização por tier; 2 instâncias Selenium |

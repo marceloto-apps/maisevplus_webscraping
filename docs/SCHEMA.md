@@ -233,8 +233,9 @@ CREATE TABLE matches (
     fbref_id            VARCHAR(30),
     understat_id        VARCHAR(30),
     footystats_id       INTEGER,
-    odds_api_id         VARCHAR(50),
     api_football_id     INTEGER,
+
+    scraping_flashscore BOOLEAN DEFAULT FALSE,
 
     created_at          TIMESTAMPTZ DEFAULT NOW(),
     updated_at          TIMESTAMPTZ DEFAULT NOW(),
@@ -373,7 +374,32 @@ CREATE TABLE ingestion_log (
 COMMENT ON TABLE ingestion_log IS 'Log de jobs. Critério de aceite: sem failed por 48h.';
 ```
 
-### 6.2 fc_complementary_queue
+### 6.2 scraping_health
+
+```sql
+CREATE TABLE scraping_health (
+    id SERIAL PRIMARY KEY,
+    run_ts TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    source VARCHAR(50) NOT NULL,
+    total_matches INT NOT NULL,
+    matches_with_odds INT NOT NULL,
+    bet365_found INT NOT NULL DEFAULT 0,
+    pinnacle_found INT NOT NULL DEFAULT 0,
+    avg_bookmakers NUMERIC(5, 2) NOT NULL DEFAULT 0,
+    unidentified_rows INT NOT NULL DEFAULT 0,
+    unknown_bookmakers TEXT[] NOT NULL DEFAULT '{}',
+    parse_errors INT NOT NULL DEFAULT 0,
+    success_rate NUMERIC(5, 2) NOT NULL,
+    alert_level TEXT NOT NULL,
+    job_id VARCHAR(100)
+);
+
+CREATE INDEX idx_scraping_health_time ON scraping_health (run_ts DESC);
+
+COMMENT ON TABLE scraping_health IS 'Tabela que agrega métricas de saúde da coleta (principalmente headless browsers).';
+```
+
+### 6.3 fc_complementary_queue
 
 ```sql
 CREATE TABLE IF NOT EXISTS fc_complementary_queue (
@@ -689,7 +715,7 @@ CREATE INDEX idx_match_stats_source ON match_stats(source);
 
 -- ODDS HISTORY (hypertable)
 CREATE UNIQUE INDEX idx_odds_dedup
-    ON odds_history(match_id, bookmaker_id, market_type, COALESCE(line, 0), period, content_hash, time);
+    ON odds_history(match_id, bookmaker_id, market_type, COALESCE(line, 0::numeric), period, content_hash, time);
 CREATE INDEX idx_odds_match_market
     ON odds_history(match_id, market_type, bookmaker_id, time DESC);
 CREATE INDEX idx_odds_closing

@@ -101,13 +101,14 @@ T04 ──┼──── T05 (FootyStats) ──────── T10 (Backfil
 - Coleta as fixtures, resultados e dados primários `match_stats` com total cobertura.
 - Popula campos `kickoff`, HT/FT scores e consolida o jogo no DB.
 
-### T06 — Flashscore Odds Collector (Pivot / Fonte Primária de Odds)
-**Status:** ✅ Concluído
+### T06 — Flashscore Odds Collector (Pivot / Única Fonte de Odds)
+**Status:** ✅ Concluído (Estabilizado em Produção)
 **Escopo:**
-- Scraping headless com Playwright/Camoufox.
+- Scraping headless com Camoufox via `xvfb-run`.
 - Burla proteções web (Cloudflare) via Stealth Browsers.
-- Retira as odds de fechamento pré-live via request XHR.
-- Responsável por popular a hypertable `odds_history`.
+- Coleta de odds 1x2, AH, OU, BTTS, DC, DNB (Abertura e Fechamento).
+- Tabela de rastreio de sucesso (`scraping_health`) para monitoramento ativo.
+- Substitui por completo a The Odds API (removida do projeto).
 
 ### T07 — API-Football Collector (Estatísticas Avançadas, Eventos e Escalações)
 **Status:** ✅ Concluído
@@ -143,13 +144,13 @@ T04 ──┼──── T05 (FootyStats) ──────── T10 (Backfil
 - Criar todos os Matches na base de forma retroativa.
 - Resolvidas 130/130 Seasons ativas.
 
-### T11 — Backfill: Flashscore (Odds)
-**Status:** 🔄 Em Andamento Contínuo
+### T11 — Backfill: Flashscore (Odds Históricas)
+**Status:** 🔄 Em Andamento Contínuo (Orquestrado)
 **Escopo:**
 - Iterar recursivamente os fixtures pelo Flashscore ID.
-- Script: `run_flashscore_backfill.py --league ENG_PL`.
-- Capturar dados de 13+ casas (Pinnacle/Bet365 prioridade) para jogos históricos passados.
-- Tratar rate-limit de IP local / VPN.
+- Atualiza a flag `scraping_flashscore = true` na tabela `matches` para controle de fila.
+- Script automatizado pelo orchestrator executando em 7 janelas diárias de 2h35m (limite seguro).
+- Capturar dados do máximo de casas possíveis (Pinnacle/Bet365 validadas).
 
 ### T12 — Backfill: API-Football (Stats Avançadas)
 **Status:** 🔄 Em Andamento Contínuo
