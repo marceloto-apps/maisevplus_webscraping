@@ -31,8 +31,9 @@ CREATE INDEX idx_match_stats_match ON match_stats(match_id);
 CREATE INDEX idx_match_stats_source ON match_stats(source);
 
 -- ODDS HISTORY (hypertable)
+DROP INDEX IF EXISTS idx_odds_dedup;
 CREATE UNIQUE INDEX idx_odds_dedup
-    ON odds_history(match_id, bookmaker_id, market_type, COALESCE(line, 0), period, content_hash, time);
+    ON odds_history(match_id, bookmaker_id, market_type, COALESCE(line, 0::numeric), period, content_hash, time);
 CREATE INDEX idx_odds_match_market
     ON odds_history(match_id, market_type, bookmaker_id, time DESC);
 CREATE INDEX idx_odds_closing

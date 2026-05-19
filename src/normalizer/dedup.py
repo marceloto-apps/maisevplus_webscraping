@@ -123,7 +123,7 @@ async def insert_odds_if_new(
         VALUES
             ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         ON CONFLICT (match_id, bookmaker_id, market_type,
-                     COALESCE(line, 0), period, content_hash, time)
+                     COALESCE(line, 0::numeric), period, content_hash, time)
         DO NOTHING
         """,
         time, match_id, bookmaker_id, market_type, line, period,
