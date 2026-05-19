@@ -91,7 +91,7 @@ async def insert_odds_if_new(
         match_id, bookmaker_id, market_type, line, period, odds_vals
     )
 
-    # --- Camada 1: verificar último hash ---
+    # --- Camada 1: verificar último hash (filtrado por source) ---
     last_hash = await conn.fetchval(
         """
         SELECT content_hash
@@ -101,10 +101,11 @@ async def insert_odds_if_new(
           AND market_type  = $3
           AND line IS NOT DISTINCT FROM $4
           AND period = $5
+          AND source = $6
         ORDER BY time DESC
         LIMIT 1
         """,
-        match_id, bookmaker_id, market_type, line, period,
+        match_id, bookmaker_id, market_type, line, period, source,
     )
     if last_hash == content_hash:
         return False   # duplicata — skip
