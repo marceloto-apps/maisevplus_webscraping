@@ -64,11 +64,11 @@ class AppOrchestrator:
             misfire_grace_time=1800
         )
 
-        # 00:40 - Flashscore Backfill (janela 1)
+        # 00:45 - Flashscore Backfill (janela 1)
         self.scheduler.add_job(
             flashscore_historical_backfill,
             'cron',
-            hour=0, minute=40,
+            hour=0, minute=45,
             id="flashscore_backfill_1",
             misfire_grace_time=3600
         )
@@ -91,112 +91,112 @@ class AppOrchestrator:
             misfire_grace_time=7200
         )
 
-        # 04:00 - FootyStats Daily
+        # 03:30 - FootyStats Daily
         self.scheduler.add_job(
             footystats_daily,
             'cron',
-            hour=4, minute=0,
+            hour=3, minute=30,
             id="footystats_daily",
             misfire_grace_time=7200
         )
 
-        # 04:10 - Football-Data Daily
+        # 03:40 - Football-Data Daily
         self.scheduler.add_job(
             football_data_daily,
             'cron',
-            hour=4, minute=10,
+            hour=3, minute=40,
             id="football_data_daily",
             misfire_grace_time=7200
         )
 
-        # 04:20 - Backup DB → OneDrive
+        # 03:50 - Backup DB → OneDrive
         self.scheduler.add_job(
             db_backup,
             'cron',
-            hour=4, minute=20,
+            hour=3, minute=50,
             id="db_backup",
             misfire_grace_time=3600
         )
 
-        # 05:25 - Flashscore Discovery Fixtures
+        # 04:20 - Flashscore Discovery Fixtures
         self.scheduler.add_job(
             flashscore_discovery_fixtures,
             'cron',
-            hour=5, minute=25,
+            hour=4, minute=20,
             id="flashscore_discovery_fixtures",
             misfire_grace_time=1800,
             replace_existing=True
         )
 
-        # 05:50 - Flashscore Discovery Results
+        # 04:45 - Flashscore Discovery Results
         self.scheduler.add_job(
             flashscore_discovery,
             'cron',
-            hour=5, minute=50,
+            hour=4, minute=45,
             id="flashscore_discovery",
             misfire_grace_time=7200
         )
 
-        # 06:15 - Flashscore Backfill (janela 2)
+        # 05:30 - Flashscore Backfill (janela 2)
         self.scheduler.add_job(
             flashscore_historical_backfill,
             'cron',
-            hour=6, minute=15,
+            hour=5, minute=30,
             id="flashscore_backfill_2",
             misfire_grace_time=3600
         )
 
-        # 08:50 - Flashscore Backfill (janela 3)
+        # 08:15 - Flashscore Backfill (janela 3)
         self.scheduler.add_job(
             flashscore_historical_backfill,
             'cron',
-            hour=8, minute=50,
+            hour=8, minute=15,
             id="flashscore_backfill_3",
             misfire_grace_time=3600
         )
         
-        # 11:25 - Flashscore Backfill (janela 4)
+        # 11:00 - Flashscore Backfill (janela 4)
         self.scheduler.add_job(
             flashscore_historical_backfill,
             'cron',
-            hour=11, minute=25,
+            hour=11, minute=0,
             id="flashscore_backfill_4",
             misfire_grace_time=3600
         )
 
-        # 14:00 - Flashscore Backfill (janela 5)
+        # 13:45 - Flashscore Backfill (janela 5)
         self.scheduler.add_job(
             flashscore_historical_backfill,
             'cron',
-            hour=14, minute=0,
+            hour=13, minute=45,
             id="flashscore_backfill_5",
             misfire_grace_time=3600
         )
 
-        # 16:35 - Flashscore Prematch Tracking
+        # 16:30 - Flashscore Prematch Tracking
         self.scheduler.add_job(
             prematch_tracking_morning,
             'cron',
-            hour=16, minute=35,
+            hour=16, minute=30,
             id="prematch_tracking",
             misfire_grace_time=1800,
             replace_existing=True
         )
 
-        # 19:10 - Flashscore Backfill (janela 6)
+        # 19:15 - Flashscore Backfill (janela 6)
         self.scheduler.add_job(
             flashscore_historical_backfill,
             'cron',
-            hour=19, minute=10,
+            hour=19, minute=15,
             id="flashscore_backfill_6",
             misfire_grace_time=3600
         )
         
-        # 21:45 - Flashscore Backfill (janela 7)
+        # 22:00 - Flashscore Backfill (janela 7)
         self.scheduler.add_job(
             flashscore_historical_backfill,
             'cron',
-            hour=21, minute=45,
+            hour=22, minute=0,
             id="flashscore_backfill_7",
             misfire_grace_time=3600
         )

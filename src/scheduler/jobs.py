@@ -214,14 +214,27 @@ async def _run_prematch_tracker(phase: str):
     import subprocess
     import sys
 
+    WINDOW_HOURS = 2.58  # ~2h35m
+    GUARD_SECONDS = int(WINDOW_HOURS * 3600) + 300  # +5 min de margem
+
     try:
         logger.info(f"spawning_prematch_tracker_subprocess_phase_{phase}")
         proc = await asyncio.create_subprocess_exec(
             "xvfb-run", "-a", sys.executable, "scripts/run_flashscore_prematch.py", "--phase", phase,
+            "--timeout-hours", str(WINDOW_HOURS),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        stdout_bytes, stderr_bytes = await proc.communicate()
+        
+        try:
+            stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                proc.communicate(), timeout=GUARD_SECONDS
+            )
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+            logger.error(f"prematch_tracker_timeout_phase_{phase}", guard_s=GUARD_SECONDS)
+            raise RuntimeError(f"Subprocess encerrou por timeout de {GUARD_SECONDS}s.")
 
         if proc.returncode != 0:
             stderr_text = (stderr_bytes or b"").decode("utf-8", errors="replace")[-600:]
@@ -552,9 +565,9 @@ async def flashscore_historical_backfill():
         logger.error("nordvpn_failed", error=e.stderr.strip())
 
     # Janela de tempo por execução (horas). O filho para sozinho nesse limite;
-    # o pai tem um guard de +6 min para não bloquear o orchestrator para sempre.
-    WINDOW_HOURS = 2.4
-    GUARD_SECONDS = int(WINDOW_HOURS * 3600) + 360  # +6 min de margem
+    # o pai tem um guard de +5 min para não bloquear o orchestrator para sempre.
+    WINDOW_HOURS = 2.58  # ~2h35m
+    GUARD_SECONDS = int(WINDOW_HOURS * 3600) + 300  # +5 min de margem
 
     # 2. Spawn subprocess para limpar memória após a execução (o browser come muito)
     try:
