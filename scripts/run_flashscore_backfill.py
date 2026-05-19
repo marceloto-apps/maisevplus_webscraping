@@ -22,7 +22,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ["CAMOUFOX_DATA_DIR"] = os.path.join(os.getcwd(), ".camoufox_profile")
 
 from camoufox.async_api import AsyncCamoufox
-from src.collectors.flashscore.odds_collector import FlashscoreOddsCollector
+from src.collectors.flashscore.odds_collector import FlashscoreOddsCollector, CollectionMetrics
 from src.collectors.flashscore.config import LEAGUE_FLASHSCORE_PATHS
 from src.db.logger import configure_logging, get_logger
 
@@ -155,6 +155,8 @@ async def main():
             start_time = datetime.now()
             from datetime import timedelta
             max_duration = timedelta(hours=args.timeout_hours)
+            
+            metrics = CollectionMetrics()
 
             for idx, m in enumerate(matches):
                 if datetime.now() - start_time > max_duration:
@@ -168,7 +170,10 @@ async def main():
 
                 try:
                     async with pool.acquire() as conn:
-                        inserted = await collector.collect_match(browser, conn, str(match_uuid), fs_id, is_closing=True, job_id=f"backfill_{league_label}")
+                        metrics.total_processed += 1
+                        inserted = await collector.collect_match(browser, conn, str(match_uuid), fs_id, is_closing=True, job_id=f"backfill_{league_label}", metrics=metrics)
+                        if inserted > 0:
+                            metrics.with_odds += 1
 
                         print(f"    -> Coleta finalizada para {fs_id}. Odds Inseridas: {inserted}.")
 
@@ -186,6 +191,8 @@ async def main():
             print(f"Liga:                       {args.league or 'TODAS'}")
             print(f"Completados com sucesso:    {total_collected}")
             print(f"Erros encontrados:          {total_errors}")
+            if 'metrics' in locals():
+                print(f"Métricas (Success Rate):    {metrics.success_rate:.1%} | Bet365: {metrics.bet365_found} | Erros Parse: {metrics.parse_errors}")
 
             if total_errors > 0:
                 TelegramAlert.fire("warning", f"Backfill Flashscore teve erros.\n{total_errors} jogos falharam nesta janela.")

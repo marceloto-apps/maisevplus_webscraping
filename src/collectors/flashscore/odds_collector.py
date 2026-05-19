@@ -473,7 +473,7 @@ class FlashscoreOddsCollector(BaseCollector):
                             
                         metrics.total_processed += 1
                         logger.info(f"[Flashscore] Progresso: {idx+1}/{len(match_ids)} | Match: {fs_id}")
-                        inserted = await self.collect_match(browser, conn, m_uuid, fs_id, is_closing, job_id, is_prematch, kickoff)
+                        inserted = await self.collect_match(browser, conn, m_uuid, fs_id, is_closing, job_id, metrics, is_prematch, kickoff)
                         
                         if inserted > 0:
                             metrics.with_odds += 1

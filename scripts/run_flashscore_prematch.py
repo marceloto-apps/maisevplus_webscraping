@@ -10,7 +10,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ["CAMOUFOX_DATA_DIR"] = os.path.join(os.getcwd(), ".camoufox_profile")
 
 from camoufox.async_api import AsyncCamoufox
-from src.collectors.flashscore.odds_collector import FlashscoreOddsCollector
+from src.collectors.flashscore.odds_collector import FlashscoreOddsCollector, CollectionMetrics
 from src.normalizer.prematch_tracker import fetch_eligible_prematch_matches
 from src.db.logger import configure_logging, get_logger
 
@@ -68,6 +68,8 @@ async def main():
             start_time = datetime.now()
             max_duration = timedelta(hours=args.timeout_hours)
             
+            metrics = CollectionMetrics()
+            
             for idx, m in enumerate(matches):
                 if datetime.now() - start_time > max_duration:
                     print(f"\n[TIMEOUT] Limite de {args.timeout_hours}h atingido. Interrompendo prematch suavemente.")
@@ -81,14 +83,18 @@ async def main():
 
                 try:
                     async with pool.acquire() as conn:
+                        metrics.total_processed += 1
                         inserted = await collector.collect_match(
                             browser, conn, 
                             str(match_uuid), fs_id, 
                             is_closing=False, 
                             job_id=f"prematch_{args.phase}",
+                            metrics=metrics,
                             is_prematch=True,
                             kickoff=kickoff
                         )
+                        if inserted > 0:
+                            metrics.with_odds += 1
                         print(f"    -> Coleta concluida para {fs_id}. Snaps inseridos: {inserted}.")
                         total_collected += 1
 

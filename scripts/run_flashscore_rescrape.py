@@ -158,9 +158,11 @@ async def step_rescrape(pool, limit: int, timeout_hours: float):
     Re-coleta odds de todas as partidas (parser corrigido captura tudo).
     """
     from camoufox.async_api import AsyncCamoufox
-    from src.collectors.flashscore.odds_collector import FlashscoreOddsCollector
+    from src.collectors.flashscore.odds_collector import FlashscoreOddsCollector, CollectionMetrics
     from src.alerts.telegram_mini import TelegramAlert
     await TelegramAlert.init()
+    
+    metrics = CollectionMetrics()
 
     async with pool.acquire() as conn:
         matches = await conn.fetch("""
@@ -212,13 +214,17 @@ async def step_rescrape(pool, limit: int, timeout_hours: float):
 
             try:
                 async with pool.acquire() as conn:
+                    metrics.total_processed += 1
                     inserted = await collector.collect_match(
                         browser, conn,
                         str(match_uuid), fs_id,
                         is_closing=True,
                         job_id="rescrape_fix_ah_ou",
+                        metrics=metrics,
                         skip_stats=True
                     )
+                    if inserted > 0:
+                        metrics.with_odds += 1
                     print(f"    -> {inserted} odds inseridas")
                     total_odds += inserted
 

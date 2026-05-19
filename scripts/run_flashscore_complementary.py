@@ -17,7 +17,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ["CAMOUFOX_DATA_DIR"] = os.path.join(os.getcwd(), ".camoufox_profile")
 
 from camoufox.async_api import AsyncCamoufox
-from src.collectors.flashscore.odds_collector import FlashscoreOddsCollector
+from src.collectors.flashscore.odds_collector import FlashscoreOddsCollector, CollectionMetrics
 from src.db.logger import configure_logging, get_logger
 from src.alerts.telegram_mini import TelegramAlert
 
@@ -129,6 +129,8 @@ async def main():
 
         start_time = datetime.now()
         max_duration = timedelta(hours=args.timeout_hours)
+        
+        metrics = CollectionMetrics()
 
         async with AsyncCamoufox(headless=False, enable_cache=True) as browser:
             for idx, m in enumerate(matches):
@@ -145,15 +147,19 @@ async def main():
 
                 async with pool.acquire() as conn:
                     try:
+                        metrics.total_processed += 1
                         # Chama a coleta explicitly permitindo collect_stats
                         inserted = await collector.collect_match(
                             browser, conn, 
                             str(m_uuid), fs_id, 
                             is_closing=True, 
                             job_id="fc_complementary_fix", 
+                            metrics=metrics,
                             skip_stats=False,
                             kickoff=kickoff
                         )
+                        if inserted > 0:
+                            metrics.with_odds += 1
 
                         # Atualiza queue
                         status = 'success' if inserted > 0 else 'no_data'
