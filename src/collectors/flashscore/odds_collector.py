@@ -159,6 +159,9 @@ class FlashscoreOddsCollector(BaseCollector):
 
                     # Clicar diretamente na aba Stats/Estatísticas na página principal
                     stats_clicked = await page.evaluate('''() => {
+                        let ot = document.getElementById('onetrust-consent-sdk');
+                        if (ot) ot.style.display = 'none';
+                        
                         let getButton = (names) => {
                             return Array.from(document.querySelectorAll('button, a, div[role="tab"]'))
                                         .find(el => {
@@ -166,7 +169,7 @@ class FlashscoreOddsCollector(BaseCollector):
                                             return names.some(name => txt.includes(name)) && txt.length < 20;
                                         });
                         };
-                        let statsBtn = getButton(['STAT']);
+                        let statsBtn = getButton(['STAT', 'ESTAD']);
                         if (statsBtn) {
                             statsBtn.click();
                             return true;
@@ -177,10 +180,10 @@ class FlashscoreOddsCollector(BaseCollector):
                     if not stats_clicked:
                         logger.warning(f"[Flashscore] [STATS] Botão de stats não encontrado no DOM SPA de {flashscore_id}")
                     else:
-                        # Aguardar o container de stats usando seletores combinados e timeout de 5s
+                        # Aguardar o container de stats usando seletores combinados e timeout de 15s (para VPS lenta)
                         stats_selector = '[data-testid="wcl-statistics"], .stat__row, div._row_96r0d_9, .statCategory'
                         try:
-                            await page.wait_for_selector(stats_selector, timeout=5000)
+                            await page.wait_for_selector(stats_selector, timeout=15000)
                             stats_loaded = True
                         except Exception:
                             stats_loaded = False
