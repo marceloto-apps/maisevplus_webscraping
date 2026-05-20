@@ -139,152 +139,26 @@ class FlashscoreOddsCollector(BaseCollector):
             except Exception as e:
                 logger.warning(f"[Flashscore] Timeout na página base de {flashscore_id}: {e}")
 
-            # 2. Esperar e CLICAR na aba "ODDS" (navegação SPA)
-            odds_tab = None
-            try:
-                await page.wait_for_selector("a[href*='/odds/']", timeout=15000)
-                odds_tab = await page.query_selector("a[href*='/odds/']")
-            except Exception:
-                logger.warning(f"[Flashscore] Aba Odds não encontrada para {flashscore_id}")
-                return {
-                    "total_inserted": 0,
-                    "markets_collected": [],
-                    "markets_failed": list(self.markets_to_scrape.keys()),
-                    "is_complete": False,
-                }
-            
-            if not odds_tab:
-                logger.warning(f"[Flashscore] Aba Odds não encontrada para {flashscore_id}")
-                return {
-                    "total_inserted": 0,
-                    "markets_collected": [],
-                    "markets_failed": list(self.markets_to_scrape.keys()),
-                    "is_complete": False,
-                }
-            
-            await odds_tab.click()
-            logger.debug(f"[Flashscore] Cliquei na aba Odds de {flashscore_id}")
-            
-            # 3. Esperar a tabela de odds do primeiro mercado (1x2 FT) renderizar
-            try:
-                await page.wait_for_selector("div.ui-table__row", timeout=15000)
-            except Exception:
-                # Tenta seletor alternativo
-                try:
-                    await page.wait_for_selector("a.oddsCell__odd", timeout=5000)
-                except Exception:
-                    logger.warning(f"[Flashscore] Tabela de odds não renderizou para {flashscore_id}")
-                    return {
-                        "total_inserted": 0,
-                        "markets_collected": [],
-                        "markets_failed": list(self.markets_to_scrape.keys()),
-                        "is_complete": False,
-                    }
-            
-            # 4. Iterar pelos mercados — o primeiro (1x2_ft) já está carregado após o clique na aba Odds.
-            first_market_key = next(iter(self.markets_to_scrape), None)
-            is_first_market = (first_market_key == "1x2_ft")
-            for m_key, m_config in self.markets_to_scrape.items():
-                logger.debug(f"[Flashscore] Coletando {m_key} para {flashscore_id}")
-                
-                try:
-                    if not is_first_market:
-                        market_parts = m_config["hash"].replace("#/odds-comparison/", "").split("/")
-                        market_type_slug = market_parts[0] if market_parts else ""  # ex: "over-under"
-                        period_slug = market_parts[1] if len(market_parts) > 1 else ""  # ex: "full-time"
-                        
-                        # Clicar na aba do tipo de mercado (ex: Over/Under, Asian Handicap, etc.)
-                        navigated = await self._navigate_to_market_tab(page, market_type_slug, period_slug)
-                        if not navigated:
-                            markets_failed.append(m_key)
-                            continue
-                    
-                    is_first_market = False
-                    
-                    # Capturar HTML e parsear
-                    html = await page.content()
-                    try:
-                        odds_entries, parsing_stats = FlashscoreParser.parse_odds_table(html, m_config, FLASHSCORE_BOOKMAKER_MAP)
-                        logger.debug(f"[Flashscore] {m_key}: parsou {len(odds_entries)} linhas de odds")
-                        metrics.unidentified_rows += parsing_stats["unidentified_rows"]
-                        metrics.unknown_bookmakers.update(parsing_stats["unknown_bookmakers"])
-                    except Exception as e:
-                        logger.error(f"[Flashscore] Erro no parse_odds_table para {flashscore_id}: {e}")
-                        metrics.parse_errors += 1
-                        odds_entries = []
-                    
-                    for entry in odds_entries:
-                        our_bm_key = entry["bookmaker"]
-                        match_unique_bookmakers.add(our_bm_key)
-                        bm_db_id = self.bm_ids.get(our_bm_key)
-                        
-                        if not bm_db_id:
-                            logger.debug(f"[DEBUG-SKIP] Casa mapeada '{our_bm_key}' não achou ID correspondente no banco de dados!")
-                            continue
-                            
-                        try:
-                            if is_prematch:
-                                is_new = await insert_prematch_odds(
-                                    conn=conn,
-                                    match_id=match_id_uuid,
-                                    bookmaker_id=bm_db_id,
-                                    market_type=entry["market_type"],
-                                    line=entry["line"],
-                                    period=entry["period"],
-                                    odds_1=entry["odds_1"],
-                                    odds_x=entry["odds_x"],
-                                    odds_2=entry["odds_2"],
-                                    source=self.source_name,
-                                    collect_job_id=job_id,
-                                    kickoff=kickoff,
-                                    time=now
-                                )
-                            else:
-                                is_new = await insert_odds_if_new(
-                                    conn=conn,
-                                    match_id=match_id_uuid,
-                                    bookmaker_id=bm_db_id,
-                                    market_type=entry["market_type"],
-                                    line=entry["line"],
-                                    period=entry["period"],
-                                    odds_1=entry["odds_1"],
-                                    odds_x=entry["odds_x"],
-                                    odds_2=entry["odds_2"],
-                                    source=self.source_name,
-                                    collect_job_id=job_id,
-                                    is_opening=False,
-                                    is_closing=is_closing,
-                                    time=now
-                                )
-                            if is_new:
-                                total_inserted += 1
-                            else:
-                                logger.debug(f"[DEBUG-DEDUP] Odds ignoradas. Ja existem para {our_bm_key} / {entry['market_type']}")
-                        except Exception as e:
-                            logger.error(f"[DEBUG-INSERT] Falha crassa ao inserir: {e}")
-                            
-                    if len(odds_entries) > 0:
-                        markets_collected.append(m_key)
-                    else:
-                        markets_failed.append(m_key)
-                        
-                except Exception as e:
-                    logger.warning(f"[Flashscore] Erro no mercado {m_key} para {flashscore_id}: {e}")
-                    markets_failed.append(m_key)
-                    is_first_market = False  # Garante progressão mesmo com erro
-                    
-            if 'bet365' in match_unique_bookmakers:
-                metrics.bet365_found += 1
-            if 'pinnacle' in match_unique_bookmakers:
-                metrics.pinnacle_found += 1
-            metrics.total_bookmakers_extracted += len(match_unique_bookmakers)
-                    
-            # 5. Coletar Estatísticas (se aplicável) - Executado depois das odds para não atrasar/bloquear
+            # 2. Coletar Estatísticas PRIMEIRO (se aplicável)
             if not is_prematch and not skip_stats:
-                logger.info(f"[Flashscore] [STATS] Navegando SPA para aba de estatísticas de {flashscore_id}")
+                logger.info(f"[Flashscore] [STATS] Buscando estatísticas para {flashscore_id} na página principal")
                 try:
-                    # SPA 2-step click: volta para MATCH/SUMÁRIO e clica em STATS
-                    stats_clicked = await page.evaluate('''async () => {
+                    # O banner de privacidade "I Accept" bloqueia o scroll e interações
+                    try:
+                        accept_btn = page.locator('button#onetrust-accept-btn-handler')
+                        if await accept_btn.count() > 0:
+                            await accept_btn.click(timeout=2000)
+                    except Exception:
+                        pass
+
+                    # Aguardar as abas (tablist ou odds tab) renderizarem no DOM antes de buscar o botão
+                    try:
+                        await page.wait_for_selector("div[role='tablist'], a[href*='/odds/'], a[href*='/1x2-odds/']", timeout=15000)
+                    except Exception as e:
+                        logger.warning(f"[Flashscore] [STATS] Timeout aguardando abas renderizarem no DOM para {flashscore_id}: {e}")
+
+                    # Clicar diretamente na aba Stats/Estatísticas na página principal
+                    stats_clicked = await page.evaluate('''() => {
                         let getButton = (names) => {
                             return Array.from(document.querySelectorAll('button, a, div[role="tab"]'))
                                         .find(el => {
@@ -292,26 +166,10 @@ class FlashscoreOddsCollector(BaseCollector):
                                             return names.some(name => txt.includes(name)) && txt.length < 20;
                                         });
                         };
-                        
-                        // Tenta achar Stats direto (caso já esteja exposto)
                         let statsBtn = getButton(['STAT']);
                         if (statsBtn) {
                             statsBtn.click();
                             return true;
-                        }
-                        
-                        // Clicar em Match/Sumário
-                        let matchBtn = getButton(['MATCH', 'SUMÁRIO', 'SUMARIO']);
-                        if (matchBtn) {
-                            matchBtn.click();
-                            for (let i = 0; i < 10; i++) {
-                                await new Promise(r => setTimeout(r, 100));
-                                let retryStatsBtn = getButton(['STAT']);
-                                if (retryStatsBtn) {
-                                    retryStatsBtn.click();
-                                    return true;
-                                }
-                            }
                         }
                         return false;
                     }''')
@@ -319,15 +177,7 @@ class FlashscoreOddsCollector(BaseCollector):
                     if not stats_clicked:
                         logger.warning(f"[Flashscore] [STATS] Botão de stats não encontrado no DOM SPA de {flashscore_id}")
                     else:
-                        # O banner de privacidade "I Accept" bloqueia o scroll
-                        try:
-                            accept_btn = page.locator('button#onetrust-accept-btn-handler')
-                            if await accept_btn.count() > 0:
-                                await accept_btn.click(timeout=2000)
-                        except Exception:
-                            pass
-                        
-                        # Aguardar o container de stats usando seletores combinados e timeout curto (5s)
+                        # Aguardar o container de stats usando seletores combinados e timeout de 5s
                         stats_selector = '[data-testid="wcl-statistics"], .stat__row, div._row_96r0d_9, .statCategory'
                         try:
                             await page.wait_for_selector(stats_selector, timeout=5000)
@@ -470,6 +320,146 @@ class FlashscoreOddsCollector(BaseCollector):
                                 logger.info(f"[Flashscore] [STATS] Partida {flashscore_id} processou a página mas não encontrou xG/xGOT/xA/Crosses.")
                 except Exception as e:
                     logger.error(f"[Flashscore] [STATS] Falha ao coletar/salvar estatísticas para {flashscore_id}: {e}")
+
+            # 3. Agora, navegar e CLICAR na aba "ODDS" (navegação SPA)
+            odds_tab = None
+            try:
+                await page.wait_for_selector("a[href*='/odds/'], a[href*='/1x2-odds/']", timeout=15000)
+                odds_tab = await page.query_selector("a[href*='/odds/'], a[href*='/1x2-odds/']")
+            except Exception:
+                logger.warning(f"[Flashscore] Aba Odds não encontrada para {flashscore_id}")
+                return {
+                    "total_inserted": total_inserted,
+                    "markets_collected": markets_collected,
+                    "markets_failed": list(set(self.markets_to_scrape.keys()) - set(markets_collected)),
+                    "is_complete": False,
+                }
+            
+            if not odds_tab:
+                logger.warning(f"[Flashscore] Aba Odds não encontrada para {flashscore_id}")
+                return {
+                    "total_inserted": total_inserted,
+                    "markets_collected": markets_collected,
+                    "markets_failed": list(set(self.markets_to_scrape.keys()) - set(markets_collected)),
+                    "is_complete": False,
+                }
+            
+            await odds_tab.click()
+            logger.debug(f"[Flashscore] Cliquei na aba Odds de {flashscore_id}")
+            
+            # 4. Esperar a tabela de odds do primeiro mercado (1x2 FT) renderizar
+            try:
+                await page.wait_for_selector("div.ui-table__row", timeout=15000)
+            except Exception:
+                # Tenta seletor alternativo
+                try:
+                    await page.wait_for_selector("a.oddsCell__odd", timeout=5000)
+                except Exception:
+                    logger.warning(f"[Flashscore] Tabela de odds não renderizou para {flashscore_id}")
+                    return {
+                        "total_inserted": total_inserted,
+                        "markets_collected": markets_collected,
+                        "markets_failed": list(set(self.markets_to_scrape.keys()) - set(markets_collected)),
+                        "is_complete": False,
+                    }
+            
+            # 5. Iterar pelos mercados — o primeiro (1x2_ft) já está carregado após o clique na aba Odds.
+            first_market_key = next(iter(self.markets_to_scrape), None)
+            is_first_market = (first_market_key == "1x2_ft")
+            for m_key, m_config in self.markets_to_scrape.items():
+                logger.debug(f"[Flashscore] Coletando {m_key} para {flashscore_id}")
+                
+                try:
+                    if not is_first_market:
+                        market_parts = m_config["hash"].replace("#/odds-comparison/", "").split("/")
+                        market_type_slug = market_parts[0] if market_parts else ""  # ex: "over-under"
+                        period_slug = market_parts[1] if len(market_parts) > 1 else ""  # ex: "full-time"
+                        
+                        # Clicar na aba do tipo de mercado (ex: Over/Under, Asian Handicap, etc.)
+                        navigated = await self._navigate_to_market_tab(page, market_type_slug, period_slug)
+                        if not navigated:
+                            markets_failed.append(m_key)
+                            continue
+                    
+                    is_first_market = False
+                    
+                    # Capturar HTML e parsear
+                    html = await page.content()
+                    try:
+                        odds_entries, parsing_stats = FlashscoreParser.parse_odds_table(html, m_config, FLASHSCORE_BOOKMAKER_MAP)
+                        logger.debug(f"[Flashscore] {m_key}: parsou {len(odds_entries)} linhas de odds")
+                        metrics.unidentified_rows += parsing_stats["unidentified_rows"]
+                        metrics.unknown_bookmakers.update(parsing_stats["unknown_bookmakers"])
+                    except Exception as e:
+                        logger.error(f"[Flashscore] Erro no parse_odds_table para {flashscore_id}: {e}")
+                        metrics.parse_errors += 1
+                        odds_entries = []
+                    
+                    for entry in odds_entries:
+                        our_bm_key = entry["bookmaker"]
+                        match_unique_bookmakers.add(our_bm_key)
+                        bm_db_id = self.bm_ids.get(our_bm_key)
+                        
+                        if not bm_db_id:
+                            logger.debug(f"[DEBUG-SKIP] Casa mapeada '{our_bm_key}' não achou ID correspondente no banco de dados!")
+                            continue
+                            
+                        try:
+                            if is_prematch:
+                                is_new = await insert_prematch_odds(
+                                    conn=conn,
+                                    match_id=match_id_uuid,
+                                    bookmaker_id=bm_db_id,
+                                    market_type=entry["market_type"],
+                                    line=entry["line"],
+                                    period=entry["period"],
+                                    odds_1=entry["odds_1"],
+                                    odds_x=entry["odds_x"],
+                                    odds_2=entry["odds_2"],
+                                    source=self.source_name,
+                                    collect_job_id=job_id,
+                                    kickoff=kickoff,
+                                    time=now
+                                )
+                            else:
+                                is_new = await insert_odds_if_new(
+                                    conn=conn,
+                                    match_id=match_id_uuid,
+                                    bookmaker_id=bm_db_id,
+                                    market_type=entry["market_type"],
+                                    line=entry["line"],
+                                    period=entry["period"],
+                                    odds_1=entry["odds_1"],
+                                    odds_x=entry["odds_x"],
+                                    odds_2=entry["odds_2"],
+                                    source=self.source_name,
+                                    collect_job_id=job_id,
+                                    is_opening=False,
+                                    is_closing=is_closing,
+                                    time=now
+                                )
+                            if is_new:
+                                total_inserted += 1
+                            else:
+                                logger.debug(f"[DEBUG-DEDUP] Odds ignoradas. Ja existem para {our_bm_key} / {entry['market_type']}")
+                        except Exception as e:
+                            logger.error(f"[DEBUG-INSERT] Falha crassa ao inserir: {e}")
+                            
+                    if len(odds_entries) > 0:
+                        markets_collected.append(m_key)
+                    else:
+                        markets_failed.append(m_key)
+                        
+                except Exception as e:
+                    logger.warning(f"[Flashscore] Erro no mercado {m_key} para {flashscore_id}: {e}")
+                    markets_failed.append(m_key)
+                    is_first_market = False  # Garante progressão mesmo com erro
+                    
+            if 'bet365' in match_unique_bookmakers:
+                metrics.bet365_found += 1
+            if 'pinnacle' in match_unique_bookmakers:
+                metrics.pinnacle_found += 1
+            metrics.total_bookmakers_extracted += len(match_unique_bookmakers)
                     
         finally:
             await page.close()
