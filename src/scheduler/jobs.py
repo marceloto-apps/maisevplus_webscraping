@@ -262,7 +262,7 @@ async def prematch_tracking_evening():
     return await _run_prematch_tracker("tracking_2x")
 
 @safe_job
-async def flashscore_complementary():
+async def flashscore_complementary(max_matches: int = 150, timeout_hours: float = 2.5):
     """
     Objetivo: Rescrape complementar de faltantes.
     """
@@ -270,9 +270,11 @@ async def flashscore_complementary():
     import sys
 
     try:
-        logger.info("spawning_flashscore_complementary_subprocess")
+        logger.info("spawning_flashscore_complementary_subprocess", max_matches=max_matches, timeout_hours=timeout_hours)
         proc = await asyncio.create_subprocess_exec(
-            "xvfb-run", "-a", sys.executable, "scripts/run_flashscore_complementary.py", "--limit", "250",
+            "xvfb-run", "-a", sys.executable, "scripts/run_flashscore_complementary.py",
+            "--limit", str(max_matches),
+            "--timeout-hours", str(timeout_hours),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -300,6 +302,57 @@ async def flashscore_complementary():
         raise
 
     return {"job": "flashscore_complementary", "records_count": records_count}
+
+@safe_job
+async def feed_complementary_queue():
+    """Detecta jogos com 1x2 mas sem OU e coloca na fila complementary."""
+    from src.db.pool import get_pool
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        res = await conn.execute("""
+            INSERT INTO fc_complementary_queue (match_id, flashscore_id, kickoff, status, attempts)
+            SELECT 
+                m.match_id,
+                m.flashscore_id,
+                m.kickoff,
+                'pending',
+                0
+            FROM matches m
+            WHERE m.status = 'finished'
+              AND m.flashscore_id IS NOT NULL
+              AND m.kickoff < NOW() - INTERVAL '24 hours'
+              AND EXISTS (
+                  SELECT 1 FROM odds_history oh 
+                  WHERE oh.match_id = m.match_id 
+                    AND oh.source = 'flashscore' 
+                    AND oh.market_type = '1x2' AND oh.period = 'ft'
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM odds_history oh 
+                  WHERE oh.match_id = m.match_id 
+                    AND oh.source = 'flashscore' 
+                    AND oh.market_type = 'ou' AND oh.period = 'ft'
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM fc_complementary_queue fcq 
+                  WHERE fcq.match_id = m.match_id 
+                    AND fcq.status = 'completed'
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM fc_complementary_queue fcq 
+                  WHERE fcq.match_id = m.match_id 
+                    AND fcq.attempts >= 3
+              )
+            ON CONFLICT (match_id) DO NOTHING
+        """)
+        inserted = 0
+        if res.startswith("INSERT"):
+            try:
+                inserted = int(res.split(" ")[-1])
+            except Exception:
+                pass
+        logger.info("feed_complementary_queue_success", inserted=inserted)
+        return {"job": "feed_complementary_queue", "inserted": inserted}
 
 @safe_job
 async def flashscore_dynamic_prematch(match_id: str, phase: str):

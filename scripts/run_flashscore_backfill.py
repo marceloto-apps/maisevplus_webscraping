@@ -30,14 +30,10 @@ load_dotenv()
 configure_logging()
 logger = get_logger("run_flashscore_backfill")
 
+from src.db.pool import get_pool
+
 async def init_db():
-    return await asyncpg.create_pool(
-        user=os.getenv("DB_USER", "admin"),
-        password=os.getenv("DB_PASS", "admin_password"),
-        database=os.getenv("DB_NAME", "postgres"),
-        host=os.getenv("DB_HOST", "localhost"),
-        port=os.getenv("DB_PORT", "5432")
-    )
+    return await get_pool()
 
 async def mark_match_as_scraped(pool, match_id: str):
     """Marca a partida como coletada para evitar repetição no backfill."""
@@ -47,6 +43,23 @@ async def mark_match_as_scraped(pool, match_id: str):
         except asyncpg.exceptions.UndefinedColumnError:
             await conn.execute("ALTER TABLE matches ADD COLUMN IF NOT EXISTS scraping_flashscore boolean DEFAULT false;")
             await conn.execute("UPDATE matches SET scraping_flashscore = true WHERE match_id = $1", match_id)
+
+async def enqueue_for_complementary(pool, match_id, flashscore_id, failed_markets):
+    """Enfileira jogo incompleto para retry via complementary."""
+    async with pool.acquire() as conn:
+        try:
+            await conn.execute("""
+                INSERT INTO fc_complementary_queue 
+                    (match_id, flashscore_id, status, attempts, failed_markets)
+                VALUES ($1, $2, 'pending', 0, $3)
+                ON CONFLICT (match_id) DO UPDATE SET
+                    status = 'pending',
+                    failed_markets = EXCLUDED.failed_markets,
+                    updated_at = NOW()
+                WHERE fc_complementary_queue.status != 'completed'
+            """, match_id, flashscore_id, failed_markets)
+        except Exception as e:
+            logger.error(f"[Backfill] Falha ao enfileirar no complementary para {flashscore_id}: {e}")
 
 async def get_target_matches(pool, league_code: str = None, limit: int = 999999):
     """
@@ -171,14 +184,23 @@ async def main():
                 try:
                     async with pool.acquire() as conn:
                         metrics.total_processed += 1
-                        inserted = await collector.collect_match(browser, conn, str(match_uuid), fs_id, is_closing=True, job_id=f"backfill_{league_label}", metrics=metrics)
+                        result = await collector.collect_match(browser, conn, str(match_uuid), fs_id, is_closing=True, job_id=f"backfill_{league_label}", metrics=metrics)
+                        inserted = result["total_inserted"]
                         if inserted > 0:
                             metrics.with_odds += 1
 
                         print(f"    -> Coleta finalizada para {fs_id}. Odds Inseridas: {inserted}.")
 
-                        await mark_match_as_scraped(pool, match_uuid)
-                        total_collected += 1
+                        if result["is_complete"]:
+                            await mark_match_as_scraped(pool, match_uuid)
+                            logger.info(f"✅ {fs_id} completo. Marcado como scraping_flashscore = true.")
+                            total_collected += 1
+                        else:
+                            logger.warning(
+                                f"⚠️ {fs_id} INCOMPLETO — coletados: {result['markets_collected']}, "
+                                f"faltando: {result['markets_failed']}. NÃO marcado como scraped."
+                            )
+                            await enqueue_for_complementary(pool, match_uuid, fs_id, result["markets_failed"])
 
                 except Exception as e:
                     print(f"[ERROR] Falha severa no match {fs_id}. Erro: {e}")

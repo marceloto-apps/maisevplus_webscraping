@@ -215,7 +215,7 @@ async def step_rescrape(pool, limit: int, timeout_hours: float):
             try:
                 async with pool.acquire() as conn:
                     metrics.total_processed += 1
-                    inserted = await collector.collect_match(
+                    result = await collector.collect_match(
                         browser, conn,
                         str(match_uuid), fs_id,
                         is_closing=True,
@@ -223,6 +223,7 @@ async def step_rescrape(pool, limit: int, timeout_hours: float):
                         metrics=metrics,
                         skip_stats=True
                     )
+                    inserted = result["total_inserted"]
                     if inserted > 0:
                         metrics.with_odds += 1
                     print(f"    -> {inserted} odds inseridas")

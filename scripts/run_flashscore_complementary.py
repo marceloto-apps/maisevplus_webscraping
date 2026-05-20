@@ -25,14 +25,10 @@ load_dotenv()
 configure_logging()
 logger = get_logger("run_flashscore_complementary")
 
+from src.db.pool import get_pool
+
 async def init_db():
-    return await asyncpg.create_pool(
-        user=os.getenv("DB_USER", "admin"),
-        password=os.getenv("DB_PASS", "admin_password"),
-        database=os.getenv("DB_NAME", "postgres"),
-        host=os.getenv("DB_HOST", "localhost"),
-        port=os.getenv("DB_PORT", "5432")
-    )
+    return await get_pool()
 
 async def setup_queue(pool):
     """
@@ -55,28 +51,32 @@ async def setup_queue(pool):
             );
         """)
         
-        # Popula a fila estritamente com base no arquivo JSON exportado (missing_matches_fs.json)
-        json_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "missing_matches_fs.json")
-        inserted = 0
-        if os.path.exists(json_path):
-            with open(json_path, "r") as f:
-                matches_to_insert = json.load(f)
-                
-            for match in matches_to_insert:
-                try:
-                    res = await conn.execute("""
-                        INSERT INTO fc_complementary_queue (match_id, flashscore_id, kickoff)
-                        VALUES ($1, $2, $3)
-                        ON CONFLICT (match_id) DO NOTHING;
-                    """, match["match_id"], match["flashscore_id"], datetime.fromisoformat(match["kickoff"]) if match.get("kickoff") else None)
-                    if res.endswith(" 1"):
-                        inserted += 1
-                except Exception as e:
-                    logger.error(f"Failed to insert seed match {match['match_id']}: {e}")
-            
-            logger.info(f"[Queue Setup] Populated {inserted} new matches from JSON seed.")
+        existing_count = await conn.fetchval("SELECT count(*) FROM fc_complementary_queue")
+        if existing_count > 0:
+            logger.info(f"[Queue Setup] Queue already has {existing_count} items. Skipping seed.")
         else:
-            logger.warning(f"[Queue Setup] Seed file not found at {json_path}. Only processing existing queue items.")
+            # Popula a fila estritamente com base no arquivo JSON exportado (missing_matches_fs.json)
+            json_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "missing_matches_fs.json")
+            inserted = 0
+            if os.path.exists(json_path):
+                with open(json_path, "r") as f:
+                    matches_to_insert = json.load(f)
+                    
+                for match in matches_to_insert:
+                    try:
+                        res = await conn.execute("""
+                            INSERT INTO fc_complementary_queue (match_id, flashscore_id, kickoff)
+                            VALUES ($1, $2, $3)
+                            ON CONFLICT (match_id) DO NOTHING;
+                        """, match["match_id"], match["flashscore_id"], datetime.fromisoformat(match["kickoff"]) if match.get("kickoff") else None)
+                        if res.endswith(" 1"):
+                            inserted += 1
+                    except Exception as e:
+                        logger.error(f"Failed to insert seed match {match['match_id']}: {e}")
+                
+                logger.info(f"[Queue Setup] Populated {inserted} new matches from JSON seed.")
+            else:
+                logger.warning(f"[Queue Setup] Seed file not found at {json_path}. Only processing existing queue items.")
         
         total = await conn.fetchval("SELECT count(*) FROM fc_complementary_queue")
         pending = await conn.fetchval("SELECT count(*) FROM fc_complementary_queue WHERE status = 'pending'")
@@ -103,7 +103,7 @@ async def main():
         # Busca lote de matches para esta rodada
         async with pool.acquire() as conn:
             matches = await conn.fetch("""
-                SELECT match_id, flashscore_id, kickoff, attempts
+                SELECT match_id, flashscore_id, kickoff, attempts, failed_markets
                 FROM fc_complementary_queue
                 WHERE status IN ('pending', 'failed') AND attempts < 3
                 ORDER BY kickoff DESC
@@ -116,11 +116,6 @@ async def main():
 
         logger.info(f"Iniciando coleta complementar para {len(matches)} partidas (timeout: {args.timeout_hours}h)...")
 
-        # Collector focado apenas nos mercados ausentes.
-        # "1x2_ft", "1x2_ht", "btts", "dc", "dnb"
-        markets = ["1x2_ft", "1x2_ht", "btts", "dc", "dnb"]
-        collector = FlashscoreOddsCollector(markets=markets)
-
         total_collected = 0
         total_odds_inserted = 0
         total_successes = 0
@@ -132,7 +127,7 @@ async def main():
         
         metrics = CollectionMetrics()
 
-        async with AsyncCamoufox(headless=False, enable_cache=True) as browser:
+        async with AsyncCamoufox(headless=True, enable_cache=True) as browser:
             for idx, m in enumerate(matches):
                 if datetime.now() - start_time > max_duration:
                     logger.warning(f"Timeout global de {args.timeout_hours}h atingido! Encerrando rodada graciosamente.")
@@ -142,14 +137,19 @@ async def main():
                 fs_id = m["flashscore_id"]
                 kickoff = m["kickoff"]
                 attempts = m["attempts"]
+                failed_markets = m.get("failed_markets")
 
-                logger.info(f"==> Processando {idx+1}/{len(matches)}: Flashscore ID {fs_id} (Tentativa {attempts+1})")
+                # Se failed_markets tiver itens, usa eles, senão passa None (que raspa todos)
+                markets_to_collect = failed_markets if failed_markets else None
+                collector = FlashscoreOddsCollector(markets=markets_to_collect)
+
+                logger.info(f"==> Processando {idx+1}/{len(matches)}: Flashscore ID {fs_id} (Tentativa {attempts+1}) | Mercados: {markets_to_collect or 'todos'}")
 
                 async with pool.acquire() as conn:
                     try:
                         metrics.total_processed += 1
                         # Chama a coleta explicitly permitindo collect_stats
-                        inserted = await collector.collect_match(
+                        result = await collector.collect_match(
                             browser, conn, 
                             str(m_uuid), fs_id, 
                             is_closing=True, 
@@ -158,34 +158,43 @@ async def main():
                             skip_stats=False,
                             kickoff=kickoff
                         )
+                        inserted = result["total_inserted"]
                         if inserted > 0:
                             metrics.with_odds += 1
 
-                        # Atualiza queue
-                        status = 'success' if inserted > 0 else 'no_data'
-                        if inserted > 0:
+                        if result["is_complete"]:
                             total_successes += 1
+                            total_odds_inserted += inserted
+                            await conn.execute("""
+                                UPDATE fc_complementary_queue 
+                                SET status = 'completed', attempts = attempts + 1, processed_at = NOW(), failed_markets = '{}'
+                                WHERE match_id = $1
+                            """, m_uuid)
+                            # Também marcamos como concluído na tabela matches principal
+                            await conn.execute("UPDATE matches SET scraping_flashscore = true WHERE match_id = $1", m_uuid)
+                            logger.info(f"    -> Concluído {fs_id}: Completo! Status set to completed e matches atualizado.")
                         else:
                             total_no_data += 1
-                        
-                        total_odds_inserted += inserted
-                        
-                        await conn.execute("""
-                            UPDATE fc_complementary_queue 
-                            SET status = $1, attempts = attempts + 1, processed_at = NOW()
-                            WHERE match_id = $2
-                        """, status, m_uuid)
-                        
-                        logger.info(f"    -> Concluído {fs_id}: Inseridas {inserted} odds. Status: {status}")
+                            new_failed = result["markets_failed"]
+                            new_attempts = attempts + 1
+                            new_status = 'failed' if new_attempts >= 3 else 'pending'
+                            await conn.execute("""
+                                UPDATE fc_complementary_queue 
+                                SET status = $1, attempts = $2, failed_markets = $3, processed_at = NOW()
+                                WHERE match_id = $4
+                            """, new_status, new_attempts, new_failed, m_uuid)
+                            logger.info(f"    -> Concluído {fs_id}: Incompleto. Falharam: {new_failed}. Tentativa: {new_attempts}. Status: {new_status}")
 
                     except Exception as e:
                         logger.error(f"[ERROR] Falha severa no match {fs_id}. Erro: {e}")
                         total_errors += 1
+                        new_attempts = attempts + 1
+                        new_status = 'failed' if new_attempts >= 3 else 'pending'
                         await conn.execute("""
                             UPDATE fc_complementary_queue 
-                            SET status = 'failed', attempts = attempts + 1, processed_at = NOW()
-                            WHERE match_id = $1
-                        """, m_uuid)
+                            SET status = $1, attempts = $2, processed_at = NOW()
+                            WHERE match_id = $3
+                        """, new_status, new_attempts, m_uuid)
 
                 total_collected += 1
                 await asyncio.sleep(2)  # Delay conservador extra

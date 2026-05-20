@@ -43,8 +43,18 @@ class AppOrchestrator:
 
     def _setup_routing(self):
         """Registra os jobs fixos e periódicos na instância da APScheduler."""
-        from src.scheduler.jobs import flashscore_complementary
+        from src.scheduler.jobs import flashscore_complementary, feed_complementary_queue
         set_scheduler(self.scheduler)
+
+        # 03:00 - Feeder — popula a fila com gaps detectados
+        self.scheduler.add_job(
+            feed_complementary_queue,
+            'cron',
+            hour=3, minute=0,
+            id='fc_complementary_feeder',
+            replace_existing=True,
+            misfire_grace_time=300,
+        )
         
         # 00:20 - Data Quality Routine
         self.scheduler.add_job(
@@ -89,6 +99,17 @@ class AppOrchestrator:
             hour=3, minute=20,
             id="apifootball_backfill",
             misfire_grace_time=7200
+        )
+
+        # 03:30 - Complementary — processa a fila
+        self.scheduler.add_job(
+            flashscore_complementary,
+            'cron',
+            hour=3, minute=30,
+            id='fc_complementary_daily',
+            replace_existing=True,
+            misfire_grace_time=300,
+            kwargs={'timeout_hours': 2.0, 'max_matches': 100}
         )
 
         # 03:30 - FootyStats Daily

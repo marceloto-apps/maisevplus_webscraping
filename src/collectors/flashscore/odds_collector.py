@@ -77,18 +77,49 @@ class FlashscoreOddsCollector(BaseCollector):
                 self.bm_ids[row['name'].lower()] = row['bookmaker_id']
                 self.bm_ids[row['name']] = row['bookmaker_id']
 
-    async def collect_match(self, browser, conn, match_id_uuid: str, flashscore_id: str, is_closing: bool, job_id: str, metrics: CollectionMetrics, is_prematch: bool = False, kickoff: datetime = None, skip_stats: bool = False) -> int:
+    async def _navigate_to_market_tab(self, page, market_href, period_slug=None, max_retries=1):
+        """Navega para uma aba de mercado com retry."""
+        for attempt in range(max_retries + 1):
+            try:
+                market_tab = await page.query_selector(f"a[href*='/{market_href}/']")
+                if not market_tab:
+                    raise ValueError(f"Sub-aba '{market_href}' não encontrada")
+                
+                await market_tab.click()
+                await page.wait_for_timeout(500)
+                
+                if period_slug and period_slug != "full-time":
+                    period_tab = await page.query_selector(f"a[href*='/{period_slug}']")
+                    if period_tab:
+                        await period_tab.click()
+                        await page.wait_for_timeout(500)
+                
+                await page.wait_for_selector("div.ui-table__row", timeout=12000)
+                return True
+                
+            except Exception as e:
+                if attempt < max_retries:
+                    logger.info(f"[Flashscore] Retry navegação para {market_href} (tentativa {attempt + 1}) devido a: {e}")
+                    await page.wait_for_timeout(1500)
+                else:
+                    raise e
+        return False
+
+    async def collect_match(self, browser, conn, match_id_uuid: str, flashscore_id: str, is_closing: bool, job_id: str, metrics: CollectionMetrics, is_prematch: bool = False, kickoff: datetime = None, skip_stats: bool = False) -> dict:
         """
         Para uma única partida, usa navegação SPA (cliques) para acessar a aba de odds.
         Flashscore bloqueia renderização de odds em navegação direta (goto);
         precisa simular clique real na aba Odds.
-        Retorna quantidade de novos registros inseridos.
+        Retorna dicionário com o status detalhado da coleta dos mercados.
         """
         await self._init_bm_ids(conn)
         
         total_inserted = 0
         match_unique_bookmakers = set()
         now = datetime.now(timezone.utc)
+        
+        markets_collected = []
+        markets_failed = []
         
         page = await browser.new_page()
         try:
@@ -108,11 +139,21 @@ class FlashscoreOddsCollector(BaseCollector):
                 odds_tab = await page.query_selector("a[href*='/odds/']")
             except Exception:
                 logger.warning(f"[Flashscore] Aba Odds não encontrada para {flashscore_id}")
-                return 0
+                return {
+                    "total_inserted": 0,
+                    "markets_collected": [],
+                    "markets_failed": list(self.markets_to_scrape.keys()),
+                    "is_complete": False,
+                }
             
             if not odds_tab:
                 logger.warning(f"[Flashscore] Aba Odds não encontrada para {flashscore_id}")
-                return 0
+                return {
+                    "total_inserted": 0,
+                    "markets_collected": [],
+                    "markets_failed": list(self.markets_to_scrape.keys()),
+                    "is_complete": False,
+                }
             
             await odds_tab.click()
             logger.debug(f"[Flashscore] Cliquei na aba Odds de {flashscore_id}")
@@ -126,10 +167,14 @@ class FlashscoreOddsCollector(BaseCollector):
                     await page.wait_for_selector("a.oddsCell__odd", timeout=5000)
                 except Exception:
                     logger.warning(f"[Flashscore] Tabela de odds não renderizou para {flashscore_id}")
-                    return 0
+                    return {
+                        "total_inserted": 0,
+                        "markets_collected": [],
+                        "markets_failed": list(self.markets_to_scrape.keys()),
+                        "is_complete": False,
+                    }
             
             # 4. Iterar pelos mercados — o primeiro (1x2_ft) já está carregado após o clique na aba Odds.
-            #    Se o filtro de mercados NÃO inclui 1x2_ft, precisamos navegar para o primeiro mercado.
             first_market_key = next(iter(self.markets_to_scrape), None)
             is_first_market = (first_market_key == "1x2_ft")
             for m_key, m_config in self.markets_to_scrape.items():
@@ -137,34 +182,15 @@ class FlashscoreOddsCollector(BaseCollector):
                 
                 try:
                     if not is_first_market:
-                        # Para mercados subsequentes, clicar na sub-aba correspondente
-                        # Converte: #/odds-comparison/1x2-odds/full-time -> 1x2-odds, full-time
                         market_parts = m_config["hash"].replace("#/odds-comparison/", "").split("/")
                         market_type_slug = market_parts[0] if market_parts else ""  # ex: "over-under"
                         period_slug = market_parts[1] if len(market_parts) > 1 else ""  # ex: "full-time"
                         
                         # Clicar na aba do tipo de mercado (ex: Over/Under, Asian Handicap, etc.)
-                        market_tab = await page.query_selector(f"a[href*='/{market_type_slug}/']")
-                        if not market_tab:
-                            # Tenta buscar pelo texto do link nas sub-abas
-                            logger.debug(f"[Flashscore] Sub-aba '{market_type_slug}' não encontrada, pulando {m_key}")
+                        navigated = await self._navigate_to_market_tab(page, market_type_slug, period_slug)
+                        if not navigated:
+                            markets_failed.append(m_key)
                             continue
-                        
-                        await market_tab.click()
-                        await page.wait_for_timeout(500)
-                        
-                        # Se tem sub-período (full-time vs 1st-half), clicar nele também
-                        if period_slug and period_slug != "full-time":
-                            period_tab = await page.query_selector(f"a[href*='/{period_slug}']")
-                            if period_tab:
-                                await period_tab.click()
-                                await page.wait_for_timeout(500)
-                        
-                        # Esperar re-render da tabela
-                        try:
-                            await page.wait_for_selector("div.ui-table__row", timeout=8000)
-                        except Exception:
-                            await page.wait_for_timeout(2000)
                     
                     is_first_market = False
                     
@@ -179,7 +205,6 @@ class FlashscoreOddsCollector(BaseCollector):
                         logger.error(f"[Flashscore] Erro no parse_odds_table para {flashscore_id}: {e}")
                         metrics.parse_errors += 1
                         odds_entries = []
-                    
                     
                     for entry in odds_entries:
                         our_bm_key = entry["bookmaker"]
@@ -231,8 +256,14 @@ class FlashscoreOddsCollector(BaseCollector):
                         except Exception as e:
                             logger.error(f"[DEBUG-INSERT] Falha crassa ao inserir: {e}")
                             
+                    if len(odds_entries) > 0:
+                        markets_collected.append(m_key)
+                    else:
+                        markets_failed.append(m_key)
+                        
                 except Exception as e:
                     logger.warning(f"[Flashscore] Erro no mercado {m_key} para {flashscore_id}: {e}")
+                    markets_failed.append(m_key)
                     is_first_market = False  # Garante progressão mesmo com erro
                     
             if 'bet365' in match_unique_bookmakers:
@@ -242,8 +273,16 @@ class FlashscoreOddsCollector(BaseCollector):
             metrics.total_bookmakers_extracted += len(match_unique_bookmakers)
                     
             # 5. Coletar Estatísticas pelo DOM estendido
+            REQUIRED_MARKETS = {"1x2_ft", "ou_ft"}
+            is_complete = REQUIRED_MARKETS.issubset(set(markets_collected))
+            ret_val = {
+                "total_inserted": total_inserted,
+                "markets_collected": markets_collected,
+                "markets_failed": markets_failed,
+                "is_complete": is_complete,
+            }
             if is_prematch or skip_stats:
-                return total_inserted
+                return ret_val
                 
             logger.info(f"[Flashscore] [STATS] Buscando estatísticas para {flashscore_id}")
             try:
@@ -429,7 +468,14 @@ class FlashscoreOddsCollector(BaseCollector):
         finally:
             await page.close()
             
-        return total_inserted
+        REQUIRED_MARKETS = {"1x2_ft", "ou_ft"}
+        is_complete = REQUIRED_MARKETS.issubset(set(markets_collected))
+        return {
+            "total_inserted": total_inserted,
+            "markets_collected": markets_collected,
+            "markets_failed": markets_failed,
+            "is_complete": is_complete,
+        }
 
     async def collect(self, match_ids: List[dict] = None, is_closing: bool = False, is_prematch: bool = False, **kwargs) -> CollectResult:
         """
@@ -473,7 +519,8 @@ class FlashscoreOddsCollector(BaseCollector):
                             
                         metrics.total_processed += 1
                         logger.info(f"[Flashscore] Progresso: {idx+1}/{len(match_ids)} | Match: {fs_id}")
-                        inserted = await self.collect_match(browser, conn, m_uuid, fs_id, is_closing, job_id, metrics, is_prematch, kickoff)
+                        result = await self.collect_match(browser, conn, m_uuid, fs_id, is_closing, job_id, metrics, is_prematch, kickoff)
+                        inserted = result["total_inserted"]
                         
                         if inserted > 0:
                             metrics.with_odds += 1

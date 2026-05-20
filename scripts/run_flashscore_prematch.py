@@ -84,7 +84,7 @@ async def main():
                 try:
                     async with pool.acquire() as conn:
                         metrics.total_processed += 1
-                        inserted = await collector.collect_match(
+                        result = await collector.collect_match(
                             browser, conn, 
                             str(match_uuid), fs_id, 
                             is_closing=False, 
@@ -93,6 +93,7 @@ async def main():
                             is_prematch=True,
                             kickoff=kickoff
                         )
+                        inserted = result["total_inserted"]
                         if inserted > 0:
                             metrics.with_odds += 1
                         print(f"    -> Coleta concluida para {fs_id}. Snaps inseridos: {inserted}.")
