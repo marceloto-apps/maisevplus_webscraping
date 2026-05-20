@@ -6,7 +6,7 @@
 # =============================================================
 
 echo "=== Monitor: Fila Complementar ==="
-echo "Atualiza a cada 30 segundos. Ctrl+C para sair."
+echo "Atualiza a cada 60 segundos. Ctrl+C para sair."
 echo ""
 
 while true; do
@@ -51,5 +51,5 @@ asyncio.run(check())
 " 2>/dev/null
     
     echo ""
-    sleep 30
+    sleep 60
 done
