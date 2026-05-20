@@ -77,30 +77,38 @@ class FlashscoreOddsCollector(BaseCollector):
                 self.bm_ids[row['name'].lower()] = row['bookmaker_id']
                 self.bm_ids[row['name']] = row['bookmaker_id']
 
-    async def _navigate_to_market_tab(self, page, market_href, period_slug=None, max_retries=1):
+    async def _navigate_to_market_tab(self, page, market_href, period_slug=None, max_retries=0):
         """Navega para uma aba de mercado com retry."""
         for attempt in range(max_retries + 1):
             try:
+                # 1. Garante que o menu de abas de odds carregou no DOM
+                has_any_tab = await page.query_selector("a[href*='/odds/'], a[href*='/1x2-odds/']")
+                if not has_any_tab:
+                    raise ValueError("Menu de abas de odds não carregou no DOM")
+
+                # 2. Busca a aba específica do mercado
                 market_tab = await page.query_selector(f"a[href*='/{market_href}/']")
                 if not market_tab:
-                    raise ValueError(f"Sub-aba '{market_href}' não encontrada")
+                    logger.debug(f"[Flashscore] Sub-aba '{market_href}' não existe no menu de odds de {page.url}. Pulando.")
+                    return False
                 
                 await market_tab.click()
-                await page.wait_for_timeout(500)
+                await page.wait_for_timeout(300)
                 
                 if period_slug and period_slug != "full-time":
                     period_tab = await page.query_selector(f"a[href*='/{period_slug}']")
                     if period_tab:
                         await period_tab.click()
-                        await page.wait_for_timeout(500)
+                        await page.wait_for_timeout(300)
                 
-                await page.wait_for_selector("div.ui-table__row", timeout=12000)
+                # Timeout reduzido de 12s para 3s na navegação SPA das sub-abas
+                await page.wait_for_selector("div.ui-table__row", timeout=3000)
                 return True
                 
             except Exception as e:
                 if attempt < max_retries:
                     logger.info(f"[Flashscore] Retry navegação para {market_href} (tentativa {attempt + 1}) devido a: {e}")
-                    await page.wait_for_timeout(1500)
+                    await page.wait_for_timeout(500)
                 else:
                     raise e
         return False
@@ -286,9 +294,25 @@ class FlashscoreOddsCollector(BaseCollector):
                 
             logger.info(f"[Flashscore] [STATS] Buscando estatísticas para {flashscore_id}")
             try:
-                # Mudança crucial: ir DIRETO para a aba de estatísticas
-                match_url = f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary/match-statistics/0"
-                await page.goto(match_url, wait_until="domcontentloaded", timeout=15000)
+                # Otimização: Tentar navegação SPA por clique antes de fazer o goto completo
+                logger.info(f"[Flashscore] [STATS] Navegando SPA para aba de estatísticas de {flashscore_id}")
+                stats_clicked = await page.evaluate('''() => {
+                    let button = Array.from(document.querySelectorAll('button[role="tab"]'))
+                                      .find(btn => {
+                                          let txt = (btn.innerText || "").trim().toUpperCase();
+                                          return txt.includes('STAT') || txt.includes('ESTAT');
+                                      });
+                    if (button) {
+                        button.click();
+                        return true;
+                    }
+                    return false;
+                }''')
+                
+                if not stats_clicked:
+                    logger.warning(f"[Flashscore] [STATS] Botão de stats não encontrado no DOM. Usando fallback de reload completo.")
+                    match_url = f"https://www.flashscore.com/match/{flashscore_id}/#/match-summary/match-statistics/0"
+                    await page.goto(match_url, wait_until="domcontentloaded", timeout=15000)
                 
                 # O banner de privacidade "I Accept" bloqueia o scroll
                 try:
@@ -298,17 +322,16 @@ class FlashscoreOddsCollector(BaseCollector):
                 except Exception:
                     pass
                 
-                # Aguardar especificamente algum container de stats
-                # Adicionados múltiplos seletores conhecidos como fallback
+                # Aguardar especificamente algum container de stats (reduzido timeout de 8s para 4s)
                 stats_loaded = False
                 for stat_selector in [
                     '[data-testid="wcl-statistics"]', 
                     '.stat__row', 
-                    'div._row_96r0d_9', # Classe obscura comum no flashscore
+                    'div._row_96r0d_9',
                     '.statCategory'
                 ]:
                     try:
-                        await page.wait_for_selector(stat_selector, timeout=8000)
+                        await page.wait_for_selector(stat_selector, timeout=4000)
                         stats_loaded = True
                         logger.info(f"[Flashscore] [STATS] Container de stats carregado via {stat_selector}")
                         break
@@ -318,17 +341,19 @@ class FlashscoreOddsCollector(BaseCollector):
                 if not stats_loaded:
                     logger.warning(f"[Flashscore] [STATS] Partida {flashscore_id} não possui container de estatísticas detectável. Pulando stats.")
                 else:
-                    await page.wait_for_timeout(2000)
+                    # Pequena pausa apenas se fizemos reload completo. Para SPA, a renderização costuma ser imediata.
+                    if not stats_clicked:
+                        await page.wait_for_timeout(1000)
                     
-                    # O Xvfb engessa a viewport. Precisamos fazer scroll-down para forçar o IntersectionObserver
-                    # da SPA do Flashscore a renderizar as sessões virtualizadas reais (Shots, Passes, etc).
+                    # O Xvfb engessa a viewport. Precisamos fazer scroll-down para forçar o IntersectionObserver.
+                    # Otimizado de 15 rolagens/200ms para 5 rolagens/100ms (garantindo carregamento de stats adicionais).
                     await page.evaluate('''async () => {
                         let ot = document.getElementById('onetrust-consent-sdk');
                         if(ot) ot.style.display = 'none';
 
-                        for(let i=0; i<15; i++) {
+                        for(let i=0; i<5; i++) {
                             window.scrollBy({ top: window.innerHeight * 0.8, behavior: 'smooth' });
-                            await new Promise(r => setTimeout(r, 200));
+                            await new Promise(r => setTimeout(r, 100));
                         }
                     }''')
                     

@@ -197,7 +197,7 @@ async def main():
                         """, new_status, new_attempts, m_uuid)
 
                 total_collected += 1
-                await asyncio.sleep(2)  # Delay conservador extra
+                await asyncio.sleep(1)  # Delay conservador extra
 
         # Relatório de Rodada
         elapsed = datetime.now() - start_time
