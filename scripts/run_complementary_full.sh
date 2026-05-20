@@ -15,8 +15,17 @@ echo "Log: $LOGFILE"
 echo "Início: $(date)"
 echo ""
 
+# Detect virtualenv python interpreter or fallback
+if [ -f ".venv/bin/python" ]; then
+    PYTHON_BIN=".venv/bin/python"
+elif [ -f "venv/bin/python" ]; then
+    PYTHON_BIN="venv/bin/python"
+else
+    PYTHON_BIN="python3"
+fi
+
 # Rodar com output unbuffered (-u) e salvar log + stdout
-python -u scripts/run_flashscore_complementary.py --limit "$LIMIT" 2>&1 | tee "$LOGFILE"
+"$PYTHON_BIN" -u scripts/run_flashscore_complementary.py --limit "$LIMIT" 2>&1 | tee "$LOGFILE"
 
 echo ""
 echo "=== Fim: $(date) ==="

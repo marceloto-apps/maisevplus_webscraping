@@ -12,8 +12,17 @@ echo ""
 while true; do
     echo "--- $(date) ---"
     
+    # Detect virtualenv python interpreter or fallback
+    if [ -f ".venv/bin/python" ]; then
+        PYTHON_BIN=".venv/bin/python"
+    elif [ -f "venv/bin/python" ]; then
+        PYTHON_BIN="venv/bin/python"
+    else
+        PYTHON_BIN="python3"
+    fi
+
     # Status da fila
-    python -u -c "
+    "$PYTHON_BIN" -u -c "
 import asyncio
 from src.db.pool import get_pool
 
