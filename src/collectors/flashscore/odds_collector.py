@@ -81,6 +81,12 @@ class FlashscoreOddsCollector(BaseCollector):
         """Navega para uma aba de mercado com retry."""
         for attempt in range(max_retries + 1):
             try:
+                # 0. Capturar estado atual das linhas da tabela de odds antes do clique
+                old_state = await page.evaluate('''() => {
+                    let rows = Array.from(document.querySelectorAll('div.ui-table__row'));
+                    return rows.map(r => r.textContent.trim()).join('|');
+                }''')
+
                 # 1. Clicar na aba do mercado usando JS evaluate
                 clicked_market = await page.evaluate('''async (slug) => {
                     let keywords = {
@@ -108,9 +114,10 @@ class FlashscoreOddsCollector(BaseCollector):
                     logger.debug(f"[Flashscore] Sub-aba '{market_href}' não encontrada/clicada no menu de odds de {page.url}. Pulando.")
                     return False
                 
-                await page.wait_for_timeout(300)
+                await page.wait_for_timeout(200)
                 
                 # 2. Se houver period_slug, clicar no respectivo botão de período
+                clicked_period = False
                 if period_slug and period_slug != "full-time":
                     clicked_period = await page.evaluate('''async (slug) => {
                         let keywords = {
@@ -131,10 +138,32 @@ class FlashscoreOddsCollector(BaseCollector):
                         return false;
                     }''', period_slug)
                     
-                    if clicked_period:
-                        await page.wait_for_timeout(300)
+                    # Se o período foi solicitado mas o botão correspondente NÃO existe no DOM,
+                    # significa que este mercado não suporta o período (ex: sem odds HT de BTTS).
+                    # Retornamos False para não coletar e evitar duplicar odds FT na label de HT.
+                    if not clicked_period:
+                        logger.debug(f"[Flashscore] Sub-aba de período '{period_slug}' não encontrada para o mercado '{market_href}'. Pulando.")
+                        return False
+                    
+                    await page.wait_for_timeout(200)
                 
-                # Timeout reduzido de 12s para 3s na navegação SPA das sub-abas
+                # 3. Aguardar a atualização do estado das linhas da tabela se houve algum clique
+                if clicked_market or clicked_period:
+                    start_time = asyncio.get_event_loop().time()
+                    while asyncio.get_event_loop().time() - start_time < 1.5:
+                        new_state = await page.evaluate('''() => {
+                            let rows = Array.from(document.querySelectorAll('div.ui-table__row'));
+                            return rows.map(r => r.textContent.trim()).join('|');
+                        }''')
+                        # Se mudou e não está vazio, está pronto
+                        if new_state != old_state and new_state != "":
+                            break
+                        # Se estava vazio e continuou vazio (ex: mercado sem odds), sai
+                        if new_state == "" and old_state == "":
+                            break
+                        await asyncio.sleep(0.05)
+                
+                # Timeout reduzido de 12s para 3s na navegação SPA das sub-abas como safety fallback
                 await page.wait_for_selector("div.ui-table__row, a.oddsCell__odd", timeout=3000)
                 return True
                 
@@ -172,17 +201,20 @@ class FlashscoreOddsCollector(BaseCollector):
             except Exception as e:
                 logger.warning(f"[Flashscore] Timeout na página base de {flashscore_id}: {e}")
 
+            # Aceitar banner de cookies se estiver presente (importante sob GDPR para liberar SPA e interações)
+            try:
+                accept_btn = page.locator('button#onetrust-accept-btn-handler')
+                await accept_btn.wait_for(state="visible", timeout=4000)
+                await accept_btn.click()
+                logger.debug(f"[Flashscore] Consentimento de cookies aceito para {flashscore_id}")
+                await page.wait_for_timeout(500)
+            except Exception:
+                pass
+
             # 2. Coletar Estatísticas PRIMEIRO (se aplicável)
             if not is_prematch and not skip_stats:
                 logger.info(f"[Flashscore] [STATS] Buscando estatísticas para {flashscore_id} na página principal")
                 try:
-                    # O banner de privacidade "I Accept" bloqueia o scroll e interações
-                    try:
-                        accept_btn = page.locator('button#onetrust-accept-btn-handler')
-                        if await accept_btn.count() > 0:
-                            await accept_btn.click(timeout=2000)
-                    except Exception:
-                        pass
 
                     # Aguardar as abas (tablist ou odds tab) renderizarem no DOM antes de buscar o botão
                     try:
