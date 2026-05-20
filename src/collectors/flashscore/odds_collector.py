@@ -81,28 +81,61 @@ class FlashscoreOddsCollector(BaseCollector):
         """Navega para uma aba de mercado com retry."""
         for attempt in range(max_retries + 1):
             try:
-                # 1. Garante que o menu de abas de odds carregou no DOM
-                has_any_tab = await page.query_selector("a[href*='/odds/'], a[href*='/1x2-odds/']")
-                if not has_any_tab:
-                    raise ValueError("Menu de abas de odds não carregou no DOM")
-
-                # 2. Busca a aba específica do mercado
-                market_tab = await page.query_selector(f"a[href*='/{market_href}/']")
-                if not market_tab:
-                    logger.debug(f"[Flashscore] Sub-aba '{market_href}' não existe no menu de odds de {page.url}. Pulando.")
+                # 1. Clicar na aba do mercado usando JS evaluate
+                clicked_market = await page.evaluate('''async (slug) => {
+                    let keywords = {
+                        "1x2-odds": ["1X2"],
+                        "over-under": ["OVER", "UNDER", "ACIMA", "ABAIXO", "MÁS", "MAS", "MENOS", "ÜBER", "UNTER", "PLUS", "MOINS"],
+                        "asian-handicap": ["ASIAN", "ASIÁTICO", "ASIATICO", "ASIATIQUE", "ASIATISCHES"],
+                        "both-teams-to-score": ["BOTH", "BTTS", "AMBAS", "AMBOS", "BEIDE", "DEUX", "SQUADRE"],
+                        "double-chance": ["DOUBLE", "DUPLA", "DOBLE", "DOPPELTE", "DOPPIA"],
+                        "draw-no-bet": ["DRAW NO", "DNB", "ANULA", "VÁLIDA", "VALIDA", "UNENTSCHIEDEN", "REMBOURSÉ", "RIMBORSO"]
+                    }[slug] || [];
+                    
+                    let btn = Array.from(document.querySelectorAll('button[role="tab"], a[role="tab"], div[role="tab"]'))
+                                .find(el => {
+                                    let txt = (el.textContent || el.innerText || "").trim().toUpperCase();
+                                    return keywords.some(k => txt.includes(k)) && txt.length < 30;
+                                });
+                    if (btn) {
+                        btn.click();
+                        return true;
+                    }
+                    return false;
+                }''', market_href)
+                
+                if not clicked_market:
+                    logger.debug(f"[Flashscore] Sub-aba '{market_href}' não encontrada/clicada no menu de odds de {page.url}. Pulando.")
                     return False
                 
-                await market_tab.click()
                 await page.wait_for_timeout(300)
                 
+                # 2. Se houver period_slug, clicar no respectivo botão de período
                 if period_slug and period_slug != "full-time":
-                    period_tab = await page.query_selector(f"a[href*='/{period_slug}']")
-                    if period_tab:
-                        await period_tab.click()
+                    clicked_period = await page.evaluate('''async (slug) => {
+                        let keywords = {
+                            "full-time": ["FULL", "REGULAMENTAR", "COMPLETO", "HAUPTZEIT"],
+                            "1st-half": ["1ST", "1º", "1ER", "1.", "1/H"],
+                            "2nd-half": ["2ND", "2º", "2E", "2.", "2/H"]
+                        }[slug] || [];
+                        
+                        let btn = Array.from(document.querySelectorAll('button[role="tab"], a[role="tab"], div[role="tab"]'))
+                                    .find(el => {
+                                        let txt = (el.textContent || el.innerText || "").trim().toUpperCase();
+                                        return keywords.some(k => txt.includes(k)) && txt.length < 30;
+                                    });
+                        if (btn) {
+                            btn.click();
+                            return true;
+                        }
+                        return false;
+                    }''', period_slug)
+                    
+                    if clicked_period:
                         await page.wait_for_timeout(300)
                 
                 # Timeout reduzido de 12s para 3s na navegação SPA das sub-abas
-                await page.wait_for_selector("div.ui-table__row", timeout=3000)
+                await page.wait_for_selector("div.ui-table__row, a.oddsCell__odd", timeout=3000)
                 return True
                 
             except Exception as e:
