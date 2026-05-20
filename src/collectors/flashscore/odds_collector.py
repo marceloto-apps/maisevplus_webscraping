@@ -296,15 +296,36 @@ class FlashscoreOddsCollector(BaseCollector):
             try:
                 # Otimização: Tentar navegação SPA por clique antes de fazer o goto completo
                 logger.info(f"[Flashscore] [STATS] Navegando SPA para aba de estatísticas de {flashscore_id}")
-                stats_clicked = await page.evaluate('''() => {
-                    let button = Array.from(document.querySelectorAll('button[role="tab"]'))
-                                      .find(btn => {
-                                          let txt = (btn.innerText || "").trim().toUpperCase();
-                                          return txt.includes('STAT') || txt.includes('ESTAT');
-                                      });
-                    if (button) {
-                        button.click();
+                stats_clicked = await page.evaluate('''async () => {
+                    let getStatsButton = () => {
+                        return Array.from(document.querySelectorAll('button, a, div[role="tab"]'))
+                                    .find(el => {
+                                        let txt = (el.textContent || el.innerText || "").trim().toUpperCase();
+                                        return (txt === 'STATS' || txt === 'ESTATÍSTICAS' || txt === 'ESTATISTICAS') && txt.length < 20;
+                                    });
+                    };
+                    
+                    let statsBtn = getStatsButton();
+                    if (statsBtn) {
+                        statsBtn.click();
                         return true;
+                    }
+                    
+                    let matchBtn = Array.from(document.querySelectorAll('button, a'))
+                                        .find(el => {
+                                            let txt = (el.textContent || el.innerText || "").trim().toUpperCase();
+                                            return txt === 'MATCH' || txt === 'SUMÁRIO' || txt === 'SUMARIO';
+                                        });
+                    if (matchBtn) {
+                        matchBtn.click();
+                        for (let i = 0; i < 10; i++) {
+                            await new Promise(r => setTimeout(r, 100));
+                            let retryStatsBtn = getStatsButton();
+                            if (retryStatsBtn) {
+                                retryStatsBtn.click();
+                                return true;
+                            }
+                        }
                     }
                     return false;
                 }''')
