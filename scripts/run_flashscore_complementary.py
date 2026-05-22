@@ -86,6 +86,7 @@ async def main():
     parser = argparse.ArgumentParser(description="Flashscore Complementary Rescrape (Missing Markets/Stats)")
     parser.add_argument("--limit", type=int, default=150, help="Máximo de partidas por rodada (default: 150)")
     parser.add_argument("--timeout-hours", type=float, default=2.5, help="Timeout em horas (default: 2.5 = 2h30)")
+    parser.add_argument("--status", type=str, default="pending,failed", help="Status das partidas a filtrar separados por vírgula (default: pending,failed)")
     args = parser.parse_args()
 
     await TelegramAlert.init()
@@ -93,22 +94,32 @@ async def main():
 
     try:
         total_q, pending_q = await setup_queue(pool)
-        if pending_q == 0:
-            logger.info("A fila FC Complementary Queue está vazia (0 pendentes). Nenhuma coleta a ser feita.")
-            TelegramAlert.fire("info", "✅ *Rescrape Complementar Flashscore*\nFila 100% concluída. 0 pendentes.")
+        
+        status_list = [s.strip() for s in args.status.split(",") if s.strip()]
+        
+        async with pool.acquire() as conn:
+            matching_count = await conn.fetchval("""
+                SELECT count(*) 
+                FROM fc_complementary_queue 
+                WHERE status = ANY($1) AND attempts < 3
+            """, status_list)
+
+        if matching_count == 0:
+            logger.info(f"Nenhuma partida elegível na fila com status '{args.status}' e tentativas < 3.")
+            TelegramAlert.fire("info", f"✅ *Rescrape Complementar Flashscore*\nFila concluída para o filtro status: {args.status}")
             return
 
-        logger.info(f"Fila inicializada. Total: {total_q} | Pendentes antes da rodada: {pending_q}")
+        logger.info(f"Fila inicializada. Total: {total_q} | Elegíveis para a rodada ({args.status}): {matching_count}")
 
         # Busca lote de matches para esta rodada
         async with pool.acquire() as conn:
             matches = await conn.fetch("""
                 SELECT match_id, flashscore_id, kickoff, attempts, failed_markets
                 FROM fc_complementary_queue
-                WHERE status IN ('pending', 'failed') AND attempts < 3
+                WHERE status = ANY($1) AND attempts < 3
                 ORDER BY kickoff DESC
-                LIMIT $1
-            """, args.limit)
+                LIMIT $2
+            """, status_list, args.limit)
 
         if not matches:
             logger.info("Nenhuma partida elegível no momento (tentativas esgotadas ou todas processadas).")
@@ -203,7 +214,11 @@ async def main():
         elapsed = datetime.now() - start_time
         
         async with pool.acquire() as conn:
-            final_pending = await conn.fetchval("SELECT count(*) FROM fc_complementary_queue WHERE status IN ('pending', 'failed') AND attempts < 3")
+            final_pending = await conn.fetchval("""
+                SELECT count(*) 
+                FROM fc_complementary_queue 
+                WHERE status = ANY($1) AND attempts < 3
+            """, status_list)
 
         # Custo aproximado de rodadas restantes (assumindo ~total_collected por rodada)
         rounds_remaining = (final_pending // total_collected) + 1 if total_collected > 0 else "N/A"
@@ -215,7 +230,7 @@ async def main():
         logger.info(f"Sem novos dados (no_data): {total_no_data}")
         logger.info(f"Erros encontrados: {total_errors}")
         logger.info(f"Odds Inseridas: {total_odds_inserted}")
-        logger.info(f"Pendentes na Fila: {final_pending}")
+        logger.info(f"Pendentes na Fila ({args.status}): {final_pending}")
         logger.info(f"Rodadas estimadas restantes: {rounds_remaining}")
         logger.info(f"Tempo total: {elapsed}")
         logger.info("=" * 40)
@@ -225,7 +240,7 @@ async def main():
             f"Processadas: {total_collected}\n"
             f"Sucessos: {total_successes} | No Data: {total_no_data} | Erros: {total_errors}\n"
             f"Odds Novas: {total_odds_inserted}\n"
-            f"Pendentes restando: {final_pending}\n"
+            f"Fila restando ({args.status}): {final_pending}\n"
             f"Estimativa de rodadas: ~{rounds_remaining}\n"
             f"Duração: {str(elapsed).split('.')[0]}"
         )

@@ -24,8 +24,8 @@ else
     PYTHON_BIN="python3"
 fi
 
-# Rodar com output unbuffered (-u) e salvar log + stdout
-"$PYTHON_BIN" -u scripts/run_flashscore_complementary.py --limit "$LIMIT" 2>&1 | tee "$LOGFILE"
+# Rodar com output unbuffered (-u) e salvar log + stdout (repassando argumentos adicionais)
+"$PYTHON_BIN" -u scripts/run_flashscore_complementary.py --limit "$LIMIT" "$@" 2>&1 | tee "$LOGFILE"
 
 echo ""
 echo "=== Fim: $(date) ==="
