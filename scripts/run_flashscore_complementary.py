@@ -87,6 +87,7 @@ async def main():
     parser.add_argument("--limit", type=int, default=150, help="Máximo de partidas por rodada (default: 150)")
     parser.add_argument("--timeout-hours", type=float, default=2.5, help="Timeout em horas (default: 2.5 = 2h30)")
     parser.add_argument("--status", type=str, default="pending,failed", help="Status das partidas a filtrar separados por vírgula (default: pending,failed)")
+    parser.add_argument("--flashscore-id", type=str, default=None, help="Processa apenas este flashscore_id específico para testes")
     args = parser.parse_args()
 
     await TelegramAlert.init()
@@ -104,7 +105,7 @@ async def main():
                 WHERE status = ANY($1) AND attempts < 3
             """, status_list)
 
-        if matching_count == 0:
+        if matching_count == 0 and not args.flashscore_id:
             logger.info(f"Nenhuma partida elegível na fila com status '{args.status}' e tentativas < 3.")
             TelegramAlert.fire("info", f"✅ *Rescrape Complementar Flashscore*\nFila concluída para o filtro status: {args.status}")
             return
@@ -113,16 +114,49 @@ async def main():
 
         # Busca lote de matches para esta rodada
         async with pool.acquire() as conn:
-            matches = await conn.fetch("""
-                SELECT match_id, flashscore_id, kickoff, attempts, failed_markets
-                FROM fc_complementary_queue
-                WHERE status = ANY($1) AND attempts < 3
-                ORDER BY kickoff DESC
-                LIMIT $2
-            """, status_list, args.limit)
+            if args.flashscore_id:
+                logger.info(f"Buscando partida específica para teste: {args.flashscore_id}")
+                # Primeiro tenta na fila
+                rows = await conn.fetch("""
+                    SELECT match_id, flashscore_id, kickoff, attempts, failed_markets
+                    FROM fc_complementary_queue
+                    WHERE flashscore_id = $1
+                """, args.flashscore_id)
+                # Se não achou na fila, busca na tabela principal
+                if not rows:
+                    logger.info(f"Partida {args.flashscore_id} não encontrada na fila. Buscando na tabela principal matches...")
+                    row = await conn.fetchrow("""
+                        SELECT match_id, flashscore_id, kickoff
+                        FROM matches
+                        WHERE flashscore_id = $1
+                    """, args.flashscore_id)
+                    if row:
+                        matches = [{
+                            "match_id": row["match_id"],
+                            "flashscore_id": row["flashscore_id"],
+                            "kickoff": row["kickoff"],
+                            "attempts": 0,
+                            "failed_markets": None
+                        }]
+                    else:
+                        logger.error(f"Flashscore ID {args.flashscore_id} não encontrado no banco de dados!")
+                        return
+                else:
+                    matches = rows
+            else:
+                matches = await conn.fetch("""
+                    SELECT match_id, flashscore_id, kickoff, attempts, failed_markets
+                    FROM fc_complementary_queue
+                    WHERE status = ANY($1) AND attempts < 3
+                    ORDER BY kickoff DESC
+                    LIMIT $2
+                """, status_list, args.limit)
 
         if not matches:
-            logger.info("Nenhuma partida elegível no momento (tentativas esgotadas ou todas processadas).")
+            if args.flashscore_id:
+                logger.warning(f"Nenhuma partida encontrada para o flashscore_id {args.flashscore_id}.")
+            else:
+                logger.info("Nenhuma partida elegível no momento (tentativas esgotadas ou todas processadas).")
             return
 
         logger.info(f"Iniciando coleta complementar para {len(matches)} partidas (timeout: {args.timeout_hours}h)...")

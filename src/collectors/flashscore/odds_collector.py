@@ -87,47 +87,59 @@ class FlashscoreOddsCollector(BaseCollector):
                     return rows.map(r => r.textContent.trim()).join('|');
                 }''')
 
-                # 1. Clicar na aba do mercado usando JS evaluate (priorizando href)
-                clicked_market = await page.evaluate('''async (market_slug) => {
-                    // 1. Tentar por href (mais robusto e independente de idioma)
-                    let link = document.querySelector(`a[href*="/odds/${market_slug}/"]`);
-                    if (link) {
-                        link.click();
-                        return true;
-                    }
+                # 1. Verificar se já estamos no mercado correto
+                already_on_market = market_href in page.url
+                clicked_market = False
+
+                if not already_on_market:
+                    # Clicar na aba do mercado usando JS evaluate (priorizando href)
+                    clicked_market = await page.evaluate('''async (market_slug) => {
+                        // 1. Tentar por href (mais robusto e independente de idioma)
+                        let link = document.querySelector(`a[href*="/odds/${market_slug}/"]`);
+                        if (link) {
+                            link.click();
+                            return true;
+                        }
+                        
+                        // 2. Fallback por palavras-chave
+                        let keywords = {
+                            "1x2-odds": ["1X2"],
+                            "over-under": ["OVER", "UNDER", "ACIMA", "ABAIXO", "MÁS", "MAS", "MENOS", "ÜBER", "UNTER", "PLUS", "MOINS"],
+                            "asian-handicap": ["ASIAN", "ASIÁTICO", "ASIATICO", "ASIATIQUE", "ASIATISCHES"],
+                            "both-teams-to-score": ["BOTH", "BTTS", "AMBAS", "AMBOS", "BEIDE", "DEUX", "SQUADRE"],
+                            "double-chance": ["DOUBLE", "DUPLA", "DOBLE", "DOPPELTE", "DOPPIA"],
+                            "draw-no-bet": ["DRAW NO", "DNB", "ANULA", "VÁLIDA", "VALIDA", "UNENTSCHIEDEN", "REMBOURSÉ", "RIMBORSO"]
+                        }[market_slug] || [];
+                        
+                        let btn = Array.from(document.querySelectorAll('button[role="tab"], a[role="tab"], div[role="tab"]'))
+                                    .find(el => {
+                                        let txt = (el.textContent || el.innerText || "").trim().toUpperCase();
+                                        return keywords.some(k => txt.includes(k)) && txt.length < 30;
+                                    });
+                        if (btn) {
+                            btn.click();
+                            return true;
+                        }
+                        return false;
+                    }''', market_href)
                     
-                    // 2. Fallback por palavras-chave
-                    let keywords = {
-                        "1x2-odds": ["1X2"],
-                        "over-under": ["OVER", "UNDER", "ACIMA", "ABAIXO", "MÁS", "MAS", "MENOS", "ÜBER", "UNTER", "PLUS", "MOINS"],
-                        "asian-handicap": ["ASIAN", "ASIÁTICO", "ASIATICO", "ASIATIQUE", "ASIATISCHES"],
-                        "both-teams-to-score": ["BOTH", "BTTS", "AMBAS", "AMBOS", "BEIDE", "DEUX", "SQUADRE"],
-                        "double-chance": ["DOUBLE", "DUPLA", "DOBLE", "DOPPELTE", "DOPPIA"],
-                        "draw-no-bet": ["DRAW NO", "DNB", "ANULA", "VÁLIDA", "VALIDA", "UNENTSCHIEDEN", "REMBOURSÉ", "RIMBORSO"]
-                    }[market_slug] || [];
+                    if not clicked_market:
+                        logger.debug(f"[Flashscore] Sub-aba '{market_href}' não encontrada/clicada no menu de odds de {page.url}. Pulando.")
+                        return False
                     
-                    let btn = Array.from(document.querySelectorAll('button[role="tab"], a[role="tab"], div[role="tab"]'))
-                                .find(el => {
-                                    let txt = (el.textContent || el.innerText || "").trim().toUpperCase();
-                                    return keywords.some(k => txt.includes(k)) && txt.length < 30;
-                                });
-                    if (btn) {
-                        btn.click();
-                        return true;
-                    }
-                    return false;
-                }''', market_href)
-                
-                if not clicked_market:
-                    logger.debug(f"[Flashscore] Sub-aba '{market_href}' não encontrada/clicada no menu de odds de {page.url}. Pulando.")
-                    return False
-                
-                await page.wait_for_timeout(200)
-                
-                # 2. Se houver period_slug, clicar no respectivo botão de período (priorizando href)
-                clicked_period = False
+                    await page.wait_for_timeout(200)
+
+                # 2. Verificar se já estamos no período correto
+                already_on_period = False
                 if period_slug:
-                    clicked_period = await page.evaluate('''async (market_slug, period_slug) => {
+                    if period_slug in page.url:
+                        already_on_period = True
+                    elif period_slug == "full-time" and not ("1st-half" in page.url or "2nd-half" in page.url):
+                        already_on_period = True
+
+                clicked_period = False
+                if period_slug and not already_on_period:
+                    clicked_period = await page.evaluate('''async ({market_slug, period_slug}) => {
                         // 1. Tentar por href contendo market e período (mais preciso)
                         let link = document.querySelector(`a[href*="/${market_slug}/${period_slug}/"]`);
                         if (!link) {
@@ -162,7 +174,7 @@ class FlashscoreOddsCollector(BaseCollector):
                             return true;
                         }
                         return false;
-                    }''', market_href, period_slug)
+                    }''', {"market_slug": market_href, "period_slug": period_slug})
                     
                     # Se o período foi solicitado mas o botão correspondente NÃO existe no DOM:
                     # - Se for "full-time", tudo bem (pode não haver botões de período se o mercado só suportar full-time).
