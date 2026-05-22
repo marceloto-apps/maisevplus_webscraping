@@ -81,17 +81,30 @@ class FlashscoreOddsCollector(BaseCollector):
         """Navega para uma aba de mercado com retry."""
         for attempt in range(max_retries + 1):
             try:
-                # 0. Capturar estado atual das linhas da tabela de odds antes do clique
-                old_state = await page.evaluate('''() => {
-                    let rows = Array.from(document.querySelectorAll('div.ui-table__row'));
-                    return rows.map(r => r.textContent.trim()).join('|');
-                }''')
+                # Helper para capturar o estado atual da tabela
+                async def get_table_state():
+                    return await page.evaluate('''() => {
+                        let rows = Array.from(document.querySelectorAll('div.ui-table__row'));
+                        return rows.map(r => r.textContent.trim()).join('|');
+                    }''')
 
-                # 1. Verificar se já estamos no mercado correto
+                # Helper para aguardar a mudança das linhas da tabela
+                async def wait_for_table_change(old_state):
+                    start_time = asyncio.get_event_loop().time()
+                    while asyncio.get_event_loop().time() - start_time < 2.0:
+                        new_state = await get_table_state()
+                        if new_state != old_state and new_state != "":
+                            return True
+                        if new_state == "" and old_state == "":
+                            return True
+                        await asyncio.sleep(0.05)
+                    return False
+
+                # 1. FASE 1: Navegar para o Mercado Correto (se necessário)
                 already_on_market = market_href in page.url
-                clicked_market = False
-
                 if not already_on_market:
+                    old_state = await get_table_state()
+                    
                     # Clicar na aba do mercado usando JS evaluate (priorizando href)
                     clicked_market = await page.evaluate('''async (market_slug) => {
                         // 1. Tentar por href (mais robusto e independente de idioma)
@@ -126,10 +139,30 @@ class FlashscoreOddsCollector(BaseCollector):
                     if not clicked_market:
                         logger.debug(f"[Flashscore] Sub-aba '{market_href}' não encontrada/clicada no menu de odds de {page.url}. Pulando.")
                         return False
-                    
-                    await page.wait_for_timeout(200)
 
-                # 2. Verificar se já estamos no período correto
+                    # 1.1. Aguardar a URL atualizar para conter o market_href
+                    start_wait = asyncio.get_event_loop().time()
+                    while market_href not in page.url and asyncio.get_event_loop().time() - start_wait < 3.0:
+                        await asyncio.sleep(0.05)
+
+                    # 1.2. Aguardar que o DOM das abas/links de período seja atualizado para o novo mercado
+                    start_wait = asyncio.get_event_loop().time()
+                    while asyncio.get_event_loop().time() - start_wait < 2.0:
+                        has_new_market_links = await page.evaluate('''async (market_slug) => {
+                            let links = Array.from(document.querySelectorAll('a[href*="/odds/"]'));
+                            return links.some(link => {
+                                let href = link.getAttribute('href') || '';
+                                return href.includes('/' + market_slug + '/');
+                            });
+                        }''', market_href)
+                        if has_new_market_links:
+                            break
+                        await asyncio.sleep(0.05)
+
+                    # 1.3. Aguardar que as linhas da tabela atualizem para o novo mercado
+                    await wait_for_table_change(old_state)
+
+                # 2. FASE 2: Navegar para o Período Correto (se necessário)
                 already_on_period = False
                 if period_slug:
                     if period_slug in page.url:
@@ -137,8 +170,9 @@ class FlashscoreOddsCollector(BaseCollector):
                     elif period_slug == "full-time" and not ("1st-half" in page.url or "2nd-half" in page.url):
                         already_on_period = True
 
-                clicked_period = False
                 if period_slug and not already_on_period:
+                    old_state = await get_table_state()
+
                     clicked_period = await page.evaluate('''async ({market_slug, period_slug}) => {
                         // 1. Tentar por href contendo market e período (mais preciso)
                         let link = document.querySelector(`a[href*="/${market_slug}/${period_slug}/"]`);
@@ -176,33 +210,24 @@ class FlashscoreOddsCollector(BaseCollector):
                         return false;
                     }''', {"market_slug": market_href, "period_slug": period_slug})
                     
-                    # Se o período foi solicitado mas o botão correspondente NÃO existe no DOM:
-                    # - Se for "full-time", tudo bem (pode não haver botões de período se o mercado só suportar full-time).
-                    # - Se for outro período (ex: 1st-half), retornamos False para evitar salvar odds de FT como HT.
                     if not clicked_period and period_slug != "full-time":
                         logger.debug(f"[Flashscore] Sub-aba de período '{period_slug}' não encontrada via href ou fallback para o mercado '{market_href}'. Pulando.")
                         return False
                     
                     if clicked_period:
-                        await page.wait_for_timeout(200)
+                        # 2.1. Aguardar a URL atualizar para conter o period_slug
+                        start_wait = asyncio.get_event_loop().time()
+                        if period_slug == "full-time":
+                            while ("1st-half" in page.url or "2nd-half" in page.url) and asyncio.get_event_loop().time() - start_wait < 3.0:
+                                await asyncio.sleep(0.05)
+                        else:
+                            while period_slug not in page.url and asyncio.get_event_loop().time() - start_wait < 3.0:
+                                await asyncio.sleep(0.05)
+
+                        # 2.2. Aguardar que as linhas da tabela atualizem para o novo período
+                        await wait_for_table_change(old_state)
                 
-                # 3. Aguardar a atualização do estado das linhas da tabela se houve algum clique
-                if clicked_market or clicked_period:
-                    start_time = asyncio.get_event_loop().time()
-                    while asyncio.get_event_loop().time() - start_time < 1.5:
-                        new_state = await page.evaluate('''() => {
-                            let rows = Array.from(document.querySelectorAll('div.ui-table__row'));
-                            return rows.map(r => r.textContent.trim()).join('|');
-                        }''')
-                        # Se mudou e não está vazio, está pronto
-                        if new_state != old_state and new_state != "":
-                            break
-                        # Se estava vazio e continuou vazio (ex: mercado sem odds), sai
-                        if new_state == "" and old_state == "":
-                            break
-                        await asyncio.sleep(0.05)
-                
-                # Timeout reduzido de 12s para 3s na navegação SPA das sub-abas como safety fallback
+                # Garantir que pelo menos uma linha da tabela de odds está visível/pronta
                 await page.wait_for_selector("div.ui-table__row, a.oddsCell__odd", timeout=3000)
                 return True
                 
