@@ -121,16 +121,34 @@ class FlashscoreOddsCollector(BaseCollector):
                 if period_slug:
                     clicked_period = await page.evaluate('''async (slug) => {
                         let keywords = {
-                            "full-time": ["FULL", "REGULAMENTAR", "COMPLETO", "HAUPTZEIT"],
+                            "full-time": ["FULL", "REGULAMENTAR", "COMPLETO", "HAUPTZEIT", "REGULAR", "REGLEMENTAIRE", "RÉGLEMENTAIRE"],
                             "1st-half": ["1ST", "1º", "1ER", "1.", "1/H"],
                             "2nd-half": ["2ND", "2º", "2E", "2.", "2/H"]
                         }[slug] || [];
                         
-                        let btn = Array.from(document.querySelectorAll('button[role="tab"], a[role="tab"], div[role="tab"]'))
+                        let container = document.querySelector('div[class*="Tertiary"], div[class*="subFilterOver"], div[class*="subFilter"]');
+                        let tabs = container 
+                            ? Array.from(container.querySelectorAll('button[role="tab"], a[role="tab"], div[role="tab"], a, button'))
+                            : Array.from(document.querySelectorAll('button[role="tab"], a[role="tab"], div[role="tab"]'));
+                        
+                        let btn = tabs.find(el => {
+                            let txt = (el.textContent || el.innerText || "").trim().toUpperCase();
+                            return keywords.some(k => txt.includes(k)) && txt.length < 30;
+                        });
+                        
+                        // Fallback global search if container search didn't yield result,
+                        // specifically excluding terms that might match "Half Time/Full Time" (Intervalo/Final do Jogo / Descanso/Final)
+                        if (!btn) {
+                            btn = Array.from(document.querySelectorAll('button[role="tab"], a[role="tab"], div[role="tab"]'))
                                     .find(el => {
                                         let txt = (el.textContent || el.innerText || "").trim().toUpperCase();
+                                        if (slug === "full-time" && (txt.includes("HALF TIME") || txt.includes("INTERVALO") || txt.includes("DESCANSO"))) {
+                                            return false;
+                                        }
                                         return keywords.some(k => txt.includes(k)) && txt.length < 30;
                                     });
+                        }
+                        
                         if (btn) {
                             btn.click();
                             return true;
