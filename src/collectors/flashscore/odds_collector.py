@@ -87,8 +87,16 @@ class FlashscoreOddsCollector(BaseCollector):
                     return rows.map(r => r.textContent.trim()).join('|');
                 }''')
 
-                # 1. Clicar na aba do mercado usando JS evaluate
-                clicked_market = await page.evaluate('''async (slug) => {
+                # 1. Clicar na aba do mercado usando JS evaluate (priorizando href)
+                clicked_market = await page.evaluate('''async (market_slug) => {
+                    // 1. Tentar por href (mais robusto e independente de idioma)
+                    let link = document.querySelector(`a[href*="/odds/${market_slug}/"]`);
+                    if (link) {
+                        link.click();
+                        return true;
+                    }
+                    
+                    // 2. Fallback por palavras-chave
                     let keywords = {
                         "1x2-odds": ["1X2"],
                         "over-under": ["OVER", "UNDER", "ACIMA", "ABAIXO", "MÁS", "MAS", "MENOS", "ÜBER", "UNTER", "PLUS", "MOINS"],
@@ -96,7 +104,7 @@ class FlashscoreOddsCollector(BaseCollector):
                         "both-teams-to-score": ["BOTH", "BTTS", "AMBAS", "AMBOS", "BEIDE", "DEUX", "SQUADRE"],
                         "double-chance": ["DOUBLE", "DUPLA", "DOBLE", "DOPPELTE", "DOPPIA"],
                         "draw-no-bet": ["DRAW NO", "DNB", "ANULA", "VÁLIDA", "VALIDA", "UNENTSCHIEDEN", "REMBOURSÉ", "RIMBORSO"]
-                    }[slug] || [];
+                    }[market_slug] || [];
                     
                     let btn = Array.from(document.querySelectorAll('button[role="tab"], a[role="tab"], div[role="tab"]'))
                                 .find(el => {
@@ -116,51 +124,51 @@ class FlashscoreOddsCollector(BaseCollector):
                 
                 await page.wait_for_timeout(200)
                 
-                # 2. Se houver period_slug, clicar no respectivo botão de período
+                # 2. Se houver period_slug, clicar no respectivo botão de período (priorizando href)
                 clicked_period = False
                 if period_slug:
-                    clicked_period = await page.evaluate('''async (slug) => {
+                    clicked_period = await page.evaluate('''async (market_slug, period_slug) => {
+                        // 1. Tentar por href contendo market e período (mais preciso)
+                        let link = document.querySelector(`a[href*="/${market_slug}/${period_slug}/"]`);
+                        if (!link) {
+                            // Fallback para link contendo apenas o período
+                            link = document.querySelector(`a[href*="/${period_slug}/"]`);
+                        }
+                        if (link) {
+                            link.click();
+                            return true;
+                        }
+                        
+                        // 2. Fallback por palavras-chave
                         let keywords = {
                             "full-time": ["FULL", "REGULAMENTAR", "COMPLETO", "HAUPTZEIT", "REGULAR", "REGLEMENTAIRE", "RÉGLEMENTAIRE"],
-                            "1st-half": ["1ST", "1º", "1ER", "1.", "1/H"],
-                            "2nd-half": ["2ND", "2º", "2E", "2.", "2/H"]
-                        }[slug] || [];
+                            "1st-half": ["1ST", "1º", "1ER", "1.", "1/H", "1ª"],
+                            "2nd-half": ["2ND", "2º", "2E", "2.", "2/H", "2ª"]
+                        }[period_slug] || [];
                         
-                        let container = document.querySelector('div[class*="Tertiary"], div[class*="subFilterOver"], div[class*="subFilter"]');
-                        let tabs = container 
-                            ? Array.from(container.querySelectorAll('button[role="tab"], a[role="tab"], div[role="tab"], a, button'))
-                            : Array.from(document.querySelectorAll('button[role="tab"], a[role="tab"], div[role="tab"]'));
+                        let tabs = Array.from(document.querySelectorAll('button[role="tab"], a[role="tab"], div[role="tab"], a, button'))
+                                        .filter(el => el.offsetWidth > 0 && el.offsetHeight > 0);
                         
                         let btn = tabs.find(el => {
                             let txt = (el.textContent || el.innerText || "").trim().toUpperCase();
+                            if (period_slug === "full-time" && (txt.includes("HALF TIME") || txt.includes("INTERVALO") || txt.includes("DESCANSO") || txt.includes("FINAL"))) {
+                                return false;
+                            }
                             return keywords.some(k => txt.includes(k)) && txt.length < 30;
                         });
-                        
-                        // Fallback global search if container search didn't yield result,
-                        // specifically excluding terms that might match "Half Time/Full Time" (Intervalo/Final do Jogo / Descanso/Final)
-                        if (!btn) {
-                            btn = Array.from(document.querySelectorAll('button[role="tab"], a[role="tab"], div[role="tab"]'))
-                                    .find(el => {
-                                        let txt = (el.textContent || el.innerText || "").trim().toUpperCase();
-                                        if (slug === "full-time" && (txt.includes("HALF TIME") || txt.includes("INTERVALO") || txt.includes("DESCANSO"))) {
-                                            return false;
-                                        }
-                                        return keywords.some(k => txt.includes(k)) && txt.length < 30;
-                                    });
-                        }
                         
                         if (btn) {
                             btn.click();
                             return true;
                         }
                         return false;
-                    }''', period_slug)
+                    }''', market_href, period_slug)
                     
                     # Se o período foi solicitado mas o botão correspondente NÃO existe no DOM:
                     # - Se for "full-time", tudo bem (pode não haver botões de período se o mercado só suportar full-time).
                     # - Se for outro período (ex: 1st-half), retornamos False para evitar salvar odds de FT como HT.
                     if not clicked_period and period_slug != "full-time":
-                        logger.debug(f"[Flashscore] Sub-aba de período '{period_slug}' não encontrada para o mercado '{market_href}'. Pulando.")
+                        logger.debug(f"[Flashscore] Sub-aba de período '{period_slug}' não encontrada via href ou fallback para o mercado '{market_href}'. Pulando.")
                         return False
                     
                     if clicked_period:
