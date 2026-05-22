@@ -118,7 +118,7 @@ class FlashscoreOddsCollector(BaseCollector):
                 
                 # 2. Se houver period_slug, clicar no respectivo botão de período
                 clicked_period = False
-                if period_slug and period_slug != "full-time":
+                if period_slug:
                     clicked_period = await page.evaluate('''async (slug) => {
                         let keywords = {
                             "full-time": ["FULL", "REGULAMENTAR", "COMPLETO", "HAUPTZEIT"],
@@ -138,14 +138,15 @@ class FlashscoreOddsCollector(BaseCollector):
                         return false;
                     }''', period_slug)
                     
-                    # Se o período foi solicitado mas o botão correspondente NÃO existe no DOM,
-                    # significa que este mercado não suporta o período (ex: sem odds HT de BTTS).
-                    # Retornamos False para não coletar e evitar duplicar odds FT na label de HT.
-                    if not clicked_period:
+                    # Se o período foi solicitado mas o botão correspondente NÃO existe no DOM:
+                    # - Se for "full-time", tudo bem (pode não haver botões de período se o mercado só suportar full-time).
+                    # - Se for outro período (ex: 1st-half), retornamos False para evitar salvar odds de FT como HT.
+                    if not clicked_period and period_slug != "full-time":
                         logger.debug(f"[Flashscore] Sub-aba de período '{period_slug}' não encontrada para o mercado '{market_href}'. Pulando.")
                         return False
                     
-                    await page.wait_for_timeout(200)
+                    if clicked_period:
+                        await page.wait_for_timeout(200)
                 
                 # 3. Aguardar a atualização do estado das linhas da tabela se houve algum clique
                 if clicked_market or clicked_period:

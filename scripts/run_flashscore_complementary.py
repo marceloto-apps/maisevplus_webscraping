@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 import asyncpg
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ["CAMOUFOX_DATA_DIR"] = os.path.join(os.getcwd(), ".camoufox_profile")
 
 from camoufox.async_api import AsyncCamoufox
