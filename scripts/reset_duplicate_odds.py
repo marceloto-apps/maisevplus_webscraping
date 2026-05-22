@@ -59,7 +59,7 @@ async def main():
                 UPDATE fc_complementary_queue
                 SET status = 'pending',
                     attempts = 0,
-                    failed_markets = ARRAY['ou_ht']::varchar[],
+                    failed_markets = ARRAY['ou_ft', 'ou_ht']::varchar[],
                     processed_at = NULL
                 WHERE match_id = ANY($1)
             """, match_ids)
