@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-LIMIT=150
+LIMIT=200
 LOGFILE="logs/complementary_full_$(date +%Y%m%d_%H%M%S).log"
 
 echo "=== Fase 3: Re-scraping Complementar ==="
