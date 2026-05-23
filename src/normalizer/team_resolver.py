@@ -141,7 +141,7 @@ class MatchResolver:
               AND home_team_id = $2
               AND away_team_id = $3
               AND kickoff >= $4::date
-              AND kickoff < ($4::date + INTERVAL '1 day')
+              AND kickoff < ($4::date + INTERVAL '1 day' + INTERVAL '1 second')
             LIMIT 1
             """,
             league_id, home_id, away_id, kickoff_date,

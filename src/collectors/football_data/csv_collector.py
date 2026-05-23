@@ -318,8 +318,21 @@ class FootballDataCollector(BaseCollector):
         inserted_count = 0
 
         # Vamos iterar de forma sequencial ou batch assíncrono. Sendo poucas linhas, o overhead de conexões manda = batch local.
+        def safe_score(val) -> "int | None":
+            """Converte placar do CSV para int, ignorando '#' (WO/walkover) e NaN."""
+            if pd.isna(val):
+                return None
+            s = str(val).strip()
+            if s in ('', '#'):
+                return None
+            try:
+                return int(float(s))
+            except (ValueError, TypeError):
+                return None
+
         async with self._pool.acquire() as conn:
             for idx, row in df.iterrows():
+              try:
                 if pd.isna(row['kickoff']):
                     continue
                 
@@ -371,8 +384,8 @@ class FootballDataCollector(BaseCollector):
                 # restaurando o comportamento removido acidentalmente no commit f0deb05.
                 # O guard `AND status != 'finished'` evita writes desnecessários em rows
                 # que já foram corretamente marcadas por outra fonte.
-                ft_home = int(row['FTHG']) if pd.notna(row.get('FTHG')) else None
-                ft_away = int(row['FTAG']) if pd.notna(row.get('FTAG')) else None
+                ft_home = safe_score(row.get('FTHG'))
+                ft_away = safe_score(row.get('FTAG'))
                 if ft_home is not None and ft_away is not None:
                     await conn.execute(
                         """
@@ -399,7 +412,12 @@ class FootballDataCollector(BaseCollector):
                 bfe_id = self._bookmaker_ids.get('betfair_ex')
 
                 def parse_odd(val):
-                    return float(val) if pd.notna(val) and val != "" else None
+                    if not pd.notna(val) or str(val).strip() in ('', '#'):
+                        return None
+                    try:
+                        return float(val)
+                    except (ValueError, TypeError):
+                        return None
 
                 # --- 1. Bet365 1x2 Closing ---
                 b1 = parse_odd(row.get('B365CH'))
@@ -469,6 +487,17 @@ class FootballDataCollector(BaseCollector):
                         source=self.source_name, collect_job_id='fd_closing',
                         is_closing=True, time=kickoff_dt
                     )
+
+              except Exception as exc:
+                logger.warning(
+                    "csv_row_skipped",
+                    error=str(exc),
+                    row_index=int(idx),
+                    home=str(row.get('HomeTeam', '?')),
+                    away=str(row.get('AwayTeam', '?')),
+                    date=str(row.get('Date', '?')),
+                )
+                continue
 
         return inserted_count
 
