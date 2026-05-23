@@ -140,13 +140,15 @@ class MatchResolver:
             WHERE league_id = $1
               AND home_team_id = $2
               AND away_team_id = $3
-              AND kickoff >= ($4::date - INTERVAL '1 day') AT TIME ZONE 'UTC'
-              AND kickoff < ($4::date + INTERVAL '2 days') AT TIME ZONE 'UTC'
+              AND kickoff >= ($4::date - INTERVAL '90 days') AT TIME ZONE 'UTC'
+              AND kickoff < ($4::date + INTERVAL '90 days') AT TIME ZONE 'UTC'
+            ORDER BY ABS(EXTRACT(epoch FROM (kickoff - ($4::date + TIME '12:00:00') AT TIME ZONE 'UTC'))) ASC
             LIMIT 1
             """,
             league_id, home_id, away_id, kickoff_date,
         )
         return row["match_id"] if row else None
+
 
 
 
