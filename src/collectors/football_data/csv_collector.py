@@ -357,16 +357,35 @@ class FootballDataCollector(BaseCollector):
                     continue  # Safely ignore matches outside registered seasons
 
                 # Inserir ou recuperar Match
-                # Como é um script de semente (e depois corrigido por odds API), inseriremos se faltar
                 match_id = await MatchResolver.resolve(
                     league_id=league_id, home_name=str(row['HomeTeam']), away_name=str(row['AwayTeam']),
                     kickoff_date=kickoff_dt.date(), source=self.source_name
                 )
-                
+
                 if not match_id:
                     # Match não existe na base — NÃO criar novo
                     # (evita duplicatas; matches devem vir do footystats/api-football)
                     continue
+
+                # Atualiza status → finished quando o CSV já tem placar (FTHG/FTAG),
+                # restaurando o comportamento removido acidentalmente no commit f0deb05.
+                # O guard `AND status != 'finished'` evita writes desnecessários em rows
+                # que já foram corretamente marcadas por outra fonte.
+                ft_home = int(row['FTHG']) if pd.notna(row.get('FTHG')) else None
+                ft_away = int(row['FTAG']) if pd.notna(row.get('FTAG')) else None
+                if ft_home is not None and ft_away is not None:
+                    await conn.execute(
+                        """
+                        UPDATE matches
+                        SET status     = 'finished',
+                            ft_home    = $1,
+                            ft_away    = $2,
+                            updated_at = NOW()
+                        WHERE match_id = $3
+                          AND status != 'finished'
+                        """,
+                        ft_home, ft_away, match_id,
+                    )
 
                 inserted_count += 1
 
