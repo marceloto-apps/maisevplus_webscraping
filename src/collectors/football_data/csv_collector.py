@@ -38,6 +38,7 @@ class FootballDataCollector(BaseCollector):
         self._season_map: Dict[tuple[int, str], int] = {}  # (league_id, fd_season) -> season_id
         self._extra_seasons: List[dict] = []   # [{season_id, league_id, start, end}, ...]
         self._season_label_map: Dict[tuple[int, str], int] = {}  # (league_id, label) -> season_id
+        self._active_seasons: set[tuple[int, str]] = set()       # (league_id, fd_season)
 
     async def _init_db_and_caches(self):
         """Inicializa conexões e caches dinâmicos do DB."""
@@ -76,14 +77,17 @@ class FootballDataCollector(BaseCollector):
 
             # Load Seasons
             db_seasons = await conn.fetch(
-                "SELECT season_id, league_id, label, football_data_season, start_date, end_date FROM seasons"
+                "SELECT season_id, league_id, label, football_data_season, start_date, end_date, is_current FROM seasons"
             )
             for s in db_seasons:
                 if s["football_data_season"]:
                     self._season_map[(s["league_id"], s["football_data_season"])] = s["season_id"]
+                    if s["is_current"]:
+                        self._active_seasons.add((s["league_id"], s["football_data_season"]))
                 # Label-based lookup (used by extra leagues via CSV Season column)
                 if s["label"]:
                     self._season_label_map[(s["league_id"], s["label"])] = s["season_id"]
+
                 # For extra leagues, store intervals as fallback
                 self._extra_seasons.append({
                     "season_id": s["season_id"],
@@ -174,16 +178,23 @@ class FootballDataCollector(BaseCollector):
             if active_fd_codes is not None and code not in active_fd_codes:
                 continue
 
+            league_id = self._league_map.get(code)
+            if not league_id:
+                continue
+
             l_type = conf.get("football_data_type", "main")
             if l_type == "main":
                 for s_key, s_data in conf.get("seasons", {}).items():
                     fd_season = s_data.get("fd")
                     if fd_season:
+                        if mode == "daily-update" and (league_id, fd_season) not in self._active_seasons:
+                            continue
                         url = MAIN_URL_TEMPLATE.format(season=fd_season, code=code)
                         urls_meta.append({'url': url, 'type': 'main', 'code': code, 'fd_season': fd_season})
             else:
                 url = EXTRA_URL_TEMPLATE.format(code=code)
                 urls_meta.append({'url': url, 'type': 'extra', 'code': code})
+
 
         # Parallelismo limitado
         sem = asyncio.Semaphore(10)
@@ -220,6 +231,9 @@ class FootballDataCollector(BaseCollector):
             df_aliases["league_code"] = ""
             df_aliases.to_csv(output_file, index=False)
             logger.info("aliases_seed_generated", count=len(aliases_set), path=output_file)
+        else:
+            flushed = await TeamResolver.flush_unknowns()
+            logger.info("football_data_unknown_aliases_flushed", count=flushed)
 
         return CollectResult(
             source=self.source_name,
@@ -231,6 +245,7 @@ class FootballDataCollector(BaseCollector):
             records=[],
             records_collected=total_matches if effective_mode != "seed-aliases" else len(aliases_set),
         )
+
 
     async def _process_url(self, meta: dict, mode: str):
         url = meta['url']
@@ -291,9 +306,9 @@ class FootballDataCollector(BaseCollector):
         if mode == "seed-aliases":
             return set(df['HomeTeam'].dropna().unique()).union(set(df['AwayTeam'].dropna().unique()))
         
-        return await self._insert_matches_and_odds(df, meta)
+        return await self._insert_matches_and_odds(df, meta, mode)
 
-    async def _insert_matches_and_odds(self, df: pd.DataFrame, meta: dict) -> int:
+    async def _insert_matches_and_odds(self, df: pd.DataFrame, meta: dict, mode: str) -> int:
         await TeamResolver.load_cache()
 
         # Tratar Datas e kickoffs
@@ -310,7 +325,15 @@ class FootballDataCollector(BaseCollector):
         # Seta como UTC. Assumimos UTC para manter a sanidade (a Footystats vai consertar isso depois)
         df['kickoff'] = df['kickoff'].dt.tz_localize('UTC')
 
+        if mode == "daily-update":
+            # Filtra para processar apenas partidas dos últimos 30 dias, acelerando drasticamente o daily-update
+            # (evita que ligas "extra" façam milhares de queries lentas para partidas desde 2012).
+            from datetime import timedelta
+            limit_date = pd.Timestamp.now(tz='UTC') - timedelta(days=30)
+            df = df[df['kickoff'] >= limit_date]
+
         league_id = self._league_map.get(meta['code'])
+
         if not league_id:
             logger.warning("league_id_not_found", code=meta['code'])
             return 0

@@ -140,13 +140,14 @@ class MatchResolver:
             WHERE league_id = $1
               AND home_team_id = $2
               AND away_team_id = $3
-              AND kickoff >= $4::date
-              AND kickoff < ($4::date + INTERVAL '1 day' + INTERVAL '1 second')
+              AND kickoff >= ($4::date + TIME '00:00:00') AT TIME ZONE 'UTC'
+              AND kickoff < ($4::date + TIME '00:00:00' + INTERVAL '1 day' + INTERVAL '1 second') AT TIME ZONE 'UTC'
             LIMIT 1
             """,
             league_id, home_id, away_id, kickoff_date,
         )
         return row["match_id"] if row else None
+
 
     @classmethod
     async def resolve_with_footystats(
