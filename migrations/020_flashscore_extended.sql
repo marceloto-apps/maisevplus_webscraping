@@ -135,8 +135,8 @@ SELECT
     ms_fs.xa_away_ft AS xa_fs_away,
 
     -- xGA nativos da pipeline do pbref
-    ms.xga_home,
-    ms.xga_away,
+    NULL::numeric AS xga_home,
+    NULL::numeric AS xga_away,
     
     -- Ataques / perigos
     ms.dangerous_attacks_home,
