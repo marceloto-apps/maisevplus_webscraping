@@ -11,8 +11,13 @@ load_dotenv()
 async def main():
     pool = await get_pool()
     async with pool.acquire() as conn:
-        count = await conn.fetchval("SELECT count(*) FROM matches WHERE league_id = 28")
-        print(f"Total de partidas na liga 28 (ARG_LP): {count}")
+        league_id = await conn.fetchval("SELECT league_id FROM leagues WHERE code = 'ARG_LP'")
+        if not league_id:
+            print("Liga 'ARG_LP' não cadastrada no banco.")
+            return
+
+        count = await conn.fetchval("SELECT count(*) FROM matches WHERE league_id = $1", league_id)
+        print(f"Total de partidas na liga {league_id} (ARG_LP): {count}")
         
         if count > 0:
             rows = await conn.fetch("""
@@ -21,15 +26,15 @@ async def main():
                 FROM matches m
                 JOIN teams th ON m.home_team_id = th.team_id
                 JOIN teams ta ON m.away_team_id = ta.team_id
-                WHERE m.league_id = 28
+                WHERE m.league_id = $1
                 ORDER BY m.kickoff DESC
                 LIMIT 10
-            """)
+            """, league_id)
             print("\nÚltimos 10 jogos inseridos:")
             for r in rows:
                 print(f"  {r['kickoff']} | {r['home']} vs {r['away']} | Status: {r['status']} | FS ID: {r['flashscore_id']}")
         else:
-            print("\nNenhum jogo inserido para a liga 28.")
+            print(f"\nNenhum jogo inserido para a liga {league_id}.")
             
     await pool.close()
 
