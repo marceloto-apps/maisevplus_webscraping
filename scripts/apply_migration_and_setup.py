@@ -61,6 +61,17 @@ async def run_setup():
             print(f"   ❌ Erro ao aplicar migration: {e}")
             return
 
+        # 2b. Corrigir sequências de ID desalinhadas no banco de dados (evitar duplicate key violations)
+        print("\n⚙️ [2.5/4] Corrigindo desalinhamento de sequências no banco de dados...")
+        try:
+            await conn.execute("SELECT setval('teams_team_id_seq', COALESCE((SELECT MAX(team_id) FROM teams), 1));")
+            await conn.execute("SELECT setval('leagues_league_id_seq', COALESCE((SELECT MAX(league_id) FROM leagues), 1));")
+            await conn.execute("SELECT setval('seasons_season_id_seq', COALESCE((SELECT MAX(season_id) FROM seasons), 1));")
+            await conn.execute("SELECT setval('team_aliases_alias_id_seq', COALESCE((SELECT MAX(alias_id) FROM team_aliases), 1));")
+            print("   ✅ Sequências de ID alinhadas com sucesso.")
+        except Exception as e:
+            print(f"   ⚠️ Aviso ao alinhar sequências: {e}")
+
         # 3. Inserir a Liga Argentina
         print("\n🏆 [3/4] Cadastrando a liga 'ARG_LP' (Liga Profesional Argentina)...")
         insert_league_sql = """
