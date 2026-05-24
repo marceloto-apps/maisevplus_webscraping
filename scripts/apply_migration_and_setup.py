@@ -34,6 +34,16 @@ async def run_setup():
         except Exception as e:
             print(f"   ⚠️ Aviso durante a limpeza de features (pode ser ignorado): {e}")
 
+        # 0.5. Corrigir constraint matches_season_id_fkey que aponta para features.seasons
+        print("\n🔧 [0.5/4] Corrigindo constraint matches_season_id_fkey para apontar para o public.seasons...")
+        try:
+            await conn.execute("ALTER TABLE public.matches DROP CONSTRAINT IF EXISTS matches_season_id_fkey;")
+            await conn.execute("ALTER TABLE public.matches ADD CONSTRAINT matches_season_id_fkey FOREIGN KEY (season_id) REFERENCES public.seasons(season_id);")
+            print("   ✅ Constraint matches_season_id_fkey corrigida com sucesso.")
+        except Exception as e:
+            print(f"   ❌ Erro ao corrigir constraint matches_season_id_fkey: {e}")
+            return
+
         # 1. Backup da tabela match_stats dentro do próprio banco
         print("\n📦 [1/4] Criando backup interno da tabela match_stats...")
         try:
