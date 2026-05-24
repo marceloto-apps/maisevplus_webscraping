@@ -41,6 +41,11 @@ def build_flashscore_season_slug(label: str) -> str:
     return label
 
 async def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Flashscore Daily Discovery")
+    parser.add_argument("--leagues", nargs="*", default=None, help="Ligas específicas (ex: ARG_LP)")
+    args = parser.parse_args()
+
     from src.alerts.telegram_mini import TelegramAlert
     await TelegramAlert.init()
     
@@ -52,6 +57,8 @@ async def main():
     async with pool.acquire() as conn:
         # Itera sobre ligas com flashscore_path configurado no dicionário Python
         for code, base_path in LEAGUE_FLASHSCORE_PATHS.items():
+            if args.leagues and code not in args.leagues:
+                continue
             # Verifica se a liga está ativa no banco
             league_id = await conn.fetchval(
                 "SELECT league_id FROM leagues WHERE code = $1 AND is_active = TRUE", code
