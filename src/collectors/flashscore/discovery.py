@@ -236,7 +236,7 @@ class FlashscoreDiscovery(BaseCollector):
                     WHERE league_id = $1
                       AND home_team_id = $2
                       AND away_team_id = $3
-                      AND ABS(EXTRACT(epoch FROM (kickoff::date - $4::date))) <= 86400
+                      AND ABS(kickoff::date - $4::date) <= 1
                     LIMIT 1
                 """, league_id, home_id, away_id, kickoff_dt.date())
                 
