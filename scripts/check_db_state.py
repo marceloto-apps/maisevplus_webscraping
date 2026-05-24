@@ -37,22 +37,17 @@ async def main():
             for l in leagues:
                 print(f"  ID: {l['league_id']} | Code: {l['code']} | Name: {l['name']} | Active: {l['is_active']} | Primary Source: {l['primary_source']}")
                 
-            print("\n=== ALL DATABASE CONSTRAINTS POINTING TO 'features' SCHEMA ===")
+            print("\n=== ALL DATABASE CONSTRAINTS POINTING TO 'features' SCHEMA (via catalog) ===")
             fkeys_to_features = await conn.fetch("""
                 SELECT
-                    tc.table_schema,
-                    tc.table_name,
-                    tc.constraint_name,
-                    ccu.table_schema AS foreign_table_schema,
-                    ccu.table_name AS foreign_table_name
-                FROM information_schema.table_constraints AS tc
-                JOIN information_schema.constraint_column_usage AS ccu 
-                  ON tc.constraint_name = ccu.constraint_name
-                  AND tc.table_schema = ccu.table_schema
-                WHERE tc.constraint_type = 'FOREIGN KEY' AND ccu.table_schema = 'features'
+                    conrelid::regclass::text AS source_table,
+                    conname AS constraint_name,
+                    confrelid::regclass::text AS foreign_table
+                FROM pg_constraint
+                WHERE contype = 'f' AND confrelid::regclass::text LIKE 'features.%'
             """)
             for fk in fkeys_to_features:
-                print(f"  Table: {fk['table_schema']}.{fk['table_name']} | Constraint: {fk['constraint_name']} -> References: {fk['foreign_table_schema']}.{fk['foreign_table_name']}")
+                print(f"  Table: {fk['source_table']} | Constraint: {fk['constraint_name']} -> References: {fk['foreign_table']}")
                 
     except Exception as e:
         print("  DB Query/Connection Failed!")
