@@ -3,6 +3,8 @@
 --   pg_dump -t match_stats $DATABASE_URL > backup_match_stats_pre_020.sql
 -- Esta migration faz DROP de colunas (xg_fs_*, xgot_fs_*, xa_fs_*) após migrar os dados.
 
+SET search_path TO public;
+
 BEGIN;
 
 -- 1. Criar a nova tabela match_stats_fs

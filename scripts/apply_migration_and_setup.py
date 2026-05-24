@@ -24,6 +24,16 @@ async def run_setup():
 
     pool = await get_pool()
     async with pool.acquire() as conn:
+        # 0. Limpeza de objetos criados acidentalmente no schema features no run anterior
+        print("\n🧹 [0/4] Limpando criações acidentais no schema features...")
+        try:
+            await conn.execute("DROP VIEW IF EXISTS features.v_match_full CASCADE;")
+            await conn.execute("DROP TABLE IF EXISTS features.match_stats_fs CASCADE;")
+            await conn.execute("DROP TABLE IF EXISTS features.backup_match_stats_pre_020 CASCADE;")
+            print("   ✅ Limpeza do schema features concluída.")
+        except Exception as e:
+            print(f"   ⚠️ Aviso durante a limpeza de features (pode ser ignorado): {e}")
+
         # 1. Backup da tabela match_stats dentro do próprio banco
         print("\n📦 [1/4] Criando backup interno da tabela match_stats...")
         try:

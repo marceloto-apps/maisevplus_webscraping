@@ -23,7 +23,10 @@ async def get_pool() -> asyncpg.Pool:
             min_size=int(os.getenv("DB_POOL_MIN", "5")),
             max_size=int(os.getenv("DB_POOL_MAX", "20")),
             command_timeout=60,
-            server_settings={"application_name": "maisev_scraper"},
+            server_settings={
+                "application_name": "maisev_scraper",
+                "search_path": "public"
+            },
         )
     return _pool
 
