@@ -37,11 +37,33 @@ async def main():
             for l in leagues:
                 print(f"  ID: {l['league_id']} | Code: {l['code']} | Name: {l['name']} | Active: {l['is_active']} | Primary Source: {l['primary_source']}")
                 
-            print("\n=== SEASONS FOR ARG_LP (league_id=28) ===")
-            seasons = await conn.fetch("SELECT season_id, league_id, label, is_current FROM seasons WHERE league_id = 28")
-            for s in seasons:
-                print(f"  ID: {s['season_id']} | League ID: {s['league_id']} | Label: {s['label']} | Current: {s['is_current']}")
+            print("\n=== FOREIGN KEYS ON TABLE 'matches' ===")
+            fkeys = await conn.fetch("""
+                SELECT
+                    tc.constraint_name, 
+                    kcu.column_name, 
+                    ccu.table_schema AS foreign_table_schema,
+                    ccu.table_name AS foreign_table_name,
+                    ccu.column_name AS foreign_column_name 
+                FROM 
+                    information_schema.table_constraints AS tc 
+                    JOIN information_schema.key_column_usage AS kcu
+                      ON tc.constraint_name = kcu.constraint_name
+                      AND tc.table_schema = kcu.table_schema
+                    JOIN information_schema.constraint_column_usage AS ccu
+                      ON ccu.constraint_name = tc.constraint_name
+                      AND ccu.table_schema = tc.table_schema
+                WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_name='matches'
+            """)
+            for fk in fkeys:
+                print(f"  Constraint: {fk['constraint_name']} | Column: {fk['column_name']} -> References: {fk['foreign_table_schema']}.{fk['foreign_table_name']}({fk['foreign_column_name']})")
                 
+            print("\n=== CHECKING IF '28' EXISTS IN referenced leagues TABLE ===")
+            for fk in fkeys:
+                if fk['column_name'] == 'league_id':
+                    exists = await conn.fetchval(f"SELECT EXISTS(SELECT 1 FROM {fk['foreign_table_schema']}.{fk['foreign_table_name']} WHERE {fk['foreign_column_name']} = 28)")
+                    print(f"  Does 28 exist in {fk['foreign_table_schema']}.{fk['foreign_table_name']}? {exists}")
+                    
     except Exception as e:
         print("  DB Query/Connection Failed!")
         import traceback
