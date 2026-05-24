@@ -30,6 +30,7 @@ LEAGUE_FLASHSCORE_PATHS: Dict[str, str] = {
     "MEX_LM": "football/mexico/liga-mx",
     "AUT_BL": "football/austria/bundesliga",
     "SWI_SL": "football/switzerland/super-league",
+    "ARG_LP": "football/argentina/liga-profesional",
 }
 
 

@@ -1,0 +1,285 @@
+"""
+scripts/run_sequential_backfill.py
+
+Backfill sequencial de odds e estatísticas do Flashscore para ligas cuja fonte primária é o Flashscore.
+Processa liga por liga, temporada por temporada (da mais antiga para a mais atual),
+garantindo throttling e rotação de sessão do Camoufox.
+"""
+import asyncio
+import os
+import sys
+import argparse
+import random
+import time
+from datetime import datetime, timezone
+from dotenv import load_dotenv
+
+# Adiciona o diretório raiz ao PYTHONPATH
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Configurar diretório de dados do Camoufox ANTES de qualquer importação
+os.environ["CAMOUFOX_DATA_DIR"] = os.path.join(os.getcwd(), ".camoufox_profile")
+
+from camoufox.async_api import AsyncCamoufox
+from src.collectors.flashscore.discovery import FlashscoreDiscovery
+from src.collectors.flashscore.odds_collector import FlashscoreOddsCollector, CollectionMetrics
+from src.collectors.flashscore.config import LEAGUE_FLASHSCORE_PATHS
+from src.db.pool import get_pool
+from src.db.logger import configure_logging, get_logger
+
+# Throttling — ajustar conforme observação de rate limiting
+DELAY_BETWEEN_REQUESTS_MIN = 2.0   # segundos
+DELAY_BETWEEN_REQUESTS_MAX = 5.0   # segundos (aleatório no range)
+DELAY_BETWEEN_SEASONS      = 30.0  # segundos
+DELAY_BETWEEN_LEAGUES      = 180.0 # segundos (3 min)
+MAX_REQUESTS_PER_SESSION   = 100   # rotacionar sessão Camoufox após N requisições
+
+load_dotenv()
+configure_logging()
+logger = get_logger("run_sequential_backfill")
+
+
+def build_flashscore_season_slug(label: str) -> str:
+    """Converte label de temporada para slug de URL do Flashscore."""
+    if "/" in label:
+        parts = label.split("/")
+        p1, p2 = parts[0].strip(), parts[1].strip()
+        y1 = f"20{p1}" if len(p1) == 2 else p1
+        y2 = f"20{p2}" if len(p2) == 2 else p2
+        return f"{y1}-{y2}"
+    return label
+
+
+class BrowserManager:
+    """Gerencia a sessão Camoufox com rotação automática baseada em requisições."""
+    def __init__(self, headless: bool = True):
+        self.headless = headless
+        self.browser = None
+        self.request_count = 0
+
+    async def get_browser(self):
+        if self.browser is None or self.request_count >= MAX_REQUESTS_PER_SESSION:
+            await self.close()
+            logger.info(f"[Camoufox] Iniciando nova sessão de browser (Headless={self.headless})...")
+            self.browser = await AsyncCamoufox(
+                headless=self.headless,
+                enable_cache=True
+            ).__aenter__()
+            self.request_count = 0
+        return self.browser
+
+    def increment_requests(self, count: int = 1):
+        self.request_count += count
+        logger.debug(f"[Camoufox] Requisições nesta sessão: {self.request_count}/{MAX_REQUESTS_PER_SESSION}")
+
+    async def close(self):
+        if self.browser is not None:
+            logger.info("[Camoufox] Fechando sessão atual de browser...")
+            try:
+                await self.browser.__aexit__(None, None, None)
+            except Exception as e:
+                logger.error(f"[Camoufox] Erro ao fechar browser: {e}")
+            self.browser = None
+            self.request_count = 0
+
+
+async def mark_match_as_scraped(pool, match_id: str):
+    """Marca a partida como coletada para evitar repetição no backfill de odds/stats."""
+    async with pool.acquire() as conn:
+        await conn.execute("UPDATE matches SET scraping_flashscore = TRUE WHERE match_id = $1", match_id)
+
+
+async def main():
+    parser = argparse.ArgumentParser(description="Flashscore Sequential Backfill")
+    parser.add_argument(
+        "--leagues", nargs="*", default=None,
+        help="Ligas específicas (ex: ARG_LP). Se omitido, roda todas com primary_source = 'flashscore'."
+    )
+    parser.add_argument(
+        "--headless", action="store_true", default=False,
+        help="Rodar o navegador em modo headless."
+    )
+    parser.add_argument(
+        "--limit-matches", type=int, default=999999,
+        help="Limite de partidas para processar por temporada."
+    )
+    args = parser.parse_args()
+
+    from src.alerts.telegram_mini import TelegramAlert
+    await TelegramAlert.init()
+
+    logger.info("=" * 70)
+    logger.info("  INICIANDO BACKFILL SEQUENCIAL FLASHSCORE")
+    logger.info("=" * 70)
+
+    pool = await get_pool()
+    browser_mgr = BrowserManager(headless=args.headless)
+    
+    # Instancia collectors
+    discovery = FlashscoreDiscovery()
+    collector = FlashscoreOddsCollector()
+    metrics = CollectionMetrics()
+
+    try:
+        async with pool.acquire() as conn:
+            # 1. Obter ligas elegíveis
+            if args.leagues:
+                leagues = await conn.fetch("""
+                    SELECT league_id, code, name, country, flashscore_path, primary_source
+                    FROM leagues
+                    WHERE code = ANY($1) AND is_active = TRUE
+                """, args.leagues)
+            else:
+                leagues = await conn.fetch("""
+                    SELECT league_id, code, name, country, flashscore_path, primary_source
+                    FROM leagues
+                    WHERE primary_source = 'flashscore' AND is_active = TRUE
+                """)
+
+        if not leagues:
+            logger.info("Nenhuma liga encontrada para processar.")
+            return
+
+        for idx_l, league in enumerate(leagues):
+            league_id = league["league_id"]
+            league_code = league["code"]
+            flashscore_path = league["flashscore_path"]
+            primary_source = league["primary_source"]
+
+            logger.info(f"\n[LEAGUE] [{idx_l+1}/{len(leagues)}] Processando liga: {league_code} ({league['name']})")
+            
+            if not flashscore_path:
+                logger.warning(f"  [WARN] Liga {league_code} não tem flashscore_path definido. Pulando.")
+                continue
+
+            # 2. Obter temporadas (do mais antigo para o mais recente)
+            async with pool.acquire() as conn:
+                seasons = await conn.fetch("""
+                    SELECT season_id, label, is_current
+                    FROM seasons
+                    WHERE league_id = $1
+                    ORDER BY label ASC
+                """, league_id)
+
+            for idx_s, season in enumerate(seasons):
+                season_id = season["season_id"]
+                label = season["label"]
+                is_current = season["is_current"]
+
+                logger.info(f"  [SEASON] [{idx_s+1}/{len(seasons)}] Temporada: {label} (Current: {is_current})")
+
+                # Constrói URL do Discovery para esta temporada
+                if is_current:
+                    season_url = f"https://www.flashscore.com/{flashscore_path}/results/"
+                else:
+                    season_slug = build_flashscore_season_slug(label)
+                    season_url = f"https://www.flashscore.com/{flashscore_path}-{season_slug}/results/"
+
+                # A. Executar Discovery para a temporada
+                logger.info(f"    -> Iniciando Discovery na URL: {season_url}")
+                try:
+                    # O Discovery gerencia seu próprio browser e encerra-o internamente.
+                    # Mas nós incrementamos o request count do browser manager para fins de segurança/sessão
+                    res_disc = await discovery.collect(
+                        mode="results",
+                        specific_leagues=[league_code],
+                        target_urls={league_code: [season_url]}
+                    )
+                    logger.info(f"    -> Discovery finalizado. Matches associados/inseridos: {res_disc.records_new}")
+                except Exception as e:
+                    logger.error(f"    [ERROR] Falha na descoberta de partidas para {league_code} {label}: {e}")
+
+                # Throttling após o request de discovery
+                delay = random.uniform(DELAY_BETWEEN_REQUESTS_MIN, DELAY_BETWEEN_REQUESTS_MAX)
+                logger.debug(f"    Aguardando {delay:.2f}s (throttling)...")
+                await asyncio.sleep(delay)
+
+                # B. Obter partidas finalizadas pendentes de odds/stats nesta temporada
+                async with pool.acquire() as conn:
+                    # Garantir que a coluna de controle exista
+                    await conn.execute("ALTER TABLE matches ADD COLUMN IF NOT EXISTS scraping_flashscore BOOLEAN DEFAULT FALSE;")
+                    
+                    matches = await conn.fetch("""
+                        SELECT m.match_id, m.flashscore_id, m.kickoff
+                        FROM matches m
+                        WHERE m.season_id = $1
+                          AND m.status = 'finished'
+                          AND m.flashscore_id IS NOT NULL
+                          AND (m.flashscore_stats_collected = FALSE OR m.flashscore_odds_collected = FALSE)
+                        ORDER BY m.kickoff DESC
+                        LIMIT $2
+                    """, season_id, args.limit_matches)
+
+                if not matches:
+                    logger.info("    -> Nenhuma partida pendente de odds/stats nesta temporada.")
+                else:
+                    logger.info(f"    -> Encontradas {len(matches)} partidas pendentes. Iniciando coleta...")
+                    
+                    for idx_m, match in enumerate(matches):
+                        match_uuid = match["match_id"]
+                        fs_id = match["flashscore_id"]
+                        kickoff = match["kickoff"]
+
+                        logger.info(f"      [{idx_m+1}/{len(matches)}] Partida {fs_id} | Kickoff: {kickoff}")
+
+                        # Garante browser ativo e dentro do limite de requisições
+                        browser = await browser_mgr.get_browser()
+                        
+                        try:
+                            async with pool.acquire() as conn:
+                                metrics.total_processed += 1
+                                result = await collector.collect_match(
+                                    browser=browser,
+                                    conn=conn,
+                                    match_id_uuid=str(match_uuid),
+                                    flashscore_id=fs_id,
+                                    is_closing=True,
+                                    job_id=f"backfill_{league_code}_{label}",
+                                    metrics=metrics,
+                                    kickoff=kickoff
+                                )
+                                
+                                inserted = result["total_inserted"]
+                                logger.info(f"        Coletado: {inserted} odds inseridas.")
+
+                                if result["is_complete"]:
+                                    await mark_match_as_scraped(pool, match_uuid)
+                                    logger.info(f"        ✅ Partida {fs_id} marcada como concluída.")
+                                else:
+                                    logger.warning(
+                                        f"        ⚠️ Partida {fs_id} incompleta — coletados: {result['markets_collected']}, "
+                                        f"faltando: {result['markets_failed']}."
+                                    )
+
+                        except Exception as e:
+                            logger.error(f"        [ERROR] Erro na coleta da partida {fs_id}: {e}")
+
+                        # Incrementa contador de requests e verifica se deve rotacionar
+                        browser_mgr.increment_requests(1)
+
+                        # Throttling entre partidas
+                        delay = random.uniform(DELAY_BETWEEN_REQUESTS_MIN, DELAY_BETWEEN_REQUESTS_MAX)
+                        logger.debug(f"        Aguardando {delay:.2f}s (throttling)...")
+                        await asyncio.sleep(delay)
+
+                # Delay de transição de temporada
+                if idx_s < len(seasons) - 1:
+                    logger.info(f"  [DELAY] Aguardando {DELAY_BETWEEN_SEASONS}s para trocar de temporada...")
+                    await asyncio.sleep(DELAY_BETWEEN_SEASONS)
+
+            # Delay de transição de liga
+            if idx_l < len(leagues) - 1:
+                logger.info(f"[DELAY] Aguardando {DELAY_BETWEEN_LEAGUES}s para trocar de liga...")
+                await asyncio.sleep(DELAY_BETWEEN_LEAGUES)
+
+    finally:
+        await browser_mgr.close()
+        await pool.close()
+        await TelegramAlert.close()
+
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Backfill interrompido pelo usuário.")

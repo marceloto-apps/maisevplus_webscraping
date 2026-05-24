@@ -90,7 +90,7 @@ class FPTStatsBackfill:
                 where_clause = ""
                 logger.info("Modo FORCE ALL ativado: Buscando TODOS os matches com odds flashscore para update.")
             else:
-                where_clause = "AND ms.xg_fs_home IS NULL"
+                where_clause = "AND m.flashscore_stats_collected = FALSE"
                 logger.info("Modo GAP ativado: Buscando apenas matches sem stats.")
 
             query_gaps = f"""
@@ -98,7 +98,6 @@ class FPTStatsBackfill:
                 FROM matches m
                 JOIN leagues l ON m.league_id = l.league_id
                 JOIN seasons s ON m.season_id = s.season_id
-                LEFT JOIN match_stats ms ON m.match_id = ms.match_id
                 WHERE m.status = 'finished'
                   {where_clause}
                   AND EXISTS (
@@ -134,7 +133,6 @@ class FPTStatsBackfill:
                     FROM matches m
                     JOIN leagues l ON m.league_id = l.league_id
                     JOIN seasons s ON m.season_id = s.season_id
-                    LEFT JOIN match_stats ms ON m.match_id = ms.match_id
                     WHERE m.status = 'finished'
                       AND l.code = $1 AND s.label = $2
                       {where_clause}
@@ -205,16 +203,29 @@ class FPTStatsBackfill:
                 if updates_to_run:
                     # Roda o update em batch
                     await conn.executemany("""
-                        UPDATE match_stats SET
-                            xg_fs_home = COALESCE($1, xg_fs_home),
-                            xg_fs_away = COALESCE($2, xg_fs_away),
-                            xgot_fs_home = COALESCE($3, xgot_fs_home),
-                            xgot_fs_away = COALESCE($4, xgot_fs_away),
-                            xa_fs_home = COALESCE($5, xa_fs_home),
-                            xa_fs_away = COALESCE($6, xa_fs_away),
-                            collected_at = NOW()
-                        WHERE match_id = $7
+                        INSERT INTO match_stats_fs (
+                            match_id,
+                            xg_home_ft, xg_away_ft,
+                            xgot_home_ft, xgot_away_ft,
+                            xa_home_ft, xa_away_ft,
+                            collected_at, updated_at
+                        ) VALUES ($7, $1, $2, $3, $4, $5, $6, NOW(), NOW())
+                        ON CONFLICT (match_id) DO UPDATE SET
+                            xg_home_ft = COALESCE(EXCLUDED.xg_home_ft, match_stats_fs.xg_home_ft),
+                            xg_away_ft = COALESCE(EXCLUDED.xg_away_ft, match_stats_fs.xg_away_ft),
+                            xgot_home_ft = COALESCE(EXCLUDED.xgot_home_ft, match_stats_fs.xgot_home_ft),
+                            xgot_away_ft = COALESCE(EXCLUDED.xgot_away_ft, match_stats_fs.xgot_away_ft),
+                            xa_home_ft = COALESCE(EXCLUDED.xa_home_ft, match_stats_fs.xa_home_ft),
+                            xa_away_ft = COALESCE(EXCLUDED.xa_away_ft, match_stats_fs.xa_away_ft),
+                            updated_at = NOW();
                     """, updates_to_run)
+                    
+                    # Atualiza flags de stats collected nas matches correspondentes
+                    match_ids = [u[6] for u in updates_to_run]
+                    await conn.execute("""
+                        UPDATE matches SET flashscore_stats_collected = TRUE WHERE match_id = ANY($1)
+                    """, match_ids)
+                    
                     logger.info(f"[{league_code} - {season_label}] {len(updates_to_run)} matches atualizados!")
                     total_updated += len(updates_to_run)
                 else:

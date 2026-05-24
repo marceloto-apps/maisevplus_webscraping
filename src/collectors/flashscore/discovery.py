@@ -11,6 +11,7 @@ from src.collectors.flashscore.config import FlashscoreConfig, LEAGUE_FLASHSCORE
 from src.db.pool import get_pool
 from src.db.logger import get_logger
 from src.normalizer.match_resolver import MatchResolver
+from src.normalizer.team_resolver import TeamResolver
 
 logger = get_logger(__name__)
 
@@ -98,14 +99,20 @@ class FlashscoreDiscovery(BaseCollector):
                 logger.debug("[FlashscoreDiscovery] Fim do scroll: Botão não encontrado ou layout finalizado.")
                 break
 
-    async def _extract_matches_from_page(self, html: str, league_code: str, conn, url: str) -> int:
+    async def _extract_matches_from_page(self, html: str, league_code: str, conn, url: str, season_id: int, mode: str) -> int:
         soup = BeautifulSoup(html, "html.parser")
         updated_count = 0
         
-        # Pega a season atual
-        league_id = await conn.fetchval("SELECT league_id FROM leagues WHERE code = $1", league_code)
-        if not league_id:
+        # Recupera informações da liga
+        league_row = await conn.fetchrow(
+            "SELECT league_id, country, primary_source FROM leagues WHERE code = $1", 
+            league_code
+        )
+        if not league_row:
             return 0
+        league_id = league_row["league_id"]
+        league_country = league_row["country"]
+        primary_source = league_row["primary_source"]
         
         # Descobre o ano de início pela URL ou assume o ano atual
         recent_year = datetime.now().year
@@ -117,14 +124,39 @@ class FlashscoreDiscovery(BaseCollector):
             if match_year:
                 recent_year = int(match_year.group(1)) # Ano singular de estaduais / BR
                 
-        last_month = None
+        # Helper interno para resolver ou auto-criar time se a fonte for flashscore
+        async def get_or_create_team(name: str) -> int:
+            tid = await TeamResolver.resolve("flashscore", name)
+            if tid is not None:
+                return tid
+            
+            if primary_source == 'flashscore':
+                # Verifica se o time existe no banco (case-insensitive)
+                db_tid = await conn.fetchval(
+                    "SELECT team_id FROM teams WHERE LOWER(name_canonical) = LOWER($1) AND country = $2",
+                    name, league_country
+                )
+                if db_tid:
+                    tid = db_tid
+                else:
+                    tid = await conn.fetchval(
+                        "INSERT INTO teams (name_canonical, country) VALUES ($1, $2) RETURNING team_id",
+                        name, league_country
+                    )
+                # Insere o alias correspondente
+                await conn.execute(
+                    "INSERT INTO team_aliases (team_id, source, alias_name) VALUES ($1, 'flashscore', $2) ON CONFLICT DO NOTHING",
+                    tid, name
+                )
+                # Adiciona ao cache do resolver
+                TeamResolver.add_to_cache("flashscore", name, tid)
+                return tid
+            return None
 
         for match_div in soup.find_all("div", id=re.compile(r"^g_1_")):
             try:
-                # O ID vem no formato g_1_UUID (Flashscore)
                 fs_id = match_div["id"].replace("g_1_", "")
                 
-                # Pega o texto principal pra extrair os times (eles tbm estão em classes separadas mas aqui é mais rapido)
                 home_node = match_div.find("div", class_=re.compile("homeParticipant"))
                 away_node = match_div.find("div", class_=re.compile("awayParticipant"))
                 time_node = match_div.find("div", class_="event__time")
@@ -136,35 +168,118 @@ class FlashscoreDiscovery(BaseCollector):
                 away_team = _extract_team_name(away_node)
                 date_text = time_node.get_text(strip=True) # Ex: "22.03. 15:15" ou "16.12.2023 15:15"
                 
-                date_match = re.search(r'(\d{1,2})\.(\d{1,2})\.\s*(\d{4})?', date_text)
+                # Parse do kickoff com hora e minuto
+                date_match = re.search(r'(\d{1,2})\.(\d{1,2})\.(?:\s*(\d{4}))?\s+(\d{1,2}):(\d{1,2})', date_text)
                 if date_match:
                     day = int(date_match.group(1))
                     month = int(date_match.group(2))
                     explicit_year_str = date_match.group(3)
+                    hour = int(date_match.group(4))
+                    minute = int(date_match.group(5))
                     
-                    if explicit_year_str:
-                        # O Flashscore imprimiu o ano explicitamente na tela ex: '16.12.2025'
-                        match_year = int(explicit_year_str)
+                    match_year = int(explicit_year_str) if explicit_year_str else recent_year
+                    
+                    from zoneinfo import ZoneInfo
+                    sp_tz = ZoneInfo("America/Sao_Paulo")
+                    kickoff_dt = datetime(match_year, month, day, hour, minute, tzinfo=sp_tz)
+                else:
+                    # Fallback para date-only
+                    date_match = re.search(r'(\d{1,2})\.(\d{1,2})\.\s*(\d{4})?', date_text)
+                    if date_match:
+                        day = int(date_match.group(1))
+                        month = int(date_match.group(2))
+                        explicit_year_str = date_match.group(3)
+                        match_year = int(explicit_year_str) if explicit_year_str else recent_year
+                        
+                        from zoneinfo import ZoneInfo
+                        sp_tz = ZoneInfo("America/Sao_Paulo")
+                        kickoff_dt = datetime(match_year, month, day, 12, 0, tzinfo=sp_tz)
                     else:
-                        # O ano está oculto ex: '22.03. 15:15'. Por padrão do Flashscore isso indica o ano atual.
-                        match_year = datetime.now().year
+                        continue
+                
+                home_id = await get_or_create_team(home_team)
+                away_id = await get_or_create_team(away_team)
+                
+                if not home_id or not away_id:
+                    continue
+                
+                # Parse dos placares
+                ft_home = ft_away = ht_home = ht_away = None
+                status = 'scheduled'
+                
+                if mode == "results" or "results" in url:
+                    status = 'finished'
+                    score_home_node = match_div.find("div", class_=re.compile("event__score--home"))
+                    score_away_node = match_div.find("div", class_=re.compile("event__score--away"))
+                    if score_home_node and score_away_node:
+                        try:
+                            ft_home = int(score_home_node.get_text(strip=True))
+                            ft_away = int(score_away_node.get_text(strip=True))
+                        except ValueError:
+                            pass
+                            
+                    part_node = match_div.find("div", class_="event__part")
+                    if part_node:
+                        part_text = part_node.get_text(strip=True)
+                        m = re.search(r'\((\d+):(\d+)\)', part_text)
+                        if m:
+                            try:
+                                ht_home = int(m.group(1))
+                                ht_away = int(m.group(2))
+                            except ValueError:
+                                pass
+                
+                # Verifica se a partida já existe na base por time + data
+                row = await conn.fetchrow("""
+                    SELECT match_id, status, ft_home, ft_away, ht_home, ht_away, flashscore_id
+                    FROM matches
+                    WHERE league_id = $1
+                      AND home_team_id = $2
+                      AND away_team_id = $3
+                      AND ABS(EXTRACT(epoch FROM (kickoff::date - $4::date))) <= 86400
+                    LIMIT 1
+                """, league_id, home_id, away_id, kickoff_dt.date())
+                
+                if row:
+                    match_uuid = row["match_id"]
+                    current_status = row["status"]
+                    current_fs_id = row["flashscore_id"]
                     
-                    match_date = datetime(match_year, month, day).date()
-                    
-                    print(f"Tentando resolver: {home_team} vs {away_team} at {match_date}")
-                    
-                    # Resolve
-                    match_uuid = await MatchResolver.resolve(league_id, home_team, away_team, match_date, "flashscore")
-                    
-                    if match_uuid:
-                        # Verifica se já tem fs_id ou se já não está preenchido com esse
-                        current_fs_id = await conn.fetchval("SELECT flashscore_id FROM matches WHERE match_id = $1", match_uuid)
+                    if current_status == 'scheduled' and status == 'finished':
+                        await conn.execute("""
+                            UPDATE matches
+                            SET status = 'finished',
+                                ft_home = $1, ft_away = $2,
+                                ht_home = $3, ht_away = $4,
+                                flashscore_id = COALESCE(flashscore_id, $5),
+                                scraping_flashscore = FALSE,
+                                updated_at = NOW()
+                            WHERE match_id = $6
+                        """, ft_home, ft_away, ht_home, ht_away, fs_id, match_uuid)
+                        updated_count += 1
+                        print(f"  --> ATUALIZADO: {home_team} vs {away_team} atualizado para finalizado (fs_id={fs_id})")
+                    else:
                         if current_fs_id != fs_id:
-                            await conn.execute("UPDATE matches SET flashscore_id = $1 WHERE match_id = $2", fs_id, match_uuid)
+                            await conn.execute("""
+                                UPDATE matches
+                                SET flashscore_id = $1,
+                                    updated_at = NOW()
+                                WHERE match_id = $2
+                            """, fs_id, match_uuid)
                             updated_count += 1
-                            print(f"  --> SUCESSO: Associado e atualizado (fs_id={fs_id})")
-                    else:
-                        print(f"[FlashscoreDiscovery] Não resolvido no BD: {home_team} x {away_team} em {match_date} ({fs_id})")
+                            print(f"  --> ASSOCIADO: {home_team} vs {away_team} associado (fs_id={fs_id})")
+                else:
+                    # Inserção de partida para ligas primárias
+                    if primary_source == 'flashscore':
+                        await conn.execute("""
+                            INSERT INTO matches (
+                                season_id, league_id, home_team_id, away_team_id,
+                                kickoff, status, ft_home, ft_away, ht_home, ht_away,
+                                flashscore_id, scraping_flashscore, updated_at
+                            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, FALSE, NOW())
+                        """, season_id, league_id, home_id, away_id, kickoff_dt, status, ft_home, ft_away, ht_home, ht_away, fs_id)
+                        updated_count += 1
+                        print(f"  --> INSERIDO: {home_team} vs {away_team} criado como {status} (fs_id={fs_id})")
                         
             except Exception as e:
                 print(f"[FlashscoreDiscovery] Falha num HTML match node: {e}")
@@ -191,7 +306,11 @@ class FlashscoreDiscovery(BaseCollector):
         pool = await get_pool()
         async with pool.acquire() as conn:
             async with AsyncCamoufox(headless=self.config.headless, os="linux") as browser:
-                page = await browser.new_page()
+                context = await browser.new_context(
+                    timezone_id="America/Sao_Paulo",
+                    locale="pt-BR"
+                )
+                page = await context.new_page()
                 
                 url_counter = 0
 
@@ -210,6 +329,26 @@ class FlashscoreDiscovery(BaseCollector):
                         print(f"\n[Flashscore] [{url_counter}] Discovery URL alvo: {url}")
 
                         try:
+                            # Determina o season_id correspondente
+                            league_id = await conn.fetchval("SELECT league_id FROM leagues WHERE code = $1", league_code)
+                            if not league_id:
+                                continue
+                            
+                            season_id = None
+                            m_slug = re.search(r'-(\d{4}-\d{4}|\d{4})/results/?$', url)
+                            if m_slug:
+                                slug = m_slug.group(1)
+                                label = slug.replace("-", "/")
+                                season_id = await conn.fetchval(
+                                    "SELECT season_id FROM seasons WHERE league_id = $1 AND label = $2",
+                                    league_id, label
+                                )
+                            if not season_id:
+                                season_id = await conn.fetchval(
+                                    "SELECT season_id FROM seasons WHERE league_id = $1 AND is_current = TRUE",
+                                    league_id
+                                )
+
                             await page.goto(url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
 
                             # Espera explícita pelo primeiro jogo renderizar (sinal que o JS principal rodou)
@@ -227,7 +366,7 @@ class FlashscoreDiscovery(BaseCollector):
                             html = await page.content()
 
                             # Process HTML e update BD
-                            upd = await self._extract_matches_from_page(html, league_code, conn, url)
+                            upd = await self._extract_matches_from_page(html, league_code, conn, url, season_id, mode)
                             total_updated += upd
                             print(f"[Flashscore] {league_code}: {upd} novos flashscore_ids atualizados na base de dados.\n")
 
@@ -238,6 +377,7 @@ class FlashscoreDiscovery(BaseCollector):
                             errors.append(str(e))
                         
                 await page.close()
+                await context.close()
                 
 
         from src.normalizer.team_resolver import TeamResolver

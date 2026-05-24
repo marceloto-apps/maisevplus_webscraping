@@ -804,12 +804,14 @@ async def run_data_quality_routine():
         await conn.execute('''
             WITH stats_flags AS (
                 SELECT
-                    ms.match_id,
+                    m.match_id,
                     MAX(CASE WHEN ms.shots_home IS NOT NULL THEN 1 ELSE 0 END) AS has_footystats_stats,
                     MAX(CASE WHEN ms.total_passes_home IS NOT NULL OR ms.expected_goals_home IS NOT NULL THEN 1 ELSE 0 END) AS has_apifootball_stats,
-                    MAX(CASE WHEN ms.xg_fs_home IS NOT NULL OR ms.xgot_fs_home IS NOT NULL THEN 1 ELSE 0 END) AS has_flashscore_stats
-                FROM match_stats ms
-                GROUP BY ms.match_id
+                    MAX(CASE WHEN ms_fs.xg_home_ft IS NOT NULL OR ms_fs.xgot_home_ft IS NOT NULL THEN 1 ELSE 0 END) AS has_flashscore_stats
+                FROM matches m
+                LEFT JOIN match_stats ms ON m.match_id = ms.match_id
+                LEFT JOIN match_stats_fs ms_fs ON m.match_id = ms_fs.match_id
+                GROUP BY m.match_id
             ),
             odds_flags AS (
                 SELECT

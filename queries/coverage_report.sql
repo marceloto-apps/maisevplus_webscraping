@@ -38,7 +38,7 @@ base AS (
 -- ── 2. Presença de stats por fonte ─────────────────────────────────────────
 stats_flags AS (
     SELECT
-        ms.match_id,
+        m.match_id,
 
         -- FootyStats: pre_match_home_ppg é exclusiva da migration 010_footystats_expansion.
         -- Nenhuma outra fonte preenche essa coluna.
@@ -51,16 +51,17 @@ stats_flags AS (
                    OR ms.expected_goals_home IS NOT NULL
              THEN 1 ELSE 0 END)                              AS has_apifootball_stats,
 
-        -- Flashscore: colunas _fs_ são exclusivas da migration 012_flashscore_stats.
-        -- O collector insere nessas colunas independente do valor de source.
-        MAX(CASE WHEN ms.xg_fs_home IS NOT NULL
-                   OR ms.xgot_fs_home IS NOT NULL
-                   OR ms.xa_fs_home   IS NOT NULL
+        -- Flashscore: colunas de match_stats_fs (ou crosses_fs_home da tabela legada match_stats)
+        MAX(CASE WHEN ms_fs.xg_home_ft IS NOT NULL
+                   OR ms_fs.xgot_home_ft IS NOT NULL
+                   OR ms_fs.xa_home_ft   IS NOT NULL
                    OR ms.crosses_fs_home IS NOT NULL
              THEN 1 ELSE 0 END)                              AS has_flashscore_stats
 
-    FROM match_stats ms
-    GROUP BY ms.match_id
+    FROM matches m
+    LEFT JOIN match_stats ms ON ms.match_id = m.match_id
+    LEFT JOIN match_stats_fs ms_fs ON ms_fs.match_id = m.match_id
+    GROUP BY m.match_id
 ),
 
 -- ── 3. Presença de odds por fonte ──────────────────────────────────────────
