@@ -58,11 +58,39 @@ async def main():
             for fk in fkeys:
                 print(f"  Constraint: {fk['constraint_name']} | Column: {fk['column_name']} -> References: {fk['foreign_table_schema']}.{fk['foreign_table_name']}({fk['foreign_column_name']})")
                 
-            print("\n=== CHECKING IF '28' EXISTS IN referenced leagues TABLE ===")
-            for fk in fkeys:
-                if fk['column_name'] == 'league_id':
-                    exists = await conn.fetchval(f"SELECT EXISTS(SELECT 1 FROM {fk['foreign_table_schema']}.{fk['foreign_table_name']} WHERE {fk['foreign_column_name']} = 28)")
-                    print(f"  Does 28 exist in {fk['foreign_table_schema']}.{fk['foreign_table_name']}? {exists}")
+            print("\n=== SCHEMAS OF CORE TABLES ===")
+            tables = await conn.fetch("""
+                SELECT table_schema, table_name, table_type 
+                FROM information_schema.tables 
+                WHERE table_name IN ('leagues', 'matches', 'seasons', 'teams')
+                ORDER BY table_name, table_schema
+            """)
+            for t in tables:
+                print(f"  Schema: {t['table_schema']} | Table: {t['table_name']} | Type: {t['table_type']}")
+                
+            print("\n=== ROW COUNT AND MAX ID PER SCHEMA ===")
+            for table_name in ['leagues', 'matches', 'seasons', 'teams']:
+                for schema in ['public', 'maisevplus']:
+                    try:
+                        # Check if table exists in schema
+                        table_exists = await conn.fetchval(f"""
+                            SELECT EXISTS (
+                                SELECT 1 FROM information_schema.tables 
+                                WHERE table_schema = '{schema}' AND table_name = '{table_name}'
+                            )
+                        """)
+                        if table_exists:
+                            row_count = await conn.fetchval(f"SELECT COUNT(*) FROM {schema}.{table_name}")
+                            max_id = None
+                            if table_name == 'leagues':
+                                max_id = await conn.fetchval(f"SELECT MAX(league_id) FROM {schema}.{table_name}")
+                            elif table_name == 'seasons':
+                                max_id = await conn.fetchval(f"SELECT MAX(season_id) FROM {schema}.{table_name}")
+                            elif table_name == 'teams':
+                                max_id = await conn.fetchval(f"SELECT MAX(team_id) FROM {schema}.{table_name}")
+                            print(f"  {schema}.{table_name}: Rows: {row_count} | Max ID: {max_id}")
+                    except Exception as err:
+                        print(f"  Error reading {schema}.{table_name}: {err}")
                     
     except Exception as e:
         print("  DB Query/Connection Failed!")
