@@ -25,7 +25,7 @@ async def get_pool() -> asyncpg.Pool:
             command_timeout=60,
             server_settings={
                 "application_name": "maisev_scraper",
-                "search_path": "public"
+                "search_path": "features, public"
             },
         )
     return _pool

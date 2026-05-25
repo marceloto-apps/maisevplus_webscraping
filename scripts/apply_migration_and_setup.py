@@ -34,14 +34,34 @@ async def run_setup():
         except Exception as e:
             print(f"   ⚠️ Aviso durante a limpeza de features (pode ser ignorado): {e}")
 
-        # 0.5. Corrigir constraint matches_season_id_fkey que aponta para features.seasons
-        print("\n🔧 [0.5/4] Corrigindo constraint matches_season_id_fkey para apontar para o public.seasons...")
+        # 0.2. Limpeza de dados incorretos inseridos no schema public no run anterior
+        print("\n🧹 [0.2/4] Limpando dados incorretos no schema public...")
+        try:
+            # Deleta partidas inseridas com ids incorretos (32 ou 136) no public.matches
+            await conn.execute("DELETE FROM public.matches WHERE league_id = 32 OR season_id = 136;")
+            # Deleta season incorreta
+            await conn.execute("DELETE FROM public.seasons WHERE season_id = 136;")
+            # Deleta liga incorreta
+            await conn.execute("DELETE FROM public.leagues WHERE code = 'ARG_LP';")
+            print("   ✅ Limpeza de dados incorretos no schema public concluída.")
+        except Exception as e:
+            print(f"   ⚠️ Aviso durante a limpeza do schema public (pode ser ignorado): {e}")
+
+        # 0.5. Corrigir constraints do public.matches para apontar para o schema features
+        print("\n🔧 [0.5/4] Apontando constraints de public.matches para o schema features...")
         try:
             await conn.execute("ALTER TABLE public.matches DROP CONSTRAINT IF EXISTS matches_season_id_fkey;")
-            await conn.execute("ALTER TABLE public.matches ADD CONSTRAINT matches_season_id_fkey FOREIGN KEY (season_id) REFERENCES public.seasons(season_id);")
-            print("   ✅ Constraint matches_season_id_fkey corrigida com sucesso.")
+            await conn.execute("ALTER TABLE public.matches DROP CONSTRAINT IF EXISTS matches_league_id_fkey;")
+            await conn.execute("ALTER TABLE public.matches DROP CONSTRAINT IF EXISTS matches_home_team_id_fkey;")
+            await conn.execute("ALTER TABLE public.matches DROP CONSTRAINT IF EXISTS matches_away_team_id_fkey;")
+
+            await conn.execute("ALTER TABLE public.matches ADD CONSTRAINT matches_season_id_fkey FOREIGN KEY (season_id) REFERENCES features.seasons(season_id);")
+            await conn.execute("ALTER TABLE public.matches ADD CONSTRAINT matches_league_id_fkey FOREIGN KEY (league_id) REFERENCES features.leagues(league_id);")
+            await conn.execute("ALTER TABLE public.matches ADD CONSTRAINT matches_home_team_id_fkey FOREIGN KEY (home_team_id) REFERENCES features.teams(team_id);")
+            await conn.execute("ALTER TABLE public.matches ADD CONSTRAINT matches_away_team_id_fkey FOREIGN KEY (away_team_id) REFERENCES features.teams(team_id);")
+            print("   ✅ Constraints de public.matches corrigidas com sucesso.")
         except Exception as e:
-            print(f"   ❌ Erro ao corrigir constraint matches_season_id_fkey: {e}")
+            print(f"   ❌ Erro ao corrigir constraints de public.matches: {e}")
             return
 
         # 1. Backup da tabela match_stats dentro do próprio banco
@@ -70,6 +90,9 @@ async def run_setup():
         except Exception as e:
             print(f"   ❌ Erro ao aplicar migration: {e}")
             return
+
+        # Garantir que o search_path volte para "features, public" após a migration (que roda com "public" interno)
+        await conn.execute("SET search_path TO features, public;")
 
         # 2b. Corrigir sequências de ID desalinhadas no banco de dados (evitar duplicate key violations)
         print("\n⚙️ [2.5/4] Corrigindo desalinhamento de sequências no banco de dados...")
