@@ -28,6 +28,20 @@ configure_logging()
 logger = get_logger("audit_odds_collector")
 
 
+from decimal import Decimal
+from uuid import UUID
+
+class AuditJSONEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, UUID):
+            return str(o)
+        if isinstance(o, datetime):
+            return o.isoformat()
+        if isinstance(o, Decimal):
+            return float(o)
+        return super().default(o)
+
+
 async def main():
     print("=" * 80)
     print("  AUDITORIA DE ODDS E ESTATÍSTICAS — LIGA PROFESIONAL ARGENTINA")
@@ -118,15 +132,6 @@ async def main():
                         ORDER BY oh.market_type, oh.period, oh.line
                     """, match_uuid)
 
-                    stats_dict = None
-                    if stats_fs:
-                        stats_dict = dict(stats_fs)
-                        for k, v in stats_dict.items():
-                            if hasattr(v, 'isoformat'):
-                                stats_dict[k] = v.isoformat()
-                            elif hasattr(v, 'urn'):  # Check if it is a UUID
-                                stats_dict[k] = str(v)
-
                     # Salva report do jogo em JSON para auditoria
                     report = {
                         "match_id": str(match_uuid),
@@ -134,13 +139,13 @@ async def main():
                         "teams": f"{home} vs {away}",
                         "kickoff": str(kickoff),
                         "collector_result": result,
-                        "stats_saved_db": stats_dict,
+                        "stats_saved_db": dict(stats_fs) if stats_fs else None,
                         "odds_saved_db": [dict(r) for r in odds_rows]
                     }
 
                     report_path = os.path.join(audit_dir, f"audit_{fs_id}.json")
                     with open(report_path, "w", encoding="utf-8") as f:
-                        json.dump(report, f, indent=2, ensure_ascii=False)
+                        json.dump(report, f, indent=2, ensure_ascii=False, cls=AuditJSONEncoder)
 
                     print(f"   ✅ Coleta e persistência simulada executada sem erros!")
                     print(f"   -> Mercados coletados com sucesso: {result['markets_collected']}")
