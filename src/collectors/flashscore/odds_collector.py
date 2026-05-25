@@ -280,6 +280,65 @@ class FlashscoreOddsCollector(BaseCollector):
             except Exception:
                 pass
 
+            # Extrair placares FT e HT da página de detalhes e atualizar na tabela matches
+            try:
+                # Aguardar o container do score carregar para garantir que os placares estão na DOM
+                try:
+                    await page.wait_for_selector('div.detailScore__wrapper', timeout=5000)
+                except Exception:
+                    pass
+
+                ft_home = ft_away = ht_home = ht_away = None
+
+                # 1. Extrair placar FT
+                score_wrapper = page.locator("div.detailScore__wrapper")
+                if await score_wrapper.count() > 0:
+                    span_elements = score_wrapper.locator("span")
+                    if await span_elements.count() >= 3:
+                        ft_home_text = await span_elements.nth(0).inner_text()
+                        ft_away_text = await span_elements.nth(2).inner_text()
+                        if ft_home_text.strip().isdigit() and ft_away_text.strip().isdigit():
+                            ft_home = int(ft_home_text.strip())
+                            ft_away = int(ft_away_text.strip())
+
+                # 2. Extrair placar HT do summary
+                summary_headers = page.locator("div.wclHeaderSection--summary")
+                header_count = await summary_headers.count()
+                for i in range(header_count):
+                    header = summary_headers.nth(i)
+                    spans = header.locator("span")
+                    if await spans.count() >= 2:
+                        label = await spans.nth(0).inner_text()
+                        score_val = await spans.nth(1).inner_text()
+
+                        first_half_keywords = ["1st half", "1o tempo", "1º tempo", "1st_half", "1. halbzeit", "1er temps", "1. tempo", "1 tempo", "1st"]
+                        if any(k in label.lower() for k in first_half_keywords):
+                            parts = score_val.split("-")
+                            if len(parts) == 2 and parts[0].strip().isdigit() and parts[1].strip().isdigit():
+                                ht_home = int(parts[0].strip())
+                                ht_away = int(parts[1].strip())
+                                break
+                            parts_colon = score_val.split(":")
+                            if len(parts_colon) == 2 and parts_colon[0].strip().isdigit() and parts_colon[1].strip().isdigit():
+                                ht_home = int(parts_colon[0].strip())
+                                ht_away = int(parts_colon[1].strip())
+                                break
+
+                # Atualizar a tabela matches com os placares obtidos
+                if ft_home is not None and ft_away is not None:
+                    logger.info(f"[Flashscore] Atualizando placares no DB para {match_id_uuid}: FT={ft_home}-{ft_away}, HT={ht_home}-{ht_away}")
+                    await conn.execute("""
+                        UPDATE matches
+                        SET ft_home = COALESCE($1, ft_home),
+                            ft_away = COALESCE($2, ft_away),
+                            ht_home = COALESCE($3, ht_home),
+                            ht_away = COALESCE($4, ht_away),
+                            updated_at = NOW()
+                        WHERE match_id = $5
+                    """, ft_home, ft_away, ht_home, ht_away, match_id_uuid)
+            except Exception as e:
+                logger.error(f"[Flashscore] Falha ao extrair/atualizar placares da página de detalhes: {e}")
+
             # Helper para navegar entre os sub-filtros de período das estatísticas
             async def _navigate_to_stats_period(p_slug: str) -> bool:
                 async def get_stats_state():

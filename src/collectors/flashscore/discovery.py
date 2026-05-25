@@ -209,8 +209,8 @@ class FlashscoreDiscovery(BaseCollector):
                 
                 if mode == "results" or "results" in url:
                     status = 'finished'
-                    score_home_node = match_div.find("div", class_=re.compile("event__score--home"))
-                    score_away_node = match_div.find("div", class_=re.compile("event__score--away"))
+                    score_home_node = match_div.find(class_=re.compile("event__score--home"))
+                    score_away_node = match_div.find(class_=re.compile("event__score--away"))
                     if score_home_node and score_away_node:
                         try:
                             ft_home = int(score_home_node.get_text(strip=True))
