@@ -31,18 +31,34 @@ def _extract_team_name(node) -> str:
     etc.) dentro do mesmo nó pai. O get_text() ingênuo os concatena ao nome.
 
     Estratégia:
-      1. Tenta o primeiro NavigableString direto do nó (normalmente é só o nome do time).
-      2. Se não encontrar, usa get_text() com strip e remove sufixos conhecidos via regex.
+      1. Tenta encontrar o elemento específico do nome do time via classes 'name' ou atributo data-testid.
+      2. Se não encontrar, tenta o primeiro NavigableString direto do nó.
+      3. Como último recurso, clona o nó, remove tags de metadados indesejados (SVG, button) e extrai o texto.
     """
+    # 1. Tentar encontrar o elemento específico do nome do time (span com classe contendo 'name')
+    name_el = node.find(class_=re.compile(r'name|participantName', re.I))
+    if not name_el:
+        name_el = node.find(attrs={"data-testid": "wcl-scores-simple-text-01"})
+    
+    if name_el:
+        raw = name_el.get_text(strip=True)
+        return _TEAM_SUFFIX_RE.sub("", raw).strip()
+
     from bs4 import NavigableString
-    # 1. Primeiro NavigableString direto — geralmente é o nome puro do time
+    # 2. Primeiro NavigableString direto — geralmente é o nome puro do time
     for child in node.children:
         if isinstance(child, NavigableString):
             text = str(child).strip()
             if text:
                 return text
-    # 2. Fallback: get_text() completo, removendo sufixos de status
-    raw = node.get_text(strip=True)
+
+    # 3. Fallback: get_text() completo, mas antes clona e decompõe elementos indesejados (SVG com cartões vermelhos, etc.)
+    import copy
+    node_copy = copy.copy(node)
+    for bad_tag in node_copy.find_all(['svg', 'button', 'script', 'style']):
+        bad_tag.decompose()
+        
+    raw = node_copy.get_text(strip=True)
     return _TEAM_SUFFIX_RE.sub("", raw).strip()
 
 
