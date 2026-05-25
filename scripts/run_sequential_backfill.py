@@ -148,6 +148,17 @@ async def main():
             logger.info("Nenhuma liga encontrada para processar.")
             return
 
+        # Ordenação customizada conforme solicitado pelo usuário:
+        # Primeiro Argentina, depois Chile, depois as ligas na sequência definida.
+        preferred_order = ["ARG_LP", "CHI_LDP", "USA_MLS", "BRA_SB", "NOR_ELI", "JPN_J1"]
+        def league_sort_key(league):
+            code = league["code"]
+            if code in preferred_order:
+                return preferred_order.index(code)
+            return len(preferred_order) + 1  # Ligas adicionais ficam por último
+
+        leagues = sorted(leagues, key=league_sort_key)
+
         for idx_l, league in enumerate(leagues):
             if datetime.now() - start_time > max_duration:
                 logger.info(f"[TIMEOUT] Limite de {args.timeout_hours}h atingido. Interrompendo backfill sequencial.")
@@ -164,13 +175,13 @@ async def main():
                 logger.warning(f"  [WARN] Liga {league_code} não tem flashscore_path definido. Pulando.")
                 continue
 
-            # 2. Obter temporadas (do mais antigo para o mais recente)
+            # 2. Obter temporadas (temporada atual primeiro, depois da mais recente para a mais antiga)
             async with pool.acquire() as conn:
                 seasons = await conn.fetch("""
                     SELECT season_id, label, is_current
                     FROM seasons
                     WHERE league_id = $1
-                    ORDER BY label ASC
+                    ORDER BY is_current DESC, label DESC
                 """, league_id)
 
             for idx_s, season in enumerate(seasons):
