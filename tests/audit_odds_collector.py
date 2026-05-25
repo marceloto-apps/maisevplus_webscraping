@@ -118,6 +118,15 @@ async def main():
                         ORDER BY oh.market_type, oh.period, oh.line
                     """, match_uuid)
 
+                    stats_dict = None
+                    if stats_fs:
+                        stats_dict = dict(stats_fs)
+                        for k, v in stats_dict.items():
+                            if hasattr(v, 'isoformat'):
+                                stats_dict[k] = v.isoformat()
+                            elif hasattr(v, 'urn'):  # Check if it is a UUID
+                                stats_dict[k] = str(v)
+
                     # Salva report do jogo em JSON para auditoria
                     report = {
                         "match_id": str(match_uuid),
@@ -125,7 +134,7 @@ async def main():
                         "teams": f"{home} vs {away}",
                         "kickoff": str(kickoff),
                         "collector_result": result,
-                        "stats_saved_db": dict(stats_fs) if stats_fs else None,
+                        "stats_saved_db": stats_dict,
                         "odds_saved_db": [dict(r) for r in odds_rows]
                     }
 
