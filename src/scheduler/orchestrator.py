@@ -185,6 +185,14 @@ class AppOrchestrator:
             misfire_grace_time=3600
         )
 
+        # 13:45 - Flashscore Backfill (janela 5)
+        self.scheduler.add_job(
+            flashscore_historical_backfill,
+            'cron',
+            hour=13, minute=45,
+            id="flashscore_backfill_5",
+            misfire_grace_time=3600
+        )
 
         # 16:30 - Flashscore Prematch Tracking
         self.scheduler.add_job(
@@ -196,6 +204,23 @@ class AppOrchestrator:
             replace_existing=True
         )
 
+        # 19:15 - Flashscore Backfill (janela 6)
+        self.scheduler.add_job(
+            flashscore_historical_backfill,
+            'cron',
+            hour=19, minute=15,
+            id="flashscore_backfill_6",
+            misfire_grace_time=3600
+        )
+        
+        # 22:00 - Flashscore Backfill (janela 7)
+        self.scheduler.add_job(
+            flashscore_historical_backfill,
+            'cron',
+            hour=22, minute=0,
+            id="flashscore_backfill_7",
+            misfire_grace_time=3600
+        )
 
         # 23:50 - Reset Keys (BRT)
         self.scheduler.add_job(
