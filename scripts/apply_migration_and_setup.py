@@ -118,22 +118,8 @@ async def run_setup():
         except Exception as e:
             print(f"   ⚠️ Aviso durante a limpeza do schema public: {e}")
 
-        # 2. Deletar as tabelas duplicadas no schema features (garantindo que tudo use apenas public)
-        print("\n🗑️ [2/5] Removendo tabelas duplicadas no schema 'features'...")
-        try:
-            await conn.execute("DROP TABLE IF EXISTS features.team_aliases CASCADE;")
-            await conn.execute("DROP TABLE IF EXISTS features.unknown_aliases CASCADE;")
-            await conn.execute("DROP TABLE IF EXISTS features.seasons CASCADE;")
-            await conn.execute("DROP TABLE IF EXISTS features.leagues CASCADE;")
-            await conn.execute("DROP TABLE IF EXISTS features.teams CASCADE;")
-            
-            # Limpa visões ou backups residuais no features
-            await conn.execute("DROP VIEW IF EXISTS features.v_match_full CASCADE;")
-            await conn.execute("DROP TABLE IF EXISTS features.match_stats_fs CASCADE;")
-            await conn.execute("DROP TABLE IF EXISTS features.backup_match_stats_pre_020 CASCADE;")
-            print("   ✅ Tabelas duplicadas no schema 'features' removidas.")
-        except Exception as e:
-            print(f"   ⚠️ Aviso ao remover tabelas do features: {e}")
+        # 2. Deletar as tabelas duplicadas no schema features (Ignorado por decisão de design)
+        print("\n🗑️ [2/5] Ignorando a remoção de tabelas no schema 'features'...")
 
         # 3. Corrigir constraints do public.matches para apontar apenas para tabelas do public
         print("\n🔧 [3/5] Corrigindo chaves estrangeiras no public.matches...")
