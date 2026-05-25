@@ -191,24 +191,36 @@ async def main():
                     season_slug = build_flashscore_season_slug(label)
                     season_url = f"https://www.flashscore.com/{flashscore_path}-{season_slug}/results/"
 
-                # A. Executar Discovery para a temporada
-                logger.info(f"    -> Iniciando Discovery na URL: {season_url}")
-                try:
-                    # O Discovery gerencia seu próprio browser e encerra-o internamente.
-                    # Mas nós incrementamos o request count do browser manager para fins de segurança/sessão
-                    res_disc = await discovery.collect(
-                        mode="results",
-                        specific_leagues=[league_code],
-                        target_urls={league_code: [season_url]}
-                    )
-                    logger.info(f"    -> Discovery finalizado. Matches associados/inseridos: {res_disc.records_new}")
-                except Exception as e:
-                    logger.error(f"    [ERROR] Falha na descoberta de partidas para {league_code} {label}: {e}")
+                # A. Executar Discovery para a temporada (pula se for histórica e já possuir partidas)
+                should_run_discovery = True
+                if not is_current:
+                    async with pool.acquire() as conn:
+                        existing_count = await conn.fetchval(
+                            "SELECT COUNT(*) FROM matches WHERE season_id = $1", 
+                            season_id
+                        )
+                    if existing_count > 0:
+                        logger.info(f"    -> Discovery pulado: Temporada histórica '{label}' já possui {existing_count} partidas no banco.")
+                        should_run_discovery = False
 
-                # Throttling após o request de discovery
-                delay = random.uniform(DELAY_BETWEEN_REQUESTS_MIN, DELAY_BETWEEN_REQUESTS_MAX)
-                logger.debug(f"    Aguardando {delay:.2f}s (throttling)...")
-                await asyncio.sleep(delay)
+                if should_run_discovery:
+                    logger.info(f"    -> Iniciando Discovery na URL: {season_url}")
+                    try:
+                        # O Discovery gerencia seu próprio browser e encerra-o internamente.
+                        # Mas nós incrementamos o request count do browser manager para fins de segurança/sessão
+                        res_disc = await discovery.collect(
+                            mode="results",
+                            specific_leagues=[league_code],
+                            target_urls={league_code: [season_url]}
+                        )
+                        logger.info(f"    -> Discovery finalizado. Matches associados/inseridos: {res_disc.records_new}")
+                    except Exception as e:
+                        logger.error(f"    [ERROR] Falha na descoberta de partidas para {league_code} {label}: {e}")
+
+                    # Throttling após o request de discovery
+                    delay = random.uniform(DELAY_BETWEEN_REQUESTS_MIN, DELAY_BETWEEN_REQUESTS_MAX)
+                    logger.debug(f"    Aguardando {delay:.2f}s (throttling)...")
+                    await asyncio.sleep(delay)
 
                 # B. Obter partidas finalizadas pendentes de odds/stats nesta temporada
                 async with pool.acquire() as conn:
