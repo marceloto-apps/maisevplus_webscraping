@@ -104,6 +104,9 @@ class FlashscoreDiscovery(BaseCollector):
                 more_btn = await page.query_selector("text=Show more matches")
                 
             if more_btn:
+                if not await more_btn.is_visible():
+                    logger.debug("[FlashscoreDiscovery] Fim do scroll: Botão 'Mostrar mais' está invisível.")
+                    break
                 try:
                     await more_btn.click(force=True)  # force=True ignora se tem outro elemento por cima
                     logger.debug(f"[FlashscoreDiscovery] Clicou em 'Mostrar mais jogos' (Tentativa {i+1})")
