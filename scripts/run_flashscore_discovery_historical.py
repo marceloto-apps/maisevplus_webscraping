@@ -69,7 +69,7 @@ async def main():
     await TelegramAlert.init()
 
     print("=" * 70)
-    print("  FLASHSCORE HISTORICAL DISCOVERY — ALL SEASONS (Newest → Oldest)")
+    print("  FLASHSCORE HISTORICAL DISCOVERY - ALL SEASONS (Newest -> Oldest)")
     print("=" * 70)
 
     pool = await get_pool()

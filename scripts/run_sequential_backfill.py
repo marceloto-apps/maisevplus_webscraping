@@ -103,6 +103,10 @@ async def main():
         "--limit-matches", type=int, default=999999,
         help="Limite de partidas para processar por temporada."
     )
+    parser.add_argument(
+        "--timeout-hours", type=float, default=999999.0,
+        help="Tempo máximo de execução em horas."
+    )
     args = parser.parse_args()
 
     from src.alerts.telegram_mini import TelegramAlert
@@ -111,6 +115,10 @@ async def main():
     logger.info("=" * 70)
     logger.info("  INICIANDO BACKFILL SEQUENCIAL FLASHSCORE")
     logger.info("=" * 70)
+
+    start_time = datetime.now()
+    from datetime import timedelta
+    max_duration = timedelta(hours=args.timeout_hours)
 
     pool = await get_pool()
     browser_mgr = BrowserManager(headless=args.headless)
@@ -141,6 +149,10 @@ async def main():
             return
 
         for idx_l, league in enumerate(leagues):
+            if datetime.now() - start_time > max_duration:
+                logger.info(f"[TIMEOUT] Limite de {args.timeout_hours}h atingido. Interrompendo backfill sequencial.")
+                break
+
             league_id = league["league_id"]
             league_code = league["code"]
             flashscore_path = league["flashscore_path"]
@@ -162,6 +174,10 @@ async def main():
                 """, league_id)
 
             for idx_s, season in enumerate(seasons):
+                if datetime.now() - start_time > max_duration:
+                    logger.info(f"  [TIMEOUT] Limite de {args.timeout_hours}h atingido. Interrompendo backfill sequencial.")
+                    break
+
                 season_id = season["season_id"]
                 label = season["label"]
                 is_current = season["is_current"]
@@ -216,6 +232,9 @@ async def main():
                     logger.info(f"    -> Encontradas {len(matches)} partidas pendentes. Iniciando coleta...")
                     
                     for idx_m, match in enumerate(matches):
+                        if datetime.now() - start_time > max_duration:
+                            logger.info(f"      [TIMEOUT] Limite de {args.timeout_hours}h atingido. Interrompendo coleta de partidas.")
+                            break
                         match_uuid = match["match_id"]
                         fs_id = match["flashscore_id"]
                         kickoff = match["kickoff"]
@@ -267,10 +286,8 @@ async def main():
                     logger.info(f"  [DELAY] Aguardando {DELAY_BETWEEN_SEASONS}s para trocar de temporada...")
                     await asyncio.sleep(DELAY_BETWEEN_SEASONS)
 
-            # Delay de transição de liga
-            if idx_l < len(leagues) - 1:
-                logger.info(f"[DELAY] Aguardando {DELAY_BETWEEN_LEAGUES}s para trocar de liga...")
-                await asyncio.sleep(DELAY_BETWEEN_LEAGUES)
+        logger.info(f"Completados com sucesso: {metrics.with_odds}")
+        print(f"Completados com sucesso: {metrics.with_odds}")
 
     finally:
         await browser_mgr.close()

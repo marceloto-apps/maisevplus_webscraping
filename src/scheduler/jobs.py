@@ -626,7 +626,7 @@ async def flashscore_historical_backfill():
     try:
         logger.info("spawning_flashscore_backfill_subprocess", timeout_hours=WINDOW_HOURS)
         proc = await asyncio.create_subprocess_exec(
-            "xvfb-run", "-a", sys.executable, "scripts/run_flashscore_backfill.py",
+            "xvfb-run", "-a", sys.executable, "scripts/run_sequential_backfill.py",
             "--timeout-hours", str(WINDOW_HOURS),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,

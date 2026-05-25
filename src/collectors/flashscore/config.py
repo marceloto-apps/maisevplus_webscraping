@@ -31,6 +31,11 @@ LEAGUE_FLASHSCORE_PATHS: Dict[str, str] = {
     "AUT_BL": "football/austria/bundesliga",
     "SWI_SL": "football/switzerland/super-league",
     "ARG_LP": "football/argentina/liga-profesional",
+    "CHI_LDP": "football/chile/liga-de-primera",
+    "USA_MLS": "football/usa/mls",
+    "BRA_SB": "football/brazil/serie-b",
+    "NOR_ELI": "football/norway/eliteserien",
+    "JPN_J1": "football/japan/j1-league",
 }
 
 
