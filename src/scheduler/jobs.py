@@ -664,6 +664,16 @@ async def flashscore_historical_backfill():
     except Exception as e:
         logger.error("flashscore_backfill_spawn_failed", error=str(e))
         raise
+    finally:
+        # Garante desconexão da NordVPN ao final do processo
+        try:
+            logger.info("nordvpn_disconnecting_after_backfill")
+            subprocess.run(["nordvpn", "disconnect"], check=True, capture_output=True, text=True, timeout=30)
+            logger.info("nordvpn_disconnected_ok")
+        except FileNotFoundError:
+            pass  # Caso não tenha NordVPN instalado localmente (ex: Windows em dev)
+        except Exception as e:
+            logger.warning("nordvpn_disconnect_failed", error=str(e))
 
     return {"job": "flashscore_historical_backfill", "records_count": records_count}
 

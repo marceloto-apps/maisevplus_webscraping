@@ -284,6 +284,9 @@ async def main():
                                 inserted = result["total_inserted"]
                                 logger.info(f"        Coletado: {inserted} odds inseridas.")
 
+                                if inserted > 0:
+                                    metrics.with_odds += 1
+
                                 if result["is_complete"]:
                                     await mark_match_as_scraped(pool, match_uuid)
                                     logger.info(f"        ✅ Partida {fs_id} marcada como concluída.")
