@@ -188,6 +188,11 @@ async def main():
 
         if result["status"] == "already_exists":
             print(f"  ⏭  \"{name}\" → já existe (team_id={result['team_id']})")
+            async with pool.acquire() as conn:
+                await conn.execute(
+                    "DELETE FROM unknown_aliases WHERE source = 'flashscore' AND raw_name = $1",
+                    name
+                )
             total_existing += 1
 
         elif result["status"] == "exact_match":

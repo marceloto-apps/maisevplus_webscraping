@@ -101,7 +101,16 @@ async def audit():
             WHERE status = 'finished' 
               AND flashscore_odds_collected = FALSE
         """)
-        print(f"\nPartidas finalizadas (finished) sem odds coletadas (flashscore): {finished_missing_odds}")
+        finished_missing_odds_fs = await conn.fetchval("""
+            SELECT COUNT(*) 
+            FROM matches m
+            JOIN leagues l ON l.league_id = m.league_id
+            WHERE m.status = 'finished' 
+              AND l.primary_source = 'flashscore'
+              AND m.flashscore_odds_collected = FALSE
+        """)
+        print(f"\nPartidas finalizadas (finished) sem odds coletadas (flashscore) - Total: {finished_missing_odds}")
+        print(f"Partidas finalizadas (finished) sem odds coletadas (flashscore) - Apenas Ligas Flashscore: {finished_missing_odds_fs}")
         
         # Partidas finalizadas sem estatísticas coletadas do Flashscore
         finished_missing_stats = await conn.fetchval("""
@@ -110,7 +119,16 @@ async def audit():
             WHERE status = 'finished' 
               AND flashscore_stats_collected = FALSE
         """)
-        print(f"Partidas finalizadas (finished) sem estatísticas coletadas (flashscore): {finished_missing_stats}")
+        finished_missing_stats_fs = await conn.fetchval("""
+            SELECT COUNT(*) 
+            FROM matches m
+            JOIN leagues l ON l.league_id = m.league_id
+            WHERE m.status = 'finished' 
+              AND l.primary_source = 'flashscore'
+              AND m.flashscore_stats_collected = FALSE
+        """)
+        print(f"\nPartidas finalizadas (finished) sem estatísticas coletadas (flashscore) - Total: {finished_missing_stats}")
+        print(f"Partidas finalizadas (finished) sem estatísticas coletadas (flashscore) - Apenas Ligas Flashscore: {finished_missing_stats_fs}")
         print("=" * 60)
 
     await pool.close()
