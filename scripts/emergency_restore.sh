@@ -3,7 +3,7 @@ set -e
 
 # Carrega as variáveis de ambiente
 if [ -f "$(dirname "$0")/../.env" ]; then
-    export $(grep -v '^#' "$(dirname "$0")/../.env" | xargs)
+    export $(grep -v '^#' "$(dirname "$0")/../.env" | xargs -d '\n')
 fi
 
 if [ -z "$DATABASE_URL" ]; then
