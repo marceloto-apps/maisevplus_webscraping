@@ -3,7 +3,12 @@ set -e
 
 # Carrega as variáveis de ambiente
 if [ -f "$(dirname "$0")/../.env" ]; then
-    export $(grep -v '^#' "$(dirname "$0")/../.env" | xargs -d '\n')
+    while IFS= read -r line || [ -n "$line" ]; do
+        clean_line=$(echo "$line" | tr -d '\r')
+        if [[ ! "$clean_line" =~ ^# ]] && [ ! -z "$clean_line" ]; then
+            export "$clean_line"
+        fi
+    done < "$(dirname "$0")/../.env"
 fi
 
 if [ -z "$DATABASE_URL" ]; then
