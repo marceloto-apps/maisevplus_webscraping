@@ -244,6 +244,7 @@ async def main():
                         WHERE m.season_id = $1
                           AND m.status = 'finished'
                           AND m.flashscore_id IS NOT NULL
+                          AND (m.scraping_flashscore IS NULL OR m.scraping_flashscore = FALSE)
                           AND (m.flashscore_stats_collected = FALSE OR m.flashscore_odds_collected = FALSE)
                         ORDER BY m.kickoff DESC
                         LIMIT $2

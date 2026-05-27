@@ -321,15 +321,20 @@ async def feed_complementary_queue():
             WHERE m.status = 'finished'
               AND m.flashscore_id IS NOT NULL
               AND m.kickoff < NOW() - INTERVAL '24 hours'
+              AND m.kickoff >= NOW() - INTERVAL '90 days'
               AND EXISTS (
                   SELECT 1 FROM odds_history oh 
                   WHERE oh.match_id = m.match_id 
+                    AND oh.time >= m.kickoff - INTERVAL '14 days'
+                    AND oh.time <= m.kickoff + INTERVAL '2 days'
                     AND oh.source = 'flashscore' 
                     AND oh.market_type = '1x2' AND oh.period = 'ft'
               )
               AND NOT EXISTS (
                   SELECT 1 FROM odds_history oh 
                   WHERE oh.match_id = m.match_id 
+                    AND oh.time >= m.kickoff - INTERVAL '14 days'
+                    AND oh.time <= m.kickoff + INTERVAL '2 days'
                     AND oh.source = 'flashscore' 
                     AND oh.market_type = 'ou' AND oh.period = 'ft'
               )
