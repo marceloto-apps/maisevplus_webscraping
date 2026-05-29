@@ -21,7 +21,7 @@ class TeamResolver:
     """
 
     _cache: dict[tuple[str, str], int] = {}
-    _pending_unknowns: set[tuple[str, str]] = set()
+    _pending_unknowns: set[tuple[str, str, Optional[str]]] = set()
 
     @classmethod
     async def load_cache(cls) -> None:
@@ -39,7 +39,7 @@ class TeamResolver:
         logger.info("team_resolver_cache_loaded", aliases=len(cls._cache))
 
     @classmethod
-    async def resolve(cls, source: str, raw_name: str) -> Optional[int]:
+    async def resolve(cls, source: str, raw_name: str, league_code: Optional[str] = None) -> Optional[int]:
         """
         Retorna o team_id se o alias for conhecido.
         Se não encontrar → registra em unknown_aliases e retorna None.
@@ -49,11 +49,12 @@ class TeamResolver:
             return cls._cache[key]
 
         # Não encontrado — registrar para revisão manual
-        cls._pending_unknowns.add((source, raw_name))
+        cls._pending_unknowns.add((source, raw_name, league_code))
         logger.warning(
             "unknown_alias",
             source=source,
             raw_name=raw_name,
+            league_code=league_code,
         )
         return None
 
@@ -67,9 +68,11 @@ class TeamResolver:
         async with pool.acquire() as conn:
             await conn.executemany(
                 """
-                INSERT INTO unknown_aliases (source, raw_name, first_seen)
-                VALUES ($1, $2, NOW())
-                ON CONFLICT (source, raw_name) DO NOTHING
+                INSERT INTO unknown_aliases (source, raw_name, league_code, first_seen)
+                VALUES ($1, $2, $3, NOW())
+                ON CONFLICT (source, raw_name) DO UPDATE
+                    SET league_code = EXCLUDED.league_code
+                    WHERE unknown_aliases.league_code IS NULL
                 """,
                 list(cls._pending_unknowns),
             )
@@ -94,6 +97,19 @@ class MatchResolver:
     Resolve a match_id (UUID) a partir de liga + times + data, cruzando fontes.
     Usa TeamResolver internamente para mapear nomes para IDs.
     """
+    _league_code_cache: dict[int, str] = {}
+
+    @classmethod
+    async def _get_league_code(cls, league_id: int) -> Optional[str]:
+        if league_id in cls._league_code_cache:
+            return cls._league_code_cache[league_id]
+        from src.db.pool import get_pool
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            code = await conn.fetchval("SELECT code FROM leagues WHERE league_id = $1", league_id)
+        if code:
+            cls._league_code_cache[league_id] = code
+        return code
 
     @classmethod
     async def resolve(
@@ -108,8 +124,9 @@ class MatchResolver:
         Retorna o match_id UUID preexistente na base.
         Retorna None se o jogo não existir ou se algum time não for reconhecido.
         """
-        home_id = await TeamResolver.resolve(source, home_name)
-        away_id = await TeamResolver.resolve(source, away_name)
+        league_code = await cls._get_league_code(league_id)
+        home_id = await TeamResolver.resolve(source, home_name, league_code=league_code)
+        away_id = await TeamResolver.resolve(source, away_name, league_code=league_code)
 
         if home_id is None or away_id is None:
             return None
@@ -167,8 +184,9 @@ class MatchResolver:
         Prioridade 2: Match Natural (Date).
         Prioridade 3: Fuzzy (+-1 dia), obrigatoriamente resultando em 1 unica row.
         """
-        home_id = await TeamResolver.resolve("footystats", home_name)
-        away_id = await TeamResolver.resolve("footystats", away_name)
+        league_code = await cls._get_league_code(league_id)
+        home_id = await TeamResolver.resolve("footystats", home_name, league_code=league_code)
+        away_id = await TeamResolver.resolve("footystats", away_name, league_code=league_code)
 
         if home_id is None or away_id is None:
             return None

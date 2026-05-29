@@ -28,7 +28,7 @@ Documentos complementares: `SCHEMA.md` (DDL + indexes), `TASKS.md` (breakdown de
 | **Estatísticas Detalhadas** | API-Football — Oficialmente assumiu o lugar do Understat e FBRef. Cobre `match_stats` avançadas, Lineups, Eventos (Gols/Cartões) e Players. Alta cobertura (7 chaves × 100/dia = 700 req/dia no limit básico, e chaves VIP 7500/dia). |
 | **Odds Tempo Real e Handi.** | Flashscore (Camoufox headless + VPN proxy) — Odds API descontinuada. Flashscore (Camoufox) é a fonte única de odds. |
 | Período histórico | 5 temporadas fechadas + atual em andamento: 2021/22 a 2025/26. |
-| Total de ligas | **26 ligas em 14 países**, subdivididas em Tiers priorizados. |
+| Total de ligas | **29 ligas em 17 países**, subdivididas em Tiers priorizados. |
 | Casas Primárias (CLV) | Pinnacle (1) → Betfair (2) → Bet365 (3). Mais ~10 casas BR e Internacionais em captura complementar no Flashscore. |
 | Resumo do Refatoramento | Understat e FBRef suspensos devido à complexidade fragmentada. Odds API descontinuada. Flashscore (Camoufox) é a fonte única de odds. |
 
@@ -71,7 +71,7 @@ Documentos complementares: `SCHEMA.md` (DDL + indexes), `TASKS.md` (breakdown de
 
 ---
 
-## 3. Ligas no Escopo (Manutenção 26 Ligas)
+## 3. Ligas no Escopo (Manutenção 29 Ligas)
 
 ### Tier 1 — Main Leagues
 Inglaterra (PL, CH, L1, L2, NL), Alemanha (BL, B2), Itália (SA, SB), França (L1, L2), Espanha (PD, SD), Escócia (PL, CH, L1, L2).
@@ -80,6 +80,7 @@ Inglaterra (PL, CH, L1, L2, NL), Alemanha (BL, B2), Itália (SA, SB), França (L
 ### Tier 2 e Tier 3 — Europeias Extras e Ligas A-B
 Holanda (ED), Bélgica (PL), Portugal (PL), Turquia (SL), Grécia (SL).
 Brasil (Série A), México (Liga MX), Áustria (BL), Suíça (SL).
+Suécia (Allsvenskan), Finlândia (Veikkausliiga), China (Super League).
 *No passado dependiam de scripts divididos (ex: Footy vs FBRef). Agora, o pipeline da API-Football abrange tudo com um único orquestrador.*
 
 ---
@@ -104,6 +105,7 @@ A orquestração agora utiliza uma **grade rígida no APScheduler** configurada 
 Janelas notáveis Flashscore:
 - **Traking Prematch:** Rastreamentos de `phase: tracking_2x` fixados às `16:30` (e execuções dinâmicas engatilhadas).
 - **Backfill Múltiplo:** 7 janelas cadenciadas de *Historical Backfill*, rigorosamente espaçadas por 2h45m (`00:45`, `05:30`, `08:15`, `11:00`, `13:45`, `19:15`, `22:00`).
+- **Watchdog de Backfill:** O script `scripts/check_backfill_status.py` roda de hora em hora (via APScheduler) e inspeciona se o backfill sequencial está ativo. Se inativo, ele determina se o encerramento ocorreu por finalização natural das ligas e temporadas pendentes (com 100% dos aliases normalizados e 0 partidas a processar) ou devido a um erro, notificando com alertas ricos no Telegram. Ele também valida o status do serviço systemd e a existência de processos ativos no sistema operacional.
 - **Limites Globais:** O runtime de todos os crawlers acoplados ao Flashscore usam limite temporal hard guardado pelo orchestrator de **160 minutos (2h40m)**, e um soft timeout interno do script de **155 minutos (~2.58h)** para desligamento suave e sem travamentos no sistema OS, garantindo no mínimo 5 minutos de idle state antes da próxima janela.
 
 Em paralelo, a rotina `schedule_gameday_jobs` (acionada `00:30 BRT`) orquestra coletas on-demand ao longo do dia para as *partidas confirmadas daquele ciclo* (T-60, T-30, etc).

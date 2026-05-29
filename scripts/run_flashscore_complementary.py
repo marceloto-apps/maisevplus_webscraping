@@ -46,10 +46,12 @@ async def setup_queue(pool):
                 kickoff TIMESTAMP WITH TIME ZONE,
                 status VARCHAR(20) DEFAULT 'pending',
                 attempts INT DEFAULT 0,
+                failed_markets VARCHAR(50)[] DEFAULT '{}',
                 processed_at TIMESTAMP WITH TIME ZONE,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
             );
         """)
+        await conn.execute("ALTER TABLE fc_complementary_queue ADD COLUMN IF NOT EXISTS failed_markets VARCHAR(50)[] DEFAULT '{}';")
         
         existing_count = await conn.fetchval("SELECT count(*) FROM fc_complementary_queue")
         if existing_count > 0:

@@ -45,8 +45,7 @@ BEGIN
             UPDATE seasons
             SET
                 is_current = FALSE,
-                end_date   = last_kickoff::date,
-                updated_at = NOW()
+                end_date   = last_kickoff::date
             WHERE seasons.season_id = rec.season_id;
 
             closed := TRUE;

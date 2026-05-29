@@ -31,6 +31,41 @@ NOTIFY_ON_SUCCESS: set[str] = {
     "run_data_quality_routine",
 }
 
+def update_backfill_status(status: str, last_run_started: str = None, last_run_finished: str = None, last_error: str = None, processed_matches: int = None, details: str = None):
+    import json
+    import os
+    status_file = os.path.join(os.getcwd(), "logs", "backfill_status.json")
+    os.makedirs(os.path.dirname(status_file), exist_ok=True)
+    
+    data = {}
+    if os.path.exists(status_file):
+        try:
+            with open(status_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            data = {}
+            
+    data["status"] = status
+    if last_run_started is not None:
+        data["last_run_started"] = last_run_started
+    if last_run_finished is not None:
+        data["last_run_finished"] = last_run_finished
+    if last_error is not None:
+        data["last_error"] = last_error
+    else:
+        if status == "success":
+            data["last_error"] = None
+    if processed_matches is not None:
+        data["processed_matches"] = processed_matches
+    if details is not None:
+        data["details"] = details
+        
+    try:
+        with open(status_file, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        logger.error("failed_to_write_backfill_status", error=str(e))
+
 def set_scheduler(scheduler):
     global _scheduler_ref
     _scheduler_ref = scheduler
@@ -79,11 +114,17 @@ def safe_job(func):
             if job_name in NOTIFY_ON_SUCCESS:
                 safe_name = job_name.replace('_', r'\_')
                 count_line = f"Registros: {records_count}\n" if records_count is not None else ""
+                
+                details_text = ""
+                if isinstance(result, dict) and result.get("details"):
+                    details_text = f"\n{result['details']}\n"
+                    
                 TelegramAlert.fire(
                     "success", 
                     f"*{safe_name}*\n"
                     f"Duração: {duration_min} min\n"
                     f"{count_line}"
+                    f"{details_text}"
                 )
                 _notified = True
 
@@ -596,10 +637,15 @@ async def flashscore_historical_backfill():
     Trigger: `0 6,10,14,18 * * *` BRT
     Objetivo: Rodízio de IP (NordVPN) e backfill em lote do Flashscore.
     """
+    update_backfill_status(
+        "running",
+        last_run_started=datetime.now(timezone.utc).isoformat()
+    )
     import subprocess
     import sys
     import random
     import re
+    details = None
     
     # Servidores homologados para rodízio (6 servidores)
     servers = ["br89", "br105", "br75", "br116", "br76", "br81"]
@@ -664,9 +710,38 @@ async def flashscore_historical_backfill():
         m = _re.search(r"Completados com sucesso:\s+(\d+)", stdout_text)
         records_count = int(m.group(1)) if m else None
 
-    except RuntimeError:
+        # Tenta extrair o resumo detalhado do stdout
+        if "=== RESUMO DE EXECUCAO ===" in stdout_text:
+            parts = stdout_text.split("=== RESUMO DE EXECUCAO ===")
+            if len(parts) > 1:
+                summary_part = parts[1].strip().split("\n")
+                summary_lines = []
+                for line in summary_part:
+                    if line.strip().startswith("- "):
+                        summary_lines.append(line.strip())
+                if summary_lines:
+                    details = "\n".join(summary_lines)
+
+        update_backfill_status(
+            "success",
+            last_run_finished=datetime.now(timezone.utc).isoformat(),
+            processed_matches=records_count,
+            details=details
+        )
+
+    except RuntimeError as e:
+        update_backfill_status(
+            "error",
+            last_run_finished=datetime.now(timezone.utc).isoformat(),
+            last_error=str(e)
+        )
         raise  # Re-propagado para o safe_job capturar e notificar Telegram
     except Exception as e:
+        update_backfill_status(
+            "error",
+            last_run_finished=datetime.now(timezone.utc).isoformat(),
+            last_error=f"{type(e).__name__}: {str(e)}"
+        )
         logger.error("flashscore_backfill_spawn_failed", error=str(e))
         raise
     finally:
@@ -680,7 +755,7 @@ async def flashscore_historical_backfill():
         except Exception as e:
             logger.warning("nordvpn_disconnect_failed", error=str(e))
 
-    return {"job": "flashscore_historical_backfill", "records_count": records_count}
+    return {"job": "flashscore_historical_backfill", "records_count": records_count, "details": details}
 
 
 @safe_job
@@ -1054,4 +1129,28 @@ async def run_data_quality_routine():
         logger.info("data_quality_detailed_breakdown_end")
 
         return {"records_count": total_matches}
+
+
+@safe_job
+async def check_backfill_status():
+    """
+    Trigger: a cada hora
+    Objetivo: Executar o script de monitoramento do status do backfill.
+    """
+    import sys
+    import asyncio
+    logger.info("running_watchdog_status_check")
+    # Executa o subprocess check_backfill_status.py
+    proc = await asyncio.create_subprocess_exec(
+        sys.executable, "scripts/check_backfill_status.py",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout_bytes, stderr_bytes = await proc.communicate()
+    if proc.returncode != 0:
+        stderr_text = (stderr_bytes or b"").decode("utf-8", errors="replace")[-300:]
+        logger.error("watchdog_status_check_failed", returncode=proc.returncode, error=stderr_text)
+        raise RuntimeError(f"Watchdog check_backfill_status.py falhou: {stderr_text}")
+    logger.info("watchdog_status_check_success")
+    return {"job": "check_backfill_status"}
 

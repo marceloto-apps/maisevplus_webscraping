@@ -145,7 +145,7 @@ class FlashscoreDiscovery(BaseCollector):
                 
         # Helper interno para resolver ou auto-criar time se a fonte for flashscore
         async def get_or_create_team(name: str) -> int:
-            tid = await TeamResolver.resolve("flashscore", name)
+            tid = await TeamResolver.resolve("flashscore", name, league_code=league_code)
             if tid is not None:
                 return tid
             

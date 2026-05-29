@@ -27,6 +27,7 @@ from src.scheduler.jobs import (
     set_scheduler,
     run_data_quality_routine,
     db_backup,
+    check_backfill_status,
 )
 
 logger = get_logger(__name__)
@@ -239,6 +240,15 @@ class AppOrchestrator:
             day=1, hour=0, minute=0,
             id="reset_monthly_keys",
             misfire_grace_time=3600
+        )
+
+        # Hourly - Watchdog check backfill status (minuto 0)
+        self.scheduler.add_job(
+            check_backfill_status,
+            'cron',
+            minute=0,
+            id="watchdog_check_backfill_status",
+            misfire_grace_time=300
         )
 
     async def _init_dependencies(self):

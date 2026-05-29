@@ -408,6 +408,7 @@ CREATE TABLE IF NOT EXISTS fc_complementary_queue (
     kickoff TIMESTAMP WITH TIME ZONE,
     status VARCHAR(20) DEFAULT 'pending',
     attempts INT DEFAULT 0,
+    failed_markets VARCHAR(50)[] DEFAULT '{}',
     processed_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

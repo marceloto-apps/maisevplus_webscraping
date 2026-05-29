@@ -49,7 +49,7 @@
 | BetExplorer | Desativada no MVP |
 | CLV | Pinnacle → Betfair → Bet365 (Footystats NÃO — odds compiladas) |
 | Período histórico | 2021/22 a 2025/26 (5 temporadas + atual) |
-| Total de ligas | **26 ligas, 14 países** |
+| Total de ligas | **29 ligas, 17 países** |
 | Season IDs Footystats | **Todos preenchidos (130 IDs)** |
 | Aliases | Seed via Football-Data CSV → revisão manual (CSV) |
 | Campos NULL | Escanteios HT e Cartões HT aceitos como NULL |
@@ -143,7 +143,7 @@ FIXTURES/CALENDÁRIO:
 
 ## 3. Ligas no Escopo
 
-### 3.1 Tabela Completa — 26 Ligas
+### 3.1 Tabela Completa — 29 Ligas
 
 ### Main Leagues ([Football-Data.co.uk](http://football-data.co.uk/))
 
@@ -180,6 +180,9 @@ FIXTURES/CALENDÁRIO:
 | 24 | 🇲🇽 | Liga MX | `MEX_LM` | `MEX` | ❌ | 31 | ✅ | Jul–Mai‡ |
 | 25 | 🇦🇹 | Bundesliga | `AUT_BL` | `AUT` | ❌ | 56 | ✅ | Jul–Mai |
 | 26 | 🇨🇭 | Super League | `SWI_SL` | `SWZ` | ❌ | 57 | ✅ | Jul–Mai |
+| 27 | 🇸🇪 | Allsvenskan | `SWE_ALL` | — | ❌ | 29 | ✅ | Abr–Nov |
+| 28 | 🇫🇮 | Veikkausliiga | `FIN_VEI` | — | ❌ | 43 | ✅ | Abr–Out |
+| 29 | 🇨🇳 | Super League | `CHN_SL` | — | ❌ | 59 | ✅ | Mar–Nov |
 
 > ‡ Liga MX opera em formato Apertura/Clausura com playoffs.
 > 
@@ -607,9 +610,11 @@ CREATE TABLE unknown_aliases (
     id                  SERIAL PRIMARY KEY,
     source              VARCHAR(30) NOT NULL,
     raw_name            VARCHAR(100) NOT NULL,
+    league_code         VARCHAR(10),
     first_seen          TIMESTAMPTZ DEFAULT NOW(),
     resolved            BOOLEAN DEFAULT FALSE,
     resolved_team_id    INTEGER REFERENCES teams(team_id),
+    resolved_at         TIMESTAMPTZ,
     UNIQUE(source, raw_name)
 );
 
@@ -2682,7 +2687,7 @@ async def send_alert(message: str, level: str = "warning"):
 | 11 | 13 casas | Pinnacle + Bet365 + ≥3 BR coletadas para jogos do dia |
 | 12 | is_opening/closing | Marcados corretamente para jogos finished |
 | 13 | Alertas | Telegram notifica quando scraper falha 3x |
-| 14 | 26 ligas | Todas com pelo menos 1 temporada em `seasons` + jogos em `matches` |
+| 14 | 29 ligas | Todas com pelo menos 1 temporada em `seasons` + jogos em `matches` |
 | 15 | xG cobertura | 24 ligas com xG (Understat + FBRef), 2 ligas com Footystats fallback |
 | 16 | Season IDs | 130 season IDs carregados, todos ≠ null |
 
@@ -2743,5 +2748,5 @@ Schema(2d) → Normalizer(2d) → Football-Data(2.5d) → ⏸️ Aliases(1.5d) �
 
 ---
 
-> **FIM DO PRD M1 v5 DEFINITIVO26 ligas · 14 países · 130 season IDs · 13 casas · 9 mercados · 6 fontes · Zero nulls no config.**
+> **FIM DO PRD M1 v5 DEFINITIVO29 ligas · 17 países · 145 season IDs · 13 casas · 9 mercados · 6 fontes · Zero nulls no config.**
 >

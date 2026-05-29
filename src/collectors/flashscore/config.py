@@ -36,6 +36,9 @@ LEAGUE_FLASHSCORE_PATHS: Dict[str, str] = {
     "BRA_SB": "football/brazil/serie-b",
     "NOR_ELI": "football/norway/eliteserien",
     "JPN_J1": "football/japan/j1-league",
+    "SWE_ALL": "football/sweden/allsvenskan",
+    "FIN_VEI": "football/finland/veikkausliiga",
+    "CHN_SL": "football/china/super-league",
 }
 
 
