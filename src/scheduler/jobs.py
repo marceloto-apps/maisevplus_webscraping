@@ -117,7 +117,8 @@ def safe_job(func):
                 
                 details_text = ""
                 if isinstance(result, dict) and result.get("details"):
-                    details_text = f"\n{result['details']}\n"
+                    safe_details = result['details'].replace('_', r'\_')
+                    details_text = f"\n{safe_details}\n"
                     
                 TelegramAlert.fire(
                     "success", 
