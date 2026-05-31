@@ -30,7 +30,7 @@ from src.db.logger import configure_logging, get_logger
 # Throttling — ajustar conforme observação de rate limiting
 DELAY_BETWEEN_REQUESTS_MIN = 2.0   # segundos
 DELAY_BETWEEN_REQUESTS_MAX = 5.0   # segundos (aleatório no range)
-DELAY_BETWEEN_SEASONS      = 30.0  # segundos
+DELAY_BETWEEN_SEASONS      = 15.0  # segundos
 DELAY_BETWEEN_LEAGUES      = 180.0 # segundos (3 min)
 MAX_REQUESTS_PER_SESSION   = 100   # rotacionar sessão Camoufox após N requisições
 
@@ -131,6 +131,9 @@ async def main():
 
     try:
         async with pool.acquire() as conn:
+            # Garantir que a coluna last_discovery_at exista na tabela seasons
+            await conn.execute("ALTER TABLE seasons ADD COLUMN IF NOT EXISTS last_discovery_at TIMESTAMP WITH TIME ZONE;")
+            
             # 1. Obter ligas elegíveis
             if args.leagues:
                 leagues = await conn.fetch("""
@@ -156,7 +159,7 @@ async def main():
             league_code = league["code"]
             async with pool.acquire() as conn:
                 seasons = await conn.fetch("""
-                    SELECT season_id, label, is_current
+                    SELECT season_id, label, is_current, last_discovery_at
                     FROM seasons
                     WHERE league_id = $1
                 """, league_id)
@@ -164,6 +167,7 @@ async def main():
                 season_id = season["season_id"]
                 label = season["label"]
                 is_current = season["is_current"]
+                last_discovery_at = season["last_discovery_at"]
 
                 # Para temporadas históricas, verificar se podemos pular definitivamente
                 if not is_current:
@@ -260,17 +264,33 @@ async def main():
 
             work_done = False
 
-            # A. Executar Discovery para a temporada (pula se for histórica e já possuir partidas)
+            # A. Executar Discovery para a temporada (pula se for histórica e já rodou uma vez, ou se for atual e já rodou hoje)
             should_run_discovery = True
-            if not is_current:
-                async with pool.acquire() as conn:
-                    existing_count = await conn.fetchval(
-                        "SELECT COUNT(*) FROM matches WHERE season_id = $1", 
-                        season_id
-                    )
-                if existing_count > 0:
-                    logger.info(f"    -> Discovery pulado: Temporada histórica '{label}' já possui {existing_count} partidas no banco.")
+            if is_current:
+                # Para temporadas atuais: rodar apenas se não foi feito hoje (UTC)
+                if last_discovery_at is not None:
+                    today = datetime.now(timezone.utc).date()
+                    last_discovery_date = last_discovery_at.astimezone(timezone.utc).date()
+                    if last_discovery_date == today:
+                        logger.info(f"    -> Discovery pulado: Temporada atual '{label}' já teve discovery executado hoje ({last_discovery_date}).")
+                        should_run_discovery = False
+            else:
+                # Para temporadas históricas: rodar uma única vez ever
+                if last_discovery_at is not None:
+                    logger.info(f"    -> Discovery pulado: Temporada histórica '{label}' já teve discovery executado em {last_discovery_at}.")
                     should_run_discovery = False
+                else:
+                    # Se for histórica mas já possuir partidas no banco, considera que o discovery já foi feito (retrocompatibilidade)
+                    async with pool.acquire() as conn:
+                        existing_count = await conn.fetchval(
+                            "SELECT COUNT(*) FROM matches WHERE season_id = $1", 
+                            season_id
+                        )
+                    if existing_count > 0:
+                        logger.info(f"    -> Discovery pulado: Temporada histórica '{label}' já possui {existing_count} partidas no banco.")
+                        async with pool.acquire() as conn:
+                            await conn.execute("UPDATE seasons SET last_discovery_at = NOW() WHERE season_id = $1", season_id)
+                        should_run_discovery = False
 
             if should_run_discovery:
                 # Constrói URL do Discovery para esta temporada
@@ -289,6 +309,11 @@ async def main():
                         target_urls={league_code: [season_url]}
                     )
                     logger.info(f"    -> Discovery finalizado. Matches associados/inseridos: {res_disc.records_new}")
+                    
+                    # Atualiza o timestamp do discovery na tabela seasons
+                    async with pool.acquire() as conn:
+                        await conn.execute("UPDATE seasons SET last_discovery_at = NOW() WHERE season_id = $1", season_id)
+                        
                     work_done = True
                 except Exception as e:
                     logger.error(f"    [ERROR] Falha na descoberta de partidas para {league_code} {label}: {e}")
