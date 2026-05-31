@@ -90,7 +90,7 @@ async def get_match_status(pool, match_id: str) -> dict:
     return status
 
 
-async def resolve_fixture_to_match(pool, fixture: dict, league_id: int) -> dict | None:
+async def resolve_fixture_to_match(pool, fixture: dict, league_id: int, league_code: str = None) -> dict | None:
     fi_date_str = fixture["fixture"]["date"]
     raw_dt = datetime.fromisoformat(fi_date_str)
     kickoff_brt = raw_dt.astimezone(BRT)
@@ -108,9 +108,9 @@ async def resolve_fixture_to_match(pool, fixture: dict, league_id: int) -> dict 
         away_db_id = await conn.fetchval("SELECT team_id FROM teams WHERE api_football_id = $1", away_api_id)
 
     if home_db_id is None:
-        home_db_id = await TeamResolver.resolve("api_football", home_name)
+        home_db_id = await TeamResolver.resolve("api_football", home_name, league_code=league_code)
     if away_db_id is None:
-        away_db_id = await TeamResolver.resolve("api_football", away_name)
+        away_db_id = await TeamResolver.resolve("api_football", away_name, league_code=league_code)
 
     if home_db_id is None or away_db_id is None:
         print(f"    ⚠ Não resolvido: {home_name} x {away_name} ({home_api_id} / {away_api_id})")
@@ -322,7 +322,7 @@ async def run_backfill(is_cron=False):
                 elif last_fixture_id:
                     continue
 
-                m = await resolve_fixture_to_match(pool, f, l_db_id)
+                m = await resolve_fixture_to_match(pool, f, l_db_id, league_code=l_code)
                 if not m:
                     continue
 

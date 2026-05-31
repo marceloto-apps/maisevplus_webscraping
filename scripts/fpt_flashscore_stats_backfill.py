@@ -171,8 +171,8 @@ class FPTStatsBackfill:
                         
                         # Usa o resolve assíncrono para garantir que aliases desconhecidos
                         # sejam registrados na fila (_pending_unknowns) do TeamResolver.
-                        home_id_fpt = await TeamResolver.resolve('fpt', fs_home)
-                        away_id_fpt = await TeamResolver.resolve('fpt', fs_away)
+                        home_id_fpt = await TeamResolver.resolve('fpt', fs_home, league_code=league_code)
+                        away_id_fpt = await TeamResolver.resolve('fpt', fs_away, league_code=league_code)
                         
                         if home_id_fpt == db_home_id and away_id_fpt == db_away_id:
                             # Prepara nulos corretamente

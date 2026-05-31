@@ -275,8 +275,20 @@ async def main():
                         logger.info(f"    -> Discovery pulado: Temporada atual '{label}' já teve discovery executado hoje ({last_discovery_date}).")
                         should_run_discovery = False
             else:
-                # Para temporadas históricas: rodar uma única vez ever
-                if last_discovery_at is not None:
+                # Para temporadas históricas: rodar uma única vez ever, exceto se houver aliases pendentes/não resolvidos
+                async with pool.acquire() as conn:
+                    unresolved_aliases = await conn.fetchval("""
+                        SELECT COUNT(*) 
+                        FROM unknown_aliases 
+                        WHERE source = 'flashscore' 
+                          AND resolved = FALSE 
+                          AND league_code = $1
+                    """, league_code)
+
+                if unresolved_aliases > 0:
+                    logger.info(f"    -> Discovery forçado: Temporada histórica '{label}' possui {unresolved_aliases} aliases não resolvidos.")
+                    should_run_discovery = True
+                elif last_discovery_at is not None:
                     logger.info(f"    -> Discovery pulado: Temporada histórica '{label}' já teve discovery executado em {last_discovery_at}.")
                     should_run_discovery = False
                 else:

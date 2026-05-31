@@ -34,9 +34,10 @@ class FootyStatsBackfill:
         async with self._pool.acquire() as conn:
             seasons = await conn.fetch(
                 """
-                SELECT season_id, league_id, footystats_season_id 
-                FROM seasons
-                WHERE footystats_season_id IS NOT NULL
+                SELECT s.season_id, s.league_id, s.footystats_season_id, l.code AS league_code
+                FROM seasons s
+                JOIN leagues l ON s.league_id = l.league_id
+                WHERE s.footystats_season_id IS NOT NULL
                 """
             )
 
@@ -75,6 +76,7 @@ class FootyStatsBackfill:
                                      season: dict):
         league_id = season['league_id']
         season_id = season['season_id']
+        league_code = season.get('league_code')
         
         async with self._pool.acquire() as conn:
             for raw_match in matches_data:
@@ -82,8 +84,8 @@ class FootyStatsBackfill:
                 away_name = str(raw_match.get('away_name', ''))
                 
                 # Resolução de IDs e captura de pendentes
-                home_id = await TeamResolver.resolve("footystats", home_name)
-                away_id = await TeamResolver.resolve("footystats", away_name)
+                home_id = await TeamResolver.resolve("footystats", home_name, league_code=league_code)
+                away_id = await TeamResolver.resolve("footystats", away_name, league_code=league_code)
 
                 if home_id is None:
                     self.unresolved_teams.add(home_name)

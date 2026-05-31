@@ -114,6 +114,7 @@ class FootyStatsDailyUpdater:
         """
         league_id = season["league_id"]
         season_id = season["season_id"]
+        league_code = season.get("league_code")
         upserted = 0
 
         async with self._pool.acquire() as conn:
@@ -121,8 +122,8 @@ class FootyStatsDailyUpdater:
                 home_name = str(raw_match.get("home_name", ""))
                 away_name = str(raw_match.get("away_name", ""))
 
-                home_id = await TeamResolver.resolve("footystats", home_name)
-                away_id = await TeamResolver.resolve("footystats", away_name)
+                home_id = await TeamResolver.resolve("footystats", home_name, league_code=league_code)
+                away_id = await TeamResolver.resolve("footystats", away_name, league_code=league_code)
 
                 if home_id is None:
                     self.unresolved_teams.add(home_name)

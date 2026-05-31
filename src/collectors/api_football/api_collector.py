@@ -121,7 +121,12 @@ class ApiFootballCollector(BaseCollector):
             pool = await get_pool()
             async with pool.acquire() as conn:
                 # Obter api_football_id do DB
-                row = await conn.fetchrow("SELECT api_football_id, league_id, home_team_id, away_team_id, kickoff FROM matches WHERE match_id = $1", match_id_uuid)
+                row = await conn.fetchrow("""
+                    SELECT m.api_football_id, m.league_id, m.home_team_id, m.away_team_id, m.kickoff, l.code AS league_code 
+                    FROM matches m 
+                    JOIN leagues l ON m.league_id = l.league_id 
+                    WHERE m.match_id = $1
+                """, match_id_uuid)
                 if not row:
                     raise Exception("Match not found")
                     
@@ -140,7 +145,7 @@ class ApiFootballCollector(BaseCollector):
                         
                         for f in data.get('response', []):
                             t_name = f["teams"]["home"]["name"]
-                            resolved_id = await TeamResolver.resolve(t_name, "api_football")
+                            resolved_id = await TeamResolver.resolve("api_football", t_name, league_code=row['league_code'])
                             if resolved_id == row['home_team_id']:
                                 af_id = str(f["fixture"]["id"])
                                 await conn.execute("UPDATE matches SET api_football_id = $1 WHERE match_id = $2", af_id, match_id_uuid)
@@ -201,7 +206,7 @@ class ApiFootballCollector(BaseCollector):
                         # Definir is_home usando TeamResolver para evitar falsos positivos
                         team_id = None
                         t_name = team_lineup["team"]["name"]
-                        resolved_id = await TeamResolver.resolve(t_name, "api_football")
+                        resolved_id = await TeamResolver.resolve("api_football", t_name, league_code=row['league_code'])
                         
                         is_home = False
                         if resolved_id == row['home_team_id']:

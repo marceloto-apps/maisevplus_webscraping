@@ -40,15 +40,18 @@ class UnderstatBackfill:
         
         # Filtrar as ligas suportadas (tem understat_name != null)
         target_seasons = []
+        understat_to_league_code = {}
         for l_key, conf in leagues_cfg.items():
             u_name = conf.get("understat_name")
             if not u_name:
                 continue
+            understat_to_league_code[u_name] = l_key
             for s_key, s_data in conf.get("seasons", {}).items():
                 target_seasons.append({
                     "understat_name": u_name,
                     "understat_season": s_key.split("/")[0] # formato 2021/2022 -> 2021
                 })
+        self.understat_to_league_code = understat_to_league_code
         
         logger.info("understat_backfill_leagues", count=len(target_seasons))
 
@@ -56,6 +59,8 @@ class UnderstatBackfill:
         for sess in target_seasons:
             matches_meta = await self.scraper.fetch_league_matches(sess['understat_name'], sess['understat_season'])
             if matches_meta:
+                for m in matches_meta:
+                    m['understat_name'] = sess['understat_name']
                 all_matches_to_fetch.extend(matches_meta)
             await asyncio.sleep(DELAY_BETWEEN)
             
@@ -121,9 +126,12 @@ class UnderstatBackfill:
         # Para facilitar a resoluçao, iteramos as prioridades sem estarmos agarrados à um League ID, 
         # ja que as strings dos matches na DB já tem times unicos no mundo:
         # Porem o match_resolver atual requer league_id.
+        u_name = m_meta.get('understat_name')
+        league_code = self.understat_to_league_code.get(u_name) if u_name else None
+
         async with self._pool.acquire() as conn:
-            home_id = await TeamResolver.resolve("understat", h_name)
-            away_id = await TeamResolver.resolve("understat", a_name)
+            home_id = await TeamResolver.resolve("understat", h_name, league_code=league_code)
+            away_id = await TeamResolver.resolve("understat", a_name, league_code=league_code)
 
             if not home_id or not away_id:
                 return # Time nao resolvido

@@ -35,6 +35,7 @@ class FootballDataCollector(BaseCollector):
         self._leagues_config: Dict[str, dict] = {}
         # Caches
         self._league_map: Dict[str, int] = {}  # football_data_code -> league_id
+        self._league_code_map: Dict[int, str] = {}  # league_id -> standard league_code (e.g., BRA_SA)
         self._season_map: Dict[tuple[int, str], int] = {}  # (league_id, fd_season) -> season_id
         self._extra_seasons: List[dict] = []   # [{season_id, league_id, start, end}, ...]
         self._season_label_map: Dict[tuple[int, str], int] = {}  # (league_id, label) -> season_id
@@ -74,6 +75,7 @@ class FootballDataCollector(BaseCollector):
                 l_id = db_league_dict.get((conf['name'], conf['country']))
                 if l_id and conf.get("football_data_code"):
                     self._league_map[conf["football_data_code"]] = l_id
+                    self._league_code_map[l_id] = key
 
             # Load Seasons
             db_seasons = await conn.fetch(
@@ -362,8 +364,9 @@ class FootballDataCollector(BaseCollector):
                 kickoff_dt = row['kickoff']
                 
                 # Resolução de times
-                home_id = await TeamResolver.resolve(self.source_name, str(row['HomeTeam']))
-                away_id = await TeamResolver.resolve(self.source_name, str(row['AwayTeam']))
+                league_code = self._league_code_map.get(league_id)
+                home_id = await TeamResolver.resolve(self.source_name, str(row['HomeTeam']), league_code=league_code)
+                away_id = await TeamResolver.resolve(self.source_name, str(row['AwayTeam']), league_code=league_code)
 
                 if not home_id or not away_id:
                     # Time nao resolvido (esperado se a planilha de aliases não estiver 100% preenchida)
