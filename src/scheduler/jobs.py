@@ -46,6 +46,10 @@ def update_backfill_status(status: str, last_run_started: str = None, last_run_f
             data = {}
             
     data["status"] = status
+    if status in ("running", "success"):
+        data["error_notified"] = False
+        data["interrupted_notified"] = False
+        
     if last_run_started is not None:
         data["last_run_started"] = last_run_started
     if last_run_finished is not None:
@@ -655,10 +659,10 @@ async def flashscore_historical_backfill():
     # 1. Tentar rotacionar o IP via NordVPN
     try:
         logger.info("nordvpn_connecting", server=target_server)
-        res = subprocess.run(["nordvpn", "connect", target_server], check=True, capture_output=True, text=True)
+        res = subprocess.run(["nordvpn", "connect", target_server], check=True, capture_output=True, text=True, timeout=45)
         
         # Puxa o status real para inspecionar o IP
-        status_res = subprocess.run(["nordvpn", "status"], capture_output=True, text=True)
+        status_res = subprocess.run(["nordvpn", "status"], capture_output=True, text=True, timeout=20)
         ip_match = re.search(r"\bIP:\s*([\d\.]+)", status_res.stdout)
         new_ip = ip_match.group(1) if ip_match else "Desconhecido"
         
@@ -668,6 +672,8 @@ async def flashscore_historical_backfill():
         logger.warning("nordvpn_binary_not_found_skipping_rotation")
     except subprocess.CalledProcessError as e:
         logger.error("nordvpn_failed", error=e.stderr.strip())
+    except subprocess.TimeoutExpired as e:
+        logger.error("nordvpn_timeout", cmd=str(e.cmd), timeout=e.timeout)
 
     # Janela de tempo por execução (horas). O filho para sozinho nesse limite;
     # o pai tem um guard de +5 min para não bloquear o orchestrator para sempre.

@@ -45,6 +45,8 @@ async def main():
     last_run_started = data.get("last_run_started")
     last_error = data.get("last_error")
     all_completed_notified = data.get("all_completed_notified", False)
+    error_notified = data.get("error_notified", False)
+    interrupted_notified = data.get("interrupted_notified", False)
 
     # 1. Checar se o serviço systemd maisevplus está ativo (apenas Linux)
     service_ok = True
@@ -115,13 +117,18 @@ async def main():
                 logger.error("failed_to_write_status_file", error=str(e))
 
     # 4. Checar status e possíveis erros/travamentos
+    status_changed = False
+
     if status == "error":
-        msg = f"❌ *Erro no Backfill do Flashscore*\nO último processo de backfill terminou com erro.\n\n*Detalhes:* `{last_error}`"
-        TelegramAlert.fire("error", msg)
-        logger.error("backfill_last_run_had_error", error=last_error)
+        if not error_notified:
+            msg = f"❌ *Erro no Backfill do Flashscore*\nO último processo de backfill terminou com erro.\n\n*Detalhes:* `{last_error}`"
+            TelegramAlert.fire("error", msg)
+            logger.error("backfill_last_run_had_error", error=last_error)
+            data["error_notified"] = True
+            status_changed = True
 
     elif status == "running":
-        # Checar se travou (rodando a mais de 3 horas)
+        duration_hours = 0.0
         if last_run_started:
             try:
                 started_dt = datetime.fromisoformat(last_run_started)
@@ -133,21 +140,42 @@ async def main():
                 
                 duration = datetime.now(timezone.utc) - started_dt
                 duration_hours = duration.total_seconds() / 3600
-                
-                if duration_hours > 3.0:
-                    msg = f"⚠️ *Backfill Flashscore Travado (Suspeito)*\nO processo iniciou há `{duration_hours:.1f}` horas e ainda consta como executando. Possível travamento."
-                    TelegramAlert.fire("warning", msg)
-                    logger.warning("backfill_running_too_long", hours=duration_hours)
             except Exception as e:
                 logger.error("failed_to_calculate_running_duration", error=str(e))
 
         # Checar se consta rodando mas o processo morreu silenciosamente (apenas Linux)
+        is_running_os = True
         if sys.platform.startswith("linux"):
             is_running_os = get_process_running_linux()
-            if not is_running_os:
+
+        # Só considera interrompido por ausência de processo se já passou de 10 minutos do início
+        if not is_running_os and duration_hours * 60.0 > 10.0:
+            if not interrupted_notified:
                 msg = "⚠️ *Backfill Flashscore Interrompido*\nO status consta como executando, mas o processo `run_sequential_backfill.py` não foi encontrado rodando no sistema operacional."
                 TelegramAlert.fire("warning", msg)
                 logger.warning("backfill_running_status_but_no_process")
+                data["interrupted_notified"] = True
+                data["status"] = "interrupted"
+                data["last_run_finished"] = datetime.now(timezone.utc).isoformat()
+                data["last_error"] = "Processo run_sequential_backfill.py não encontrado rodando no SO."
+                status_changed = True
+        elif duration_hours > 3.0:
+            if not interrupted_notified:
+                msg = f"⚠️ *Backfill Flashscore Travado (Suspeito)*\nO processo iniciou há `{duration_hours:.1f}` horas e ainda consta como executando. Possível travamento."
+                TelegramAlert.fire("warning", msg)
+                logger.warning("backfill_running_too_long", hours=duration_hours)
+                data["interrupted_notified"] = True
+                data["status"] = "interrupted"
+                data["last_run_finished"] = datetime.now(timezone.utc).isoformat()
+                data["last_error"] = f"Processo travado ou rodando por tempo excessivo ({duration_hours:.1f}h)."
+                status_changed = True
+
+    if status_changed:
+        try:
+            with open(status_file, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            logger.error("failed_to_write_status_file", error=str(e))
 
     await pool.close()
     await TelegramAlert.close()
