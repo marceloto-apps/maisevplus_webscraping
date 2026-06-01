@@ -400,7 +400,8 @@ async def run_backfill(is_cron=False):
         )
 
     await asyncio.sleep(1)
-    await TelegramAlert.close()
+    if not is_cron:
+        await TelegramAlert.close()
 
 
 if __name__ == "__main__":
