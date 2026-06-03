@@ -2,7 +2,7 @@
 
 # PRD M1 — Coleta de Dados (Ingestão) — v5 DEFINITIVO
 
-> **NOTA DE ATUALIZAÇÃO ARQUITETURAL:** Este PRD foi revisado para refletir o estado atual do projeto. As fontes **Understat** e **FBRef** foram descontinuadas/suspensas e substituídas pela **API-Football** para estatísticas detalhadas e xG de todas as ligas. Além disso, o escopo foi expandido para **35 ligas em 23 países**.
+> **NOTA DE ATUALIZAÇÃO ARQUITETURAL:** Este PRD foi revisado para refletir o estado atual do projeto. As fontes **Understat** e **FBRef** foram descontinuadas/suspensas e substituídas pela **API-Football** para estatísticas detalhadas e xG de todas as ligas. Além disso, o escopo foi expandido para **51 ligas em 32 países**.
 > 
 > **Documento único e completo do Módulo 1.** Todas as decisões, schemas, contratos, regras de negócio, configs e critérios de aceite. Qualquer decisão não coberta aqui deve ser documentada como adendo antes da implementação.
 > 
@@ -50,7 +50,7 @@
 | BetExplorer / Understat / FBRef | Suspensos/Descontinuados devido à complexidade fragmentada. API-Football e Flashscore concentram tudo. |
 | CLV | Pinnacle → Betfair → Bet365 (Flashscore/Football-Data) |
 | Período histórico | 2021/22 a 2025/26 (5 temporadas + atual) |
-| Total de ligas | **35 ligas, 23 países** |
+| Total de ligas | **51 ligas, 32 países** |
 | Season IDs Footystats | **Todos preenchidos (130 IDs)** |
 | Aliases | Seed via Football-Data CSV → revisão manual (CSV) |
 | Campos NULL | Escanteios HT e Cartões HT aceitos como NULL |
@@ -171,6 +171,22 @@ FIXTURES/CALENDÁRIO:
 | 33 | 🇧🇷 | Brasileirão Série B | `BRA_SB` | — | API-Football | ❌ | Fev–Dez |
 | 34 | 🇳🇴 | Eliteserien | `NOR_ELI` | — | API-Football | ✅ | Fev–Dez |
 | 35 | 🇯🇵 | J1 League | `JPN_J1` | — | API-Football | ✅ | Fev–Dez |
+| 36 | 🇵🇪 | Liga 1 | `PER_L1` | — | API-Football | ✅ | Fev–Nov |
+| 37 | 🇺🇾 | Liga AUF | `URU_LAU` | — | API-Football | ✅ | Fev–Dez |
+| 38 | 🇨🇴 | Primera A | `COL_PA` | — | API-Football | ✅ | Fev–Dez |
+| 39 | 🇵🇾 | Copa de Primera | `PAR_CP` | — | API-Football | ✅ | Fev–Dez |
+| 40 | 🇪🇨 | Liga Pro | `ECU_LP` | — | API-Football | ✅ | Fev–Dez |
+| 41 | 🇧🇴 | División Profesional | `BOL_DP` | — | API-Football | ✅ | Fev–Dez |
+| 42 | 🇺🇸 | USL Championship | `USA_USC` | — | API-Football | ✅ | Mar–Nov |
+| 43 | 🇺🇸 | USL League One | `USA_USL1` | — | API-Football | ✅ | Mar–Nov |
+| 44 | 🇨🇦 | Premier League | `CAN_PL` | — | API-Football | ✅ | Abr–Out |
+| 45 | 🇸🇪 | Superettan | `SWE_SUP` | — | API-Football | ✅ | Abr–Nov |
+| 46 | 🇳🇴 | OBOS-ligaen | `NOR_OBOS` | — | API-Football | ✅ | Abr–Nov |
+| 47 | 🇫🇮 | Ykkösliiga | `FIN_YKK` | — | API-Football | ✅ | Abr–Out |
+| 48 | 🇯🇵 | J2 League | `JPN_J2` | — | API-Football | ✅ | Fev–Dez |
+| 49 | 🇰🇷 | K League 1 | `KOR_K1` | — | API-Football | ✅ | Mar–Nov |
+| 50 | 🇰🇷 | K League 2 | `KOR_K2` | — | API-Football | ✅ | Mar–Nov |
+| 51 | 🇮🇪 | Premier Division | `IRL_PD` | — | API-Football | ✅ | Fev–Nov |
 
 > ‡ Liga MX opera em formato Apertura/Clausura com playoffs.
 > 
@@ -249,11 +265,13 @@ FIXTURES/CALENDÁRIO:
 ### 3.3 Cobertura de xG
 
 ```
-API-FOOTBALL — xG principal (32 ligas):
+API-FOOTBALL — xG principal (48 ligas):
   ENG_PL, ENG_CH, ENG_L1, ENG_L2, ENG_NL, SCO_PL, SCO_CH,
   GER_BL, GER_B2, ITA_SA, ITA_SB, ESP_PD, ESP_SD, FRA_L1, FRA_L2,
   NED_ED, BEL_PL, POR_PL, TUR_SL, GRE_SL, SWE_ALL, FIN_VEI, NOR_ELI,
-  BRA_SA, MEX_LM, AUT_BL, SWI_SL, CHN_SL, ARG_LP, CHI_LDP, USA_MLS, JPN_J1
+  BRA_SA, MEX_LM, AUT_BL, SWI_SL, CHN_SL, ARG_LP, CHI_LDP, USA_MLS, JPN_J1,
+  PER_L1, URU_LAU, COL_PA, PAR_CP, ECU_LP, BOL_DP, USA_USC, USA_USL1, CAN_PL,
+  SWE_SUP, NOR_OBOS, FIN_YKK, JPN_J2, KOR_K1, KOR_K2, IRL_PD
 
 FOOTYSTATS — xG básico, fallback (2 ligas):
   SCO_L1, SCO_L2
@@ -276,8 +294,10 @@ TIER 1 — Main leagues UK + Top 5 europeias + divisões inferiores (17 ligas)
 TIER 2 — Demais europeias (8 ligas)
   NED_ED, BEL_PL, POR_PL, TUR_SL, GRE_SL, SWE_ALL, FIN_VEI, NOR_ELI
 
-TIER 3 — Extras (10 ligas)
-  BRA_SA, BRA_SB, MEX_LM, AUT_BL, SWI_SL, CHN_SL, ARG_LP, CHI_LDP, USA_MLS, JPN_J1
+TIER 3 — Extras (26 ligas)
+  BRA_SA, BRA_SB, MEX_LM, AUT_BL, SWI_SL, CHN_SL, ARG_LP, CHI_LDP, USA_MLS, JPN_J1,
+  PER_L1, URU_LAU, COL_PA, PAR_CP, ECU_LP, BOL_DP, USA_USC, USA_USL1, CAN_PL,
+  SWE_SUP, NOR_OBOS, FIN_YKK, JPN_J2, KOR_K1, KOR_K2, IRL_PD
 ```
 
 **Uso dos tiers:**
@@ -290,12 +310,12 @@ TIER 3 — Extras (10 ligas)
 
 | Métrica | Valor |
 | --- | --- |
-| Total de ligas | **35** |
-| Países | **23** |
-| Jogos por temporada (estimativa) | ~15.000 |
-| Backfill 5 temporadas | **~75.000 jogos** |
-| Times únicos (estimativa) | **~750** |
-| Aliases para mapear | ~750 × 4 fontes = **~3.000** |
+| Total de ligas | **51** |
+| Países | **32** |
+| Jogos por temporada (estimativa) | ~22.000 |
+| Backfill 5 temporadas | **~110.000 jogos** |
+| Times únicos (estimativa) | **~1.100** |
+| Aliases para mapear | ~1.100 × 4 fontes = **~4.400** |
 | Season IDs Footystats mapeados | **175/175 (100%)** |
 
 ---

@@ -1,6 +1,6 @@
 # maisevplus_webscraping
 
-Sistema de coleta e ingestão de dados de futebol para o projeto **MaisEV+** — odds em tempo real, resultados, estatísticas avançadas e escalações de **35 ligas em 23 países**.
+Sistema de coleta e ingestão de dados de futebol para o projeto **MaisEV+** — odds em tempo real, resultados, estatísticas avançadas e escalações de **51 ligas em 32 países**.
 
 ---
 
@@ -82,9 +82,9 @@ cp .env.example .env
 
 ## 📊 Escopo de Ligas
 
-**35 ligas | 23 países | ~75.000 jogos (backfill 5 temporadas)**
+**51 ligas | 32 países | ~110.000 jogos (backfill 5 temporadas)**
 
-Inclui Premier League, Bundesliga, Serie A, La Liga, Ligue 1, Brasileirão Série A, Série B, MLS, Liga Profesional (Argentina), Primera División (Chile), Eliteserien (Noruega), J1 League (Japão) e mais.
+Inclui Premier League, Bundesliga, Serie A, La Liga, Ligue 1, Brasileirão Série A e Série B, MLS, Liga Profesional (Argentina), Primera División (Chile), Eliteserien (Noruega), J1 League (Japão), Liga 1 (Peru), Liga AUF (Uruguai), Primera A (Colômbia), Copa de Primera (Paraguai), Liga Pro (Equador), e mais.
 
 ---
 
