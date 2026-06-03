@@ -28,7 +28,7 @@ Documentos complementares: `SCHEMA.md` (DDL + indexes), `TASKS.md` (breakdown de
 | **Estatísticas Detalhadas** | API-Football — Oficialmente assumiu o lugar do Understat e FBRef. Cobre `match_stats` avançadas, Lineups, Eventos (Gols/Cartões) e Players. Alta cobertura (7 chaves × 100/dia = 700 req/dia no limit básico, e chaves VIP 7500/dia). |
 | **Odds Tempo Real e Handi.** | Flashscore (Camoufox headless + VPN proxy) — Odds API descontinuada. Flashscore (Camoufox) é a fonte única de odds. |
 | Período histórico | 5 temporadas fechadas + atual em andamento: 2021/22 a 2025/26. |
-| Total de ligas | **29 ligas em 17 países**, subdivididas em Tiers priorizados. |
+| Total de ligas | **35 ligas em 23 países**, subdivididas em Tiers priorizados. |
 | Casas Primárias (CLV) | Pinnacle (1) → Betfair (2) → Bet365 (3). Mais ~10 casas BR e Internacionais em captura complementar no Flashscore. |
 | Resumo do Refatoramento | Understat e FBRef suspensos devido à complexidade fragmentada. Odds API descontinuada. Flashscore (Camoufox) é a fonte única de odds. |
 
@@ -71,16 +71,15 @@ Documentos complementares: `SCHEMA.md` (DDL + indexes), `TASKS.md` (breakdown de
 
 ---
 
-## 3. Ligas no Escopo (Manutenção 29 Ligas)
+## 3. Ligas no Escopo (Manutenção 35 Ligas)
 
 ### Tier 1 — Main Leagues
 Inglaterra (PL, CH, L1, L2, NL), Alemanha (BL, B2), Itália (SA, SB), França (L1, L2), Espanha (PD, SD), Escócia (PL, CH, L1, L2).
 *Todos cobertos unificadamente agora via API-Football e Flashscore, simplificando o map.*
 
-### Tier 2 e Tier 3 — Europeias Extras e Ligas A-B
-Holanda (ED), Bélgica (PL), Portugal (PL), Turquia (SL), Grécia (SL).
-Brasil (Série A), México (Liga MX), Áustria (BL), Suíça (SL).
-Suécia (Allsvenskan), Finlândia (Veikkausliiga), China (Super League).
+### Tier 2 e Tier 3 — Europeias Extras, Américas, Ásia, Ligas A-B
+Holanda (ED), Bélgica (PL), Portugal (PL), Turquia (SL), Grécia (SL), Suécia (Allsvenskan), Finlândia (Veikkausliiga), Noruega (Eliteserien).
+Brasil (Série A, Série B), México (Liga MX), Áustria (BL), Suíça (SL), China (Super League), Argentina (Liga Profesional), Chile (Primera División), USA (MLS), Japão (J1 League).
 *No passado dependiam de scripts divididos (ex: Footy vs FBRef). Agora, o pipeline da API-Football abrange tudo com um único orquestrador.*
 
 ---

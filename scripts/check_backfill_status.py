@@ -68,13 +68,12 @@ async def main():
     # 2. Consultar o banco para ver se há trabalho pendente
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # Partidas de ligas flashscore que ainda precisam de scraping de odds/stats
+        # Partidas de todas as ligas ativas que ainda precisam de scraping de odds/stats no Flashscore
         pending_matches = await conn.fetchval("""
             SELECT COUNT(*) 
             FROM matches m
             JOIN leagues l ON m.league_id = l.league_id
-            WHERE l.primary_source = 'flashscore' 
-              AND l.is_active = TRUE
+            WHERE l.is_active = TRUE
               AND m.status = 'finished'
               AND m.flashscore_id IS NOT NULL
               AND (m.scraping_flashscore IS NULL OR m.scraping_flashscore = FALSE)

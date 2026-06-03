@@ -1,6 +1,6 @@
 # maisevplus_webscraping
 
-Sistema de coleta e ingestão de dados de futebol para o projeto **MaisEV+** — odds em tempo real, resultados, estatísticas avançadas e escalações de **26 ligas em 14 países**.
+Sistema de coleta e ingestão de dados de futebol para o projeto **MaisEV+** — odds em tempo real, resultados, estatísticas avançadas e escalações de **35 ligas em 23 países**.
 
 ---
 
@@ -12,13 +12,13 @@ Este repositório contém o **Módulo 1 (M1) — Coleta de Dados (Ingestão)** d
 
 | Fonte | Tipo | Responsabilidade |
 |---|---|---|
-| **Footystats API** | HTTP REST | Resultados, stats, fixtures |
-| **Flashscore** | Camoufox/Playwright + VPN | Odds em tempo real, Discovery de Partidas, Backfill |
-| **Football-Data.co.uk** | HTTP (CSV) | Backfill histórico |
-| **FBRef** | HTTP + BeautifulSoup | xG para 19 ligas |
-| **Understat** | HTTP (lib Python async) | xG granular Top 5 ligas |
-| **The Odds API** | Descontinuada | Odds API descontinuada. Flashscore (Camoufox) é a fonte única de odds. |
-| **API-Football** | HTTP REST | Escalações confirmadas |
+| **Footystats API** | HTTP REST | Resultados, schedules/fixtures, placar HT/FT |
+| **Flashscore** | Camoufox/Playwright + VPN | Odds em tempo real, closing odds (CLV), Discovery de Partidas, Backfill histórico |
+| **API-Football** | HTTP REST (Multi-Keys) | Estatísticas detalhadas de partidas (xG, chutes, escanteios, posse, passes), Escalações completas, Performance por jogador, Eventos (Gols/Cartões) |
+| **Football-Data.co.uk** | HTTP (CSV) | Backfill histórico (seed de partidas + odds Pinnacle/B365) |
+| **Understat** | Suspenso / Descontinuado | Substituído unificadamente pela API-Football |
+| **FBRef** | Suspenso / Descontinuado | Substituído unificadamente pela API-Football |
+| **The Odds API** | Descontinuada | Odds API descontinuada. Flashscore (Camoufox) é a fonte única de odds |
 
 ---
 
@@ -82,9 +82,9 @@ cp .env.example .env
 
 ## 📊 Escopo de Ligas
 
-**26 ligas | 14 países | ~57.500 jogos (backfill 5 temporadas)**
+**35 ligas | 23 países | ~75.000 jogos (backfill 5 temporadas)**
 
-Inclui Premier League, Bundesliga, Serie A, La Liga, Ligue 1, Brasileirão Série A e mais.
+Inclui Premier League, Bundesliga, Serie A, La Liga, Ligue 1, Brasileirão Série A, Série B, MLS, Liga Profesional (Argentina), Primera División (Chile), Eliteserien (Noruega), J1 League (Japão) e mais.
 
 ---
 

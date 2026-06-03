@@ -2,6 +2,8 @@
 
 # PRD M1 — Coleta de Dados (Ingestão) — v5 DEFINITIVO
 
+> **NOTA DE ATUALIZAÇÃO ARQUITETURAL:** Este PRD foi revisado para refletir o estado atual do projeto. As fontes **Understat** e **FBRef** foram descontinuadas/suspensas e substituídas pela **API-Football** para estatísticas detalhadas e xG de todas as ligas. Além disso, o escopo foi expandido para **35 ligas em 23 países**.
+> 
 > **Documento único e completo do Módulo 1.** Todas as decisões, schemas, contratos, regras de negócio, configs e critérios de aceite. Qualquer decisão não coberta aqui deve ser documentada como adendo antes da implementação.
 > 
 
@@ -39,17 +41,16 @@
 | Ponto | Decisão |
 | --- | --- |
 | Stats/Resultados | Footystats API (key ilimitada) — fonte primária |
-| Odds tempo real | BetExplorer (Selenium) — fonte primária |
-| Backfill histórico | [Football-Data.co.uk](http://football-data.co.uk/) (CSV) → Footystats (stats) → Understat/FBRef (xG) |
-| xG Top 5 | Understat (granular, por chute) |
-| xG demais ligas cobertas | FBRef (por jogo) |
-| xG fallback | Footystats (básico, 2 ligas sem FBRef) |
-| Escalações | API-Football (7 contas, 700 req/dia) |
+| Odds tempo real | Flashscore via Camoufox (Selenium/BetExplorer desativados) |
+| Backfill histórico | [Football-Data.co.uk](http://football-data.co.uk/) (CSV) → Footystats (stats) → API-Football (stats/xG) |
+| xG Fonte Principal | API-Football (para todas as ligas cobertas onde disponível) |
+| xG fallback | Footystats (básico, como fallback) |
+| Escalações e Eventos | API-Football (7 contas, 700 req/dia no total básico) |
 | Validação de odds | Flashscore via Camoufox |
-| BetExplorer | Desativada no MVP |
-| CLV | Pinnacle → Betfair → Bet365 (Footystats NÃO — odds compiladas) |
+| BetExplorer / Understat / FBRef | Suspensos/Descontinuados devido à complexidade fragmentada. API-Football e Flashscore concentram tudo. |
+| CLV | Pinnacle → Betfair → Bet365 (Flashscore/Football-Data) |
 | Período histórico | 2021/22 a 2025/26 (5 temporadas + atual) |
-| Total de ligas | **29 ligas, 17 países** |
+| Total de ligas | **35 ligas, 23 países** |
 | Season IDs Footystats | **Todos preenchidos (130 IDs)** |
 | Aliases | Seed via Football-Data CSV → revisão manual (CSV) |
 | Campos NULL | Escanteios HT e Cartões HT aceitos como NULL |
@@ -69,39 +70,26 @@
 │                        FONTES DE DADOS M1                          │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
-│  ┌──────────────┐   ODDS TEMPO REAL        ┌──────────────────┐    │
-│  │  BetExplorer   │ ──────────────────────── │  odds_history    │    │
-│  │  (Selenium)   │   13 casas × 9 mercados  │  (hypertable)    │    │
+│  ┌──────────────┐   ODDS TEMPO REAL & CLV  ┌──────────────────┐    │
+│  │  Flashscore  │ ──────────────────────── │  odds_history    │    │
+│  │  (Camoufox)  │   13 casas × 9 mercados  │  (hypertable)    │    │
 │  └──────────────┘                           └──────────────────┘    │
-│         │ fallback                                                  │
-│         ▼                                                           │
-│  ┌──────────────┐   VALIDAÇÃO CRUZADA                              │
-│  │ Flashscore  │   Pinnacle via API                              │
-│  │ (5 keys)      │   2.500 req/mês                                 │
-│  └──────────────┘                                                   │
 │                                                                     │
-│  ┌──────────────┐   RESULTADOS + STATS     ┌──────────────────┐    │
+│  ┌──────────────┐   RESULTADOS + SEED      ┌──────────────────┐    │
 │  │  Footystats   │ ──────────────────────── │  matches         │    │
-│  │  (API ilimit.) │  xG, gols, chutes,     │  match_stats     │    │
-│  └──────────────┘   escanteios, cartões    └──────────────────┘    │
+│  │  (API ilimit.) │  Cria a seed base       └──────────────────┘    │
+│  └──────────────┘                                                   │
 │                                                                     │
-│  ┌──────────────┐   BACKFILL SEED          ┌──────────────────┐    │
-│  │ Football-Data │ ──────────────────────── │  matches (seed)  │    │
-│  │  (CSV)        │  Pinnacle/B365 odds     │  odds_history    │    │
+│  ┌──────────────┐   BACKFILL ODDS HIST.    ┌──────────────────┐    │
+│  │ Football-Data │ ──────────────────────── │  odds_history    │    │
+│  │  (CSV)        │  Pinnacle/B365 odds     └──────────────────┘    │
+│  └──────────────┘                                                   │
+│                                                                     │
+│  ┌──────────────┐   ESTATÍSTICAS + xG      ┌──────────────────┐    │
+│  │ API-Football  │ ──────────────────────── │  match_stats     │    │
+│  │ (Multi-Keys)  │   Gols, chutes, posse,   │  match_events    │    │
+│  │               │   escanteios, lineups    │  lineups         │    │
 │  └──────────────┘                           └──────────────────┘    │
-│                                                                     │
-│  ┌──────────────┐   xG DETALHADO           ┌──────────────────┐    │
-│  │  Understat    │ ──────────────────────── │  match_stats     │    │
-│  │  (Top 5)      │  Por chute, situação    └──────────────────┘    │
-│  ├──────────────┤                                                   │
-│  │  FBRef        │   xG 19 ligas adicionais                       │
-│  │  (HTTP+BS4)   │                                                  │
-│  └──────────────┘                                                   │
-│                                                                     │
-│  ┌──────────────┐   ESCALAÇÕES             ┌──────────────────┐    │
-│  │ API-Football  │ ──────────────────────── │  lineups         │    │
-│  │ (7 keys)      │                          └──────────────────┘    │
-│  └──────────────┘                                                   │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -109,31 +97,25 @@
 
 | Fonte | Tipo | Responsabilidade Principal | Responsabilidade Secundária |
 | --- | --- | --- | --- |
-| **Footystats API** | HTTP REST (key ilimitada) | Resultados, stats completas, fixtures | — |
-| **BetExplorer** | Selenium headless | Odds tempo real (13 casas × 9 mercados) | Fallback de resultados |
-| [**Football-Data.co.uk**](http://football-data.co.uk/) | HTTP (CSV) | Backfill histórico (seed matches + odds Pinnacle/B365) | — |
-| **FBRef** | HTTP (requests + BS4) | xG para 19 ligas fora do Understat | Stats avançadas |
-| **Understat** | HTTP (lib Python async) | xG granular Top 5 (por chute, por situação) | — |
-| **Flashscore** | HTTP REST (5 keys grátis) | Validação cruzada de odds | Fallback quando BetExplorer falha |
-| **API-Football** | HTTP REST (7 keys grátis) | Escalações confirmadas | Fallback fixtures |
+| **Footystats API** | HTTP REST (key ilimitada) | Resultados base, schedules/fixtures, placar HT/FT | — |
+| **Flashscore** | Camoufox (Playwright) | Odds em tempo real, closing odds (CLV), Discovery de Partidas, Backfill de Odds | Fallback de resultados e stats |
+| **API-Football** | HTTP REST (Multi-Keys) | Estatísticas detalhadas de partidas (xG, chutes, escanteios, posse, passes), Escalações completas, Performance por jogador, Eventos (Gols/Cartões) | Fallback fixtures |
+| **Football-Data.co.uk** | HTTP (CSV) | Backfill histórico (seed de partidas + odds Pinnacle/B365) | — |
 
 ### 2.3 Hierarquia de Fallback
 
 ```
 RESULTADOS + STATS:
-  Footystats → API-Football → BetExplorer → Football-Data.co.uk
+  Footystats → API-Football → Flashscore → Football-Data.co.uk
 
-ODDS TEMPO REAL:
-  BetExplorer → Flashscore
+ODDS TEMPO REAL & FECHAMENTO (CLV):
+  Flashscore → Football-Data
 
-ODDS FECHAMENTO (CLV):
-  BetExplorer (Pinnacle último snapshot) → Football-Data (Pinnacle CSV)
+xG e ESTATÍSTICAS:
+  API-Football → Footystats
 
-xG:
-  Understat (5 ligas Top) → FBRef (19 ligas adicionais) → Footystats (2 ligas sem FBRef)
-
-ESCALAÇÕES:
-  API-Football → BetExplorer
+ESCALAÇÕES & EVENTOS:
+  API-Football → Flashscore
 
 FIXTURES/CALENDÁRIO:
   Footystats → API-Football
@@ -143,46 +125,52 @@ FIXTURES/CALENDÁRIO:
 
 ## 3. Ligas no Escopo
 
-### 3.1 Tabela Completa — 29 Ligas
+### 3.1 Tabela Completa — 35 Ligas
 
-### Main Leagues ([Football-Data.co.uk](http://football-data.co.uk/))
+### Main Leagues (Football-Data.co.uk)
 
-| # | País | Liga | Código | FD | Understat | FBRef ID | FBRef xG | Formato |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | 🏴󠁧󠁢󠁥󠁮󠁧󠁿 | Premier League | `ENG_PL` | `E0` | `EPL` | 9 | ✅ | Ago–Mai |
-| 2 | 🏴󠁧󠁢󠁥󠁮󠁧󠁿 | Championship | `ENG_CH` | `E1` | ❌ | 10 | ✅ | Ago–Mai |
-| 3 | 🏴󠁧󠁢󠁥󠁮󠁧󠁿 | League One | `ENG_L1` | `E2` | ❌ | 15 | ✅ | Ago–Mai |
-| 4 | 🏴󠁧󠁢󠁥󠁮󠁧󠁿 | League Two | `ENG_L2` | `E3` | ❌ | 16 | ✅ | Ago–Mai |
-| 5 | 🏴󠁧󠁢󠁥󠁮󠁧󠁿 | National League | `ENG_NL` | `EC` | ❌ | 58 | ✅ | Ago–Mai |
-| 6 | 🏴󠁧󠁢󠁳󠁣󠁴󠁿 | Premiership | `SCO_PL` | `SC0` | ❌ | 40 | ✅ | Ago–Mai |
-| 7 | 🏴󠁧󠁢󠁳󠁣󠁴󠁿 | Championship | `SCO_CH` | `SC1` | ❌ | 69 | ✅ | Ago–Mai |
-| 8 | 🏴󠁧󠁢󠁳󠁣󠁴󠁿 | League One | `SCO_L1` | `SC2` | ❌ | — | ❌ | Ago–Mai |
-| 9 | 🏴󠁧󠁢󠁳󠁣󠁴󠁿 | League Two | `SCO_L2` | `SC3` | ❌ | — | ❌ | Ago–Mai |
-| 10 | 🇩🇪 | Bundesliga | `GER_BL` | `D1` | `Bundesliga` | 20 | ✅ | Ago–Mai |
-| 11 | 🇩🇪 | 2. Bundesliga | `GER_B2` | `D2` | ❌ | 33 | ✅ | Ago–Mai |
-| 12 | 🇮🇹 | Serie A | `ITA_SA` | `I1` | `Serie_A` | 11 | ✅ | Ago–Mai |
-| 13 | 🇮🇹 | Serie B | `ITA_SB` | `I2` | ❌ | 18 | ✅ | Ago–Mai |
-| 14 | 🇪🇸 | La Liga | `ESP_PD` | `SP1` | `La_Liga` | 12 | ✅ | Ago–Mai |
-| 15 | 🇪🇸 | La Liga 2 | `ESP_SD` | `SP2` | ❌ | 17 | ✅ | Ago–Mai |
-| 16 | 🇫🇷 | Ligue 1 | `FRA_L1` | `F1` | `Ligue_1` | 13 | ✅ | Ago–Mai |
-| 17 | 🇫🇷 | Ligue 2 | `FRA_L2` | `F2` | ❌ | 60 | ✅ | Ago–Mai |
-| 18 | 🇳🇱 | Eredivisie | `NED_ED` | `N1` | ❌ | 23 | ✅ | Ago–Mai |
-| 19 | 🇧🇪 | Pro League | `BEL_PL` | `B1` | ❌ | 37 | ✅ | Ago–Mai |
-| 20 | 🇵🇹 | Primeira Liga | `POR_PL` | `P1` | ❌ | 32 | ✅ | Ago–Mai |
-| 21 | 🇹🇷 | Süper Lig | `TUR_SL` | `T1` | ❌ | 26 | ✅ | Ago–Mai |
-| 22 | 🇬🇷 | Super League | `GRE_SL` | `G1` | ❌ | 27 | ✅ | Ago–Mai |
+| # | País | Liga | Código | FD | Fonte Stats/xG | xG | Formato |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 🏴󠁧󠁢󠁥󠁮󠁧󠁿 | Premier League | `ENG_PL` | `E0` | API-Football | ✅ | Ago–Mai |
+| 2 | 🏴󠁧󠁢󠁥󠁮󠁧󠁿 | Championship | `ENG_CH` | `E1` | API-Football | ✅ | Ago–Mai |
+| 3 | 🏴󠁧󠁢󠁥󠁮󠁧󠁿 | League One | `ENG_L1` | `E2` | API-Football | ✅ | Ago–Mai |
+| 4 | 🏴󠁧󠁢󠁥󠁮󠁧󠁿 | League Two | `ENG_L2` | `E3` | API-Football | ✅ | Ago–Mai |
+| 5 | 🏴󠁧󠁢󠁥󠁮󠁧󠁿 | National League | `ENG_NL` | `EC` | API-Football | ✅ | Ago–Mai |
+| 6 | 🏴󠁧󠁢󠁳󠁣󠁴󠁿 | Premiership | `SCO_PL` | `SC0` | API-Football | ✅ | Ago–Mai |
+| 7 | 🏴󠁧󠁢󠁳󠁣󠁴󠁿 | Championship | `SCO_CH` | `SC1` | API-Football | ✅ | Ago–Mai |
+| 8 | 🏴󠁧󠁢󠁳󠁣󠁴󠁿 | League One | `SCO_L1` | `SC2` | API-Football | ❌ | Ago–Mai |
+| 9 | 🏴󠁧󠁢󠁳󠁣󠁴󠁿 | League Two | `SCO_L2` | `SC3` | API-Football | ❌ | Ago–Mai |
+| 10 | 🇩🇪 | Bundesliga | `GER_BL` | `D1` | API-Football | ✅ | Ago–Mai |
+| 11 | 🇩🇪 | 2. Bundesliga | `GER_B2` | `D2` | API-Football | ✅ | Ago–Mai |
+| 12 | 🇮🇹 | Serie A | `ITA_SA` | `I1` | API-Football | ✅ | Ago–Mai |
+| 13 | 🇮🇹 | Serie B | `ITA_SB` | `I2` | API-Football | ✅ | Ago–Mai |
+| 14 | 🇪🇸 | La Liga | `ESP_PD` | `SP1` | API-Football | ✅ | Ago–Mai |
+| 15 | 🇪🇸 | La Liga 2 | `ESP_SD` | `SP2` | API-Football | ✅ | Ago–Mai |
+| 16 | 🇫🇷 | Ligue 1 | `FRA_L1` | `F1` | API-Football | ✅ | Ago–Mai |
+| 17 | 🇫🇷 | Ligue 2 | `FRA_L2` | `F2` | API-Football | ✅ | Ago–Mai |
+| 18 | 🇳🇱 | Eredivisie | `NED_ED` | `N1` | API-Football | ✅ | Ago–Mai |
+| 19 | 🇧🇪 | Pro League | `BEL_PL` | `B1` | API-Football | ✅ | Ago–Mai |
+| 20 | 🇵🇹 | Primeira Liga | `POR_PL` | `P1` | API-Football | ✅ | Ago–Mai |
+| 21 | 🇹🇷 | Süper Lig | `TUR_SL` | `T1` | API-Football | ✅ | Ago–Mai |
+| 22 | 🇬🇷 | Super League | `GRE_SL` | `G1` | API-Football | ✅ | Ago–Mai |
 
 ### Extra Leagues
 
-| # | País | Liga | Código | FD | Understat | FBRef ID | FBRef xG | Formato |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 23 | 🇧🇷 | Brasileirão Série A | `BRA_SA` | `BRA` | ❌ | 24 | ✅ | Abr–Dez |
-| 24 | 🇲🇽 | Liga MX | `MEX_LM` | `MEX` | ❌ | 31 | ✅ | Jul–Mai‡ |
-| 25 | 🇦🇹 | Bundesliga | `AUT_BL` | `AUT` | ❌ | 56 | ✅ | Jul–Mai |
-| 26 | 🇨🇭 | Super League | `SWI_SL` | `SWZ` | ❌ | 57 | ✅ | Jul–Mai |
-| 27 | 🇸🇪 | Allsvenskan | `SWE_ALL` | — | ❌ | 29 | ✅ | Abr–Nov |
-| 28 | 🇫🇮 | Veikkausliiga | `FIN_VEI` | — | ❌ | 43 | ✅ | Abr–Out |
-| 29 | 🇨🇳 | Super League | `CHN_SL` | — | ❌ | 59 | ✅ | Mar–Nov |
+| # | País | Liga | Código | FD | Fonte Stats/xG | xG | Formato |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 23 | 🇧🇷 | Brasileirão Série A | `BRA_SA` | `BRA` | API-Football | ✅ | Abr–Dez |
+| 24 | 🇲🇽 | Liga MX | `MEX_LM` | `MEX` | API-Football | ✅ | Jul–Mai‡ |
+| 25 | 🇦🇹 | Bundesliga | `AUT_BL` | `AUT` | API-Football | ✅ | Jul–Mai |
+| 26 | 🇨🇭 | Super League | `SWI_SL` | `SWZ` | API-Football | ✅ | Jul–Mai |
+| 27 | 🇸🇪 | Allsvenskan | `SWE_ALL` | — | API-Football | ✅ | Abr–Nov |
+| 28 | 🇫🇮 | Veikkausliiga | `FIN_VEI` | — | API-Football | ✅ | Abr–Out |
+| 29 | 🇨🇳 | Super League | `CHN_SL` | — | API-Football | ✅ | Mar–Nov |
+| 30 | 🇦🇷 | Liga Profesional | `ARG_LP` | — | API-Football | ✅ | Fev–Dez |
+| 31 | 🇨🇱 | Primera División | `CHI_LDP` | — | API-Football | ✅ | Fev–Dez |
+| 32 | 🇺🇸 | MLS | `USA_MLS` | — | API-Football | ✅ | Fev–Dez |
+| 33 | 🇧🇷 | Brasileirão Série B | `BRA_SB` | — | API-Football | ❌ | Fev–Dez |
+| 34 | 🇳🇴 | Eliteserien | `NOR_ELI` | — | API-Football | ✅ | Fev–Dez |
+| 35 | 🇯🇵 | J1 League | `JPN_J1` | — | API-Football | ✅ | Fev–Dez |
 
 > ‡ Liga MX opera em formato Apertura/Clausura com playoffs.
 > 
@@ -261,17 +249,17 @@ FIXTURES/CALENDÁRIO:
 ### 3.3 Cobertura de xG
 
 ```
-UNDERSTAT — xG granular por chute (5 ligas):
-  ENG_PL, ESP_PD, GER_BL, ITA_SA, FRA_L1
+API-FOOTBALL — xG principal (32 ligas):
+  ENG_PL, ENG_CH, ENG_L1, ENG_L2, ENG_NL, SCO_PL, SCO_CH,
+  GER_BL, GER_B2, ITA_SA, ITA_SB, ESP_PD, ESP_SD, FRA_L1, FRA_L2,
+  NED_ED, BEL_PL, POR_PL, TUR_SL, GRE_SL, SWE_ALL, FIN_VEI, NOR_ELI,
+  BRA_SA, MEX_LM, AUT_BL, SWI_SL, CHN_SL, ARG_LP, CHI_LDP, USA_MLS, JPN_J1
 
-FBREF — xG por jogo (19 ligas adicionais):
-  ENG_CH, ENG_L1, ENG_L2, ENG_NL, SCO_PL, SCO_CH
-  GER_B2, ITA_SB, ESP_SD, FRA_L2
-  NED_ED, BEL_PL, POR_PL, TUR_SL, GRE_SL
-  BRA_SA, MEX_LM, AUT_BL, SWI_SL
-
-FOOTYSTATS — xG básico, fallback (2 ligas sem FBRef):
+FOOTYSTATS — xG básico, fallback (2 ligas):
   SCO_L1, SCO_L2
+
+SEM COBERTURA xG (1 liga):
+  BRA_SB
 ```
 
 ### 3.4 Tiers
@@ -285,30 +273,30 @@ TIER 1 — Main leagues UK + Top 5 europeias + divisões inferiores (17 ligas)
   ESP_PD, ESP_SD
   FRA_L1, FRA_L2
 
-TIER 2 — Demais europeias (5 ligas)
-  NED_ED, BEL_PL, POR_PL, TUR_SL, GRE_SL
+TIER 2 — Demais europeias (8 ligas)
+  NED_ED, BEL_PL, POR_PL, TUR_SL, GRE_SL, SWE_ALL, FIN_VEI, NOR_ELI
 
-TIER 3 — Extras (4 ligas)
-  BRA_SA, MEX_LM, AUT_BL, SWI_SL
+TIER 3 — Extras (10 ligas)
+  BRA_SA, BRA_SB, MEX_LM, AUT_BL, SWI_SL, CHN_SL, ARG_LP, CHI_LDP, USA_MLS, JPN_J1
 ```
 
 **Uso dos tiers:**
 
 - **Tier 1**: todas as fontes, modelagem completa, prioridade no schedule
-- **Tier 2**: todas as fontes, modelagem completa, xG via FBRef
-- **Tier 3**: todas as fontes, modelagem completa, xG via FBRef, CSV do Football-Data pode ter menos colunas de odds
+- **Tier 2**: todas as fontes, modelagem completa, xG via API-Football
+- **Tier 3**: todas as fontes, modelagem completa, xG via API-Football (onde disponível)
 
 ### 3.5 Estimativas de Volume
 
 | Métrica | Valor |
 | --- | --- |
-| Total de ligas | **26** |
-| Países | **14** |
-| Jogos por temporada (estimativa) | ~11.500 |
-| Backfill 5 temporadas | **~57.500 jogos** |
-| Times únicos (estimativa) | **~580** |
-| Aliases para mapear | ~580 × 6 fontes = **~3.480** |
-| Season IDs Footystats mapeados | **130/130 (100%)** |
+| Total de ligas | **35** |
+| Países | **23** |
+| Jogos por temporada (estimativa) | ~15.000 |
+| Backfill 5 temporadas | **~75.000 jogos** |
+| Times únicos (estimativa) | **~750** |
+| Aliases para mapear | ~750 × 4 fontes = **~3.000** |
+| Season IDs Footystats mapeados | **175/175 (100%)** |
 
 ---
 

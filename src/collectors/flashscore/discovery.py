@@ -216,12 +216,6 @@ class FlashscoreDiscovery(BaseCollector):
                     else:
                         continue
                 
-                home_id = await get_or_create_team(home_team)
-                away_id = await get_or_create_team(away_team)
-                
-                if not home_id or not away_id:
-                    continue
-                
                 # Parse dos placares
                 ft_home = ft_away = ht_home = ht_away = None
                 status = 'scheduled'
@@ -247,22 +241,18 @@ class FlashscoreDiscovery(BaseCollector):
                                 ht_away = int(m.group(2))
                             except ValueError:
                                 pass
-                
-                # Verifica se a partida já existe na base por time + data
+
+                # 1. Buscar diretamente na base pelo flashscore_id (indexado e preciso)
                 row = await conn.fetchrow("""
                     SELECT match_id, status, ft_home, ft_away, ht_home, ht_away, flashscore_id
                     FROM matches
-                    WHERE league_id = $1
-                      AND home_team_id = $2
-                      AND away_team_id = $3
-                      AND ABS(kickoff::date - $4::date) <= 1
+                    WHERE flashscore_id = $1
                     LIMIT 1
-                """, league_id, home_id, away_id, kickoff_dt.date())
+                """, fs_id)
                 
                 if row:
                     match_uuid = row["match_id"]
                     current_status = row["status"]
-                    current_fs_id = row["flashscore_id"]
                     
                     if current_status == 'scheduled' and status == 'finished':
                         await conn.execute("""
@@ -270,35 +260,70 @@ class FlashscoreDiscovery(BaseCollector):
                             SET status = 'finished',
                                 ft_home = $1, ft_away = $2,
                                 ht_home = $3, ht_away = $4,
-                                flashscore_id = COALESCE(flashscore_id, $5),
                                 scraping_flashscore = FALSE,
                                 updated_at = NOW()
-                            WHERE match_id = $6
-                        """, ft_home, ft_away, ht_home, ht_away, fs_id, match_uuid)
+                            WHERE match_id = $5
+                        """, ft_home, ft_away, ht_home, ht_away, match_uuid)
                         updated_count += 1
-                        print(f"  --> ATUALIZADO: {home_team} vs {away_team} atualizado para finalizado (fs_id={fs_id})")
-                    else:
-                        if current_fs_id != fs_id:
+                        print(f"  --> ATUALIZADO (via ID): {home_team} vs {away_team} atualizado para finalizado (fs_id={fs_id})")
+                else:
+                    # 2. Fallback: Se não encontrou por ID, resolve os times e faz a busca por time + data aproximada
+                    home_id = await get_or_create_team(home_team)
+                    away_id = await get_or_create_team(away_team)
+                    
+                    if not home_id or not away_id:
+                        continue
+                    
+                    row = await conn.fetchrow("""
+                        SELECT match_id, status, ft_home, ft_away, ht_home, ht_away, flashscore_id
+                        FROM matches
+                        WHERE league_id = $1
+                          AND home_team_id = $2
+                          AND away_team_id = $3
+                          AND ABS(kickoff::date - $4::date) <= 1
+                        LIMIT 1
+                    """, league_id, home_id, away_id, kickoff_dt.date())
+                    
+                    if row:
+                        match_uuid = row["match_id"]
+                        current_status = row["status"]
+                        current_fs_id = row["flashscore_id"]
+                        
+                        if current_status == 'scheduled' and status == 'finished':
                             await conn.execute("""
                                 UPDATE matches
-                                SET flashscore_id = $1,
+                                SET status = 'finished',
+                                    ft_home = $1, ft_away = $2,
+                                    ht_home = $3, ht_away = $4,
+                                    flashscore_id = COALESCE(flashscore_id, $5),
+                                    scraping_flashscore = FALSE,
                                     updated_at = NOW()
-                                WHERE match_id = $2
-                            """, fs_id, match_uuid)
+                                WHERE match_id = $6
+                            """, ft_home, ft_away, ht_home, ht_away, fs_id, match_uuid)
                             updated_count += 1
-                            print(f"  --> ASSOCIADO: {home_team} vs {away_team} associado (fs_id={fs_id})")
-                else:
-                    # Inserção de partida para ligas primárias
-                    if primary_source == 'flashscore':
-                        await conn.execute("""
-                            INSERT INTO matches (
-                                season_id, league_id, home_team_id, away_team_id,
-                                kickoff, status, ft_home, ft_away, ht_home, ht_away,
-                                flashscore_id, scraping_flashscore, updated_at
-                            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, FALSE, NOW())
-                        """, season_id, league_id, home_id, away_id, kickoff_dt, status, ft_home, ft_away, ht_home, ht_away, fs_id)
-                        updated_count += 1
-                        print(f"  --> INSERIDO: {home_team} vs {away_team} criado como {status} (fs_id={fs_id})")
+                            print(f"  --> ATUALIZADO (via times): {home_team} vs {away_team} atualizado para finalizado (fs_id={fs_id})")
+                        else:
+                            if current_fs_id != fs_id:
+                                await conn.execute("""
+                                    UPDATE matches
+                                    SET flashscore_id = $1,
+                                        updated_at = NOW()
+                                    WHERE match_id = $2
+                                """, fs_id, match_uuid)
+                                updated_count += 1
+                                print(f"  --> ASSOCIADO (via times): {home_team} vs {away_team} associado (fs_id={fs_id})")
+                    else:
+                        # 3. Inserção de nova partida (somente para ligas cuja fonte principal é o flashscore)
+                        if primary_source == 'flashscore':
+                            await conn.execute("""
+                                INSERT INTO matches (
+                                    season_id, league_id, home_team_id, away_team_id,
+                                    kickoff, status, ft_home, ft_away, ht_home, ht_away,
+                                    flashscore_id, scraping_flashscore, updated_at
+                                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, FALSE, NOW())
+                            """, season_id, league_id, home_id, away_id, kickoff_dt, status, ft_home, ft_away, ht_home, ht_away, fs_id)
+                            updated_count += 1
+                            print(f"  --> INSERIDO: {home_team} vs {away_team} criado como {status} (fs_id={fs_id})")
                         
             except Exception as e:
                 print(f"[FlashscoreDiscovery] Falha num HTML match node: {e}")

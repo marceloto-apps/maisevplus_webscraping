@@ -39,6 +39,22 @@ LEAGUE_FLASHSCORE_PATHS: Dict[str, str] = {
     "SWE_ALL": "football/sweden/allsvenskan",
     "FIN_VEI": "football/finland/veikkausliiga",
     "CHN_SL": "football/china/super-league",
+    "PER_L1": "football/peru/liga-1",
+    "URU_LAU": "football/uruguay/liga-auf-uruguaia",
+    "COL_PA": "football/colombia/primera-a",
+    "PAR_CP": "football/paraguay/copa-de-primera",
+    "ECU_LP": "football/ecuador/liga-pro",
+    "BOL_DP": "football/bolivia/divisao-profissional",
+    "USA_USC": "football/usa/usl-championship",
+    "USA_USL1": "football/usa/usl-league-one",
+    "CAN_PL": "football/canada/canadian-premier-league",
+    "SWE_SUP": "football/sweden/superettan",
+    "NOR_OBOS": "football/norway/obos-ligaen",
+    "FIN_YKK": "football/finland/ykkosliiga",
+    "JPN_J2": "football/japan/j2-league",
+    "KOR_K1": "football/south-korea/k-league-1",
+    "KOR_K2": "football/south-korea/k-league-2",
+    "IRL_PD": "football/ireland/premier-division",
 }
 
 

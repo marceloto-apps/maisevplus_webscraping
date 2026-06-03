@@ -145,7 +145,7 @@ async def main():
                 leagues = await conn.fetch("""
                     SELECT league_id, code, name, country, flashscore_path, primary_source
                     FROM leagues
-                    WHERE primary_source = 'flashscore' AND is_active = TRUE
+                    WHERE is_active = TRUE
                 """)
 
         if not leagues:
@@ -196,14 +196,18 @@ async def main():
                               AND league_code = $1
                         """, league_code)
 
-                    # Se já possui partidas, todas coletadas e não há aliases pendentes para a liga
+                    # Se já possui partidas, todas coletadas e não há aliases pendentes para a liga.
+                    # Para ligas cuja fonte principal não é o flashscore, o discovery precisa ter rodado pelo menos uma vez
+                    # para garantir a oportunidade de associar os flashscore_ids.
                     if total_matches > 0 and pending_matches == 0 and unresolved_aliases == 0:
-                        logger.info(
-                            f"[ARCHIVED] Liga {league_code} | Temporada {label} "
-                            f"completada (partidas: {total_matches}, pendentes: {pending_matches}, "
-                            f"aliases não resolvidos: {unresolved_aliases}). Pulando definitivamente."
-                        )
-                        continue
+                        has_run_discovery = last_discovery_at is not None or league["primary_source"] == 'flashscore'
+                        if has_run_discovery:
+                            logger.info(
+                                f"[ARCHIVED] Liga {league_code} | Temporada {label} "
+                                f"completada (partidas: {total_matches}, pendentes: {pending_matches}, "
+                                f"aliases não resolvidos: {unresolved_aliases}). Pulando definitivamente."
+                            )
+                            continue
 
                 tasks.append((league, season))
 
@@ -293,13 +297,21 @@ async def main():
                     should_run_discovery = False
                 else:
                     # Se for histórica mas já possuir partidas no banco, considera que o discovery já foi feito (retrocompatibilidade)
+                    # apenas se a fonte for 'flashscore' ou se essas partidas já tiverem flashscore_id associado.
                     async with pool.acquire() as conn:
                         existing_count = await conn.fetchval(
                             "SELECT COUNT(*) FROM matches WHERE season_id = $1", 
                             season_id
                         )
-                    if existing_count > 0:
-                        logger.info(f"    -> Discovery pulado: Temporada histórica '{label}' já possui {existing_count} partidas no banco.")
+                        matches_with_fs_id = await conn.fetchval(
+                            "SELECT COUNT(*) FROM matches WHERE season_id = $1 AND flashscore_id IS NOT NULL", 
+                            season_id
+                        )
+                    if existing_count > 0 and (primary_source == 'flashscore' or matches_with_fs_id > 0):
+                        logger.info(
+                            f"    -> Discovery pulado: Temporada histórica '{label}' já possui {existing_count} partidas "
+                            f"e {matches_with_fs_id} delas com flashscore_id. Marcando discovery como feito."
+                        )
                         async with pool.acquire() as conn:
                             await conn.execute("UPDATE seasons SET last_discovery_at = NOW() WHERE season_id = $1", season_id)
                         should_run_discovery = False
