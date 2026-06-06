@@ -89,6 +89,24 @@ async def mark_match_as_scraped(pool, match_id: str):
         await conn.execute("UPDATE matches SET scraping_flashscore = TRUE WHERE match_id = $1", match_id)
 
 
+async def enqueue_for_complementary(pool, match_id, flashscore_id, failed_markets):
+    """Enfileira jogo incompleto para retry via complementary."""
+    async with pool.acquire() as conn:
+        try:
+            await conn.execute("""
+                INSERT INTO fc_complementary_queue 
+                    (match_id, flashscore_id, status, attempts, failed_markets)
+                VALUES ($1, $2, 'pending', 0, $3)
+                ON CONFLICT (match_id) DO UPDATE SET
+                    status = 'pending',
+                    failed_markets = EXCLUDED.failed_markets,
+                    updated_at = NOW()
+                WHERE fc_complementary_queue.status != 'completed'
+            """, match_id, flashscore_id, failed_markets)
+        except Exception as e:
+            logger.error(f"[Backfill] Falha ao enfileirar no complementary para {flashscore_id}: {e}")
+
+
 async def main():
     parser = argparse.ArgumentParser(description="Flashscore Sequential Backfill")
     parser.add_argument(
@@ -254,6 +272,8 @@ async def main():
             league_id = league["league_id"]
             league_code = league["code"]
             flashscore_path = league["flashscore_path"]
+            if not flashscore_path:
+                flashscore_path = LEAGUE_FLASHSCORE_PATHS.get(league_code)
             primary_source = league["primary_source"]
 
             season_id = season["season_id"]
@@ -263,7 +283,7 @@ async def main():
             logger.info(f"\n[TASK] [{idx_t+1}/{len(tasks)}] Processando: {league_code} | Temporada: {label} (Current: {is_current})")
             
             if not flashscore_path:
-                logger.warning(f"  [WARN] Liga {league_code} não tem flashscore_path definido. Pulando.")
+                logger.warning(f"  [WARN] Liga {league_code} não tem flashscore_path definido no DB nem no config.py. Pulando.")
                 continue
 
             work_done = False
@@ -403,14 +423,20 @@ async def main():
                             if inserted > 0:
                                 metrics.with_odds += 1
 
+                            # Sempre marcamos a partida como processada se a raspagem executou sem exceção
+                            await mark_match_as_scraped(pool, match_uuid)
+
                             if result["is_complete"]:
-                                await mark_match_as_scraped(pool, match_uuid)
                                 logger.info(f"        ✅ Partida {fs_id} marcada como concluída.")
                             else:
                                 logger.warning(
-                                    f"        ⚠️ Partida {fs_id} incompleta — coletados: {result['markets_collected']}, "
-                                    f"faltando: {result['markets_failed']}."
+                                    f"        ⚠️ Partida {fs_id} incompleta (coletados: {result['markets_collected']}, "
+                                    f"faltando: {result['markets_failed']}), mas marcada como processada para evitar loop."
                                 )
+                                # Se for a temporada atual, enfileira na fila complementar
+                                if is_current:
+                                    logger.info(f"        Enfileirando partida {fs_id} para a fila complementar.")
+                                    await enqueue_for_complementary(pool, match_uuid, fs_id, result["markets_failed"])
                             
                             task_key = f"{league_code} {label}"
                             task_summary[task_key] = task_summary.get(task_key, 0) + 1

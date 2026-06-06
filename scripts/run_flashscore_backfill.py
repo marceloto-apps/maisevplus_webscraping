@@ -198,8 +198,9 @@ async def main():
                         else:
                             logger.warning(
                                 f"⚠️ {fs_id} INCOMPLETO — coletados: {result['markets_collected']}, "
-                                f"faltando: {result['markets_failed']}. NÃO marcado como scraped."
+                                f"faltando: {result['markets_failed']}. Marcando como scraped e enviando para complementary."
                             )
+                            await mark_match_as_scraped(pool, match_uuid)
                             await enqueue_for_complementary(pool, match_uuid, fs_id, result["markets_failed"])
 
                 except Exception as e:
