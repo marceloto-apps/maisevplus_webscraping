@@ -279,6 +279,7 @@ async def main():
             season_id = season["season_id"]
             label = season["label"]
             is_current = season["is_current"]
+            last_discovery_at = season["last_discovery_at"]
 
             logger.info(f"\n[TASK] [{idx_t+1}/{len(tasks)}] Processando: {league_code} | Temporada: {label} (Current: {is_current})")
             
