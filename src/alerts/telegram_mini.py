@@ -100,6 +100,7 @@ class TelegramAlert:
             "chat_id": cls._chat_id,
             "text": text,
             "parse_mode": "Markdown",
+            "disable_notification": True,
         }
         
         async with httpx.AsyncClient(timeout=10) as client:
@@ -122,6 +123,7 @@ class TelegramAlert:
             payload_plain = {
                 "chat_id": cls._chat_id,
                 "text": text,
+                "disable_notification": True,
             }
             try:
                 resp = await client.post(url, json=payload_plain)
