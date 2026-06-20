@@ -18,14 +18,7 @@ load_dotenv()
 configure_logging()
 logger = get_logger("run_prematch_tracker")
 
-async def init_db():
-    return await asyncpg.create_pool(
-        user=os.getenv("DB_USER", "admin"),
-        password=os.getenv("DB_PASS", "admin_password"),
-        database=os.getenv("DB_NAME", "postgres"),
-        host=os.getenv("DB_HOST", "localhost"),
-        port=os.getenv("DB_PORT", "5432")
-    )
+from src.db.pool import get_pool
 
 async def main():
     parser = argparse.ArgumentParser(description="Prematch Odds Tracker Flashscore")
@@ -37,7 +30,7 @@ async def main():
     from src.alerts.telegram_mini import TelegramAlert
     await TelegramAlert.init()
 
-    pool = await init_db()
+    pool = await get_pool()
     
     try:
         async with pool.acquire() as conn:
