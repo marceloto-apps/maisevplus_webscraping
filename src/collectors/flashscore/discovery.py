@@ -178,7 +178,7 @@ class FlashscoreDiscovery(BaseCollector):
                 
                 home_node = match_div.find("div", class_=re.compile("homeParticipant"))
                 away_node = match_div.find("div", class_=re.compile("awayParticipant"))
-                time_node = match_div.find("div", class_="event__time")
+                time_node = match_div.find(class_=re.compile(r"event__(stageTime|time)"))
                 
                 if not home_node or away_node is None or not time_node:
                     continue

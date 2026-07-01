@@ -21,13 +21,16 @@ from src.scheduler.jobs import (
     flashscore_closing_odds,
     flashscore_historical_backfill,
     flashscore_discovery_fixtures,
-    prematch_tracking_morning,
-    prematch_tracking_evening,
+    prematch_tracking_1,
+    prematch_tracking_2,
+    prematch_tracking_3,
     health_check,
     set_scheduler,
     run_data_quality_routine,
     db_backup,
     check_backfill_status,
+    flashscore_scheduled_cleaner,
+    flashscore_integrity_check,
 )
 
 logger = get_logger(__name__)
@@ -113,6 +116,15 @@ class AppOrchestrator:
             kwargs={'timeout_hours': 2.0, 'max_matches': 100}
         )
 
+        # 03:00 - Flashscore integrity check (Validação diária da estrutura do layout do Flashscore)
+        self.scheduler.add_job(
+            flashscore_integrity_check,
+            'cron',
+            hour=3, minute=0,
+            id="flashscore_integrity_check",
+            misfire_grace_time=1800
+        )
+
         # 03:30 - FootyStats Daily
         self.scheduler.add_job(
             footystats_daily,
@@ -140,87 +152,89 @@ class AppOrchestrator:
             misfire_grace_time=3600
         )
 
-        # 04:20 - Flashscore Discovery Fixtures
+        # 04:20 - Flashscore Scheduled Cleaner (Limpeza de partidas presas no status 'scheduled' no passado)
+        self.scheduler.add_job(
+            flashscore_scheduled_cleaner,
+            'cron',
+            hour=4, minute=20,
+            id="flashscore_scheduled_cleaner",
+            misfire_grace_time=3600
+        )
+
+        # 05:15 - Flashscore Discovery Fixtures (Descoberta de IDs de partidas agendadas)
         self.scheduler.add_job(
             flashscore_discovery_fixtures,
             'cron',
-            hour=4, minute=20,
+            hour=5, minute=15,
             id="flashscore_discovery_fixtures",
             misfire_grace_time=1800,
             replace_existing=True
         )
 
-        # 04:45 - Flashscore Discovery Results
+        # 06:20 - Flashscore Prematch Tracking 1 (Max 1h50m duration)
         self.scheduler.add_job(
-            flashscore_discovery,
+            prematch_tracking_1,
             'cron',
-            hour=4, minute=45,
-            id="flashscore_discovery",
-            misfire_grace_time=7200
-        )
-
-        # 05:30 - Flashscore Backfill (janela 2)
-        self.scheduler.add_job(
-            flashscore_historical_backfill,
-            'cron',
-            hour=5, minute=30,
-            id="flashscore_backfill_2",
-            misfire_grace_time=3600
-        )
-
-        # 08:15 - Flashscore Backfill (janela 3)
-        self.scheduler.add_job(
-            flashscore_historical_backfill,
-            'cron',
-            hour=8, minute=15,
-            id="flashscore_backfill_3",
-            misfire_grace_time=3600
-        )
-        
-        # 11:00 - Flashscore Backfill (janela 4)
-        self.scheduler.add_job(
-            flashscore_historical_backfill,
-            'cron',
-            hour=11, minute=0,
-            id="flashscore_backfill_4",
-            misfire_grace_time=3600
-        )
-
-        # 13:45 - Flashscore Backfill (janela 5)
-        self.scheduler.add_job(
-            flashscore_historical_backfill,
-            'cron',
-            hour=13, minute=45,
-            id="flashscore_backfill_5",
-            misfire_grace_time=3600
-        )
-
-        # 16:30 - Flashscore Prematch Tracking
-        self.scheduler.add_job(
-            prematch_tracking_morning,
-            'cron',
-            hour=16, minute=30,
-            id="prematch_tracking",
+            hour=6, minute=20,
+            id="prematch_tracking_1",
             misfire_grace_time=1800,
             replace_existing=True
         )
 
-        # 19:15 - Flashscore Backfill (janela 6)
+        # 08:20 - Flashscore Backfill (janela 2)
         self.scheduler.add_job(
             flashscore_historical_backfill,
             'cron',
-            hour=19, minute=15,
-            id="flashscore_backfill_6",
+            hour=8, minute=20,
+            id="flashscore_backfill_2",
             misfire_grace_time=3600
         )
-        
-        # 22:00 - Flashscore Backfill (janela 7)
+
+        # 11:05 - Flashscore Backfill (janela 3)
         self.scheduler.add_job(
             flashscore_historical_backfill,
             'cron',
-            hour=22, minute=0,
-            id="flashscore_backfill_7",
+            hour=11, minute=5,
+            id="flashscore_backfill_3",
             misfire_grace_time=3600
+        )
+
+        # 13:50 - Flashscore Prematch Tracking 2 (Max 1h50m duration)
+        self.scheduler.add_job(
+            prematch_tracking_2,
+            'cron',
+            hour=13, minute=50,
+            id="prematch_tracking_2",
+            misfire_grace_time=1800,
+            replace_existing=True
+        )
+
+        # 15:50 - Flashscore Backfill (janela 4)
+        self.scheduler.add_job(
+            flashscore_historical_backfill,
+            'cron',
+            hour=15, minute=50,
+            id="flashscore_backfill_4",
+            misfire_grace_time=3600
+        )
+
+        # 18:35 - Flashscore Backfill (janela 5)
+        self.scheduler.add_job(
+            flashscore_historical_backfill,
+            'cron',
+            hour=18, minute=35,
+            id="flashscore_backfill_5",
+            misfire_grace_time=3600
+        )
+
+        # 21:20 - Flashscore Prematch Tracking 3 (Max 2h30m duration)
+        self.scheduler.add_job(
+            prematch_tracking_3,
+            'cron',
+            hour=21, minute=20,
+            id="prematch_tracking_3",
+            misfire_grace_time=1800,
+            replace_existing=True
         )
 
         # 23:50 - Reset Keys (BRT)

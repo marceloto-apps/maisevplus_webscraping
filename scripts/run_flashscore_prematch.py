@@ -42,6 +42,64 @@ async def main():
                 )
                 matches = [{"match_id": row['match_id'], "flashscore_id": row['flashscore_id'], "kickoff": row['kickoff']}] if row else []
             else:
+                if args.phase == "tracking_2x":
+                    try:
+                        # 1. Obter todas as ligas ativas com temporada atual
+                        active_leagues = await conn.fetch("""
+                            SELECT l.league_id, l.code, l.flashscore_path, l.last_fixtures_discovery_at
+                            FROM leagues l
+                            JOIN seasons s ON s.league_id = l.league_id
+                            WHERE l.is_active = TRUE AND s.is_current = TRUE
+                            ORDER BY l.league_id ASC
+                        """)
+                        
+                        if active_leagues:
+                            # 2. Dividir em 2 clusters usando o dia do ano
+                            day_of_year = datetime.now().timetuple().tm_yday
+                            active_cluster = []
+                            for idx, l in enumerate(active_leagues):
+                                # Cluster A (dia par): idx % 2 == 0
+                                # Cluster B (dia ímpar): idx % 2 == 1
+                                if (day_of_year % 2 == 0 and idx % 2 == 0) or (day_of_year % 2 != 0 and idx % 2 != 0):
+                                    active_cluster.append(l)
+                            
+                            # 3. Montar target_urls para o discovery (apenas se não rodou nas últimas 40h)
+                            from src.collectors.flashscore.discovery import FlashscoreDiscovery
+                            from src.collectors.flashscore.config import LEAGUE_FLASHSCORE_PATHS
+                            
+                            discovery = FlashscoreDiscovery()
+                            target_urls = {}
+                            for l in active_cluster:
+                                code = l["code"]
+                                last_run = l["last_fixtures_discovery_at"]
+                                if last_run:
+                                    if last_run.tzinfo is None:
+                                        last_run = last_run.replace(tzinfo=timezone.utc)
+                                    # Se rodou nas últimas 40 horas, pula para não repetir à toa
+                                    if datetime.now(timezone.utc) - last_run < timedelta(hours=40):
+                                        print(f"  -> Liga {code} já teve discovery nas últimas 40h (PULANDO).")
+                                        continue
+                                
+                                base_path = l["flashscore_path"] or LEAGUE_FLASHSCORE_PATHS.get(code)
+                                if base_path:
+                                    target_urls[code] = [f"https://www.flashscore.com/{base_path}/fixtures/"]
+                            
+                            if target_urls:
+                                print(f"\n[Cluster Discovery] Executando Fixtures Discovery para {len(target_urls)} ligas do Cluster do Dia...")
+                                res = await discovery.collect(mode="fixtures", specific_leagues=list(target_urls.keys()), target_urls=target_urls)
+                                print(f"[Cluster Discovery] Concluído! Matches associados: {res.records_new}")
+                                
+                                # Atualiza a data do discovery no DB
+                                for code in target_urls.keys():
+                                    await conn.execute(
+                                        "UPDATE leagues SET last_fixtures_discovery_at = NOW() WHERE code = $1", code
+                                    )
+                            else:
+                                print("\n[Cluster Discovery] Nenhuma liga elegível necessita de discovery hoje.")
+                    except Exception as e:
+                        print(f"\n[Cluster Discovery] Falha ao rodar discovery no cluster do dia: {e}")
+                        logger.error("prematch_cluster_discovery_failed", error=str(e))
+
                 matches = await fetch_eligible_prematch_matches(conn, phase=args.phase)
             
         if not matches:

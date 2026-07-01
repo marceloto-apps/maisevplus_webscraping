@@ -256,18 +256,87 @@ async def flashscore_discovery_fixtures():
 
     return {"job": "flashscore_discovery_fixtures"}
 
-async def _run_prematch_tracker(phase: str):
+@safe_job
+async def flashscore_scheduled_cleaner():
+    """
+    Trigger: 05:00 BRT
+    Limpa e atualiza partidas que ficaram presas no status 'scheduled' no passado.
+    """
     import subprocess
     import sys
 
-    WINDOW_HOURS = 2.58  # ~2h35m
-    GUARD_SECONDS = int(WINDOW_HOURS * 3600) + 300  # +5 min de margem
+    try:
+        logger.info("spawning_flashscore_scheduled_cleaner_subprocess")
+        proc = await asyncio.create_subprocess_exec(
+            "xvfb-run", "-a", sys.executable, "scripts/run_flashscore_scheduled_cleaner.py",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout_bytes, stderr_bytes = await proc.communicate()
+
+        if proc.returncode != 0:
+            stderr_text = (stderr_bytes or b"").decode("utf-8", errors="replace")[-600:]
+            logger.error("flashscore_scheduled_cleaner_subprocess_failed", returncode=proc.returncode)
+            raise RuntimeError(
+                f"Subprocess encerrou com código {proc.returncode}.\n{stderr_text}"
+            )
+
+        logger.info("flashscore_scheduled_cleaner_subprocess_success")
+
+    except RuntimeError:
+        raise
+    except Exception as e:
+        logger.error("flashscore_scheduled_cleaner_spawn_failed", error=str(e))
+        raise
+
+    return {"job": "flashscore_scheduled_cleaner"}
+
+@safe_job
+async def flashscore_integrity_check():
+    """
+    Trigger: 03:00 BRT
+    Verifica a integridade das classes HTML/DOM do Flashscore.
+    """
+    import subprocess
+    import sys
 
     try:
-        logger.info(f"spawning_prematch_tracker_subprocess_phase_{phase}")
+        logger.info("spawning_flashscore_integrity_check_subprocess")
+        proc = await asyncio.create_subprocess_exec(
+            "xvfb-run", "-a", sys.executable, "scripts/check_flashscore_integrity.py",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout_bytes, stderr_bytes = await proc.communicate()
+
+        if proc.returncode != 0:
+            stderr_text = (stderr_bytes or b"").decode("utf-8", errors="replace")[-600:]
+            logger.error("flashscore_integrity_check_subprocess_failed", returncode=proc.returncode)
+            raise RuntimeError(
+                f"Subprocess encerrou com código {proc.returncode}.\n{stderr_text}"
+            )
+
+        logger.info("flashscore_integrity_check_subprocess_success")
+
+    except RuntimeError:
+        raise
+    except Exception as e:
+        logger.error("flashscore_integrity_check_spawn_failed", error=str(e))
+        raise
+
+    return {"job": "flashscore_integrity_check"}
+
+async def _run_prematch_tracker(phase: str, timeout_hours: float = 2.58):
+    import subprocess
+    import sys
+
+    GUARD_SECONDS = int(timeout_hours * 3600) + 300  # +5 min de margem
+
+    try:
+        logger.info(f"spawning_prematch_tracker_subprocess_phase_{phase}_timeout_{timeout_hours}")
         proc = await asyncio.create_subprocess_exec(
             "xvfb-run", "-a", sys.executable, "scripts/run_flashscore_prematch.py", "--phase", phase,
-            "--timeout-hours", str(WINDOW_HOURS),
+            "--timeout-hours", str(timeout_hours),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -300,12 +369,16 @@ async def _run_prematch_tracker(phase: str):
     return {"job": f"prematch_tracker_{phase}"}
 
 @safe_job
-async def prematch_tracking_morning():
-    return await _run_prematch_tracker("tracking_2x")
+async def prematch_tracking_1():
+    return await _run_prematch_tracker("tracking_2x", timeout_hours=1.83) # 1h50m
 
 @safe_job
-async def prematch_tracking_evening():
-    return await _run_prematch_tracker("tracking_2x")
+async def prematch_tracking_2():
+    return await _run_prematch_tracker("tracking_2x", timeout_hours=1.83) # 1h50m
+
+@safe_job
+async def prematch_tracking_3():
+    return await _run_prematch_tracker("tracking_2x", timeout_hours=2.5) # 2h30m
 
 @safe_job
 async def flashscore_complementary(max_matches: int = 150, timeout_hours: float = 2.5):
