@@ -93,8 +93,9 @@ CREATE TABLE leagues (
     betexplorer_path    VARCHAR(100),
     footystats_name     VARCHAR(100),
     xg_source           VARCHAR(20) DEFAULT 'fbref',
-    is_active           BOOLEAN DEFAULT TRUE,
-    created_at          TIMESTAMPTZ DEFAULT NOW()
+    is_active                  BOOLEAN DEFAULT TRUE,
+    last_fixtures_discovery_at TIMESTAMPTZ,
+    created_at                 TIMESTAMPTZ DEFAULT NOW()
 );
 
 COMMENT ON TABLE leagues IS '26 ligas, 14 países.';

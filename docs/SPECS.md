@@ -79,33 +79,19 @@ Inglaterra (PL, CH, L1, L2, NL), Alemanha (BL, B2), Itália (SA, SB), França (L
 
 ### Tier 2 e Tier 3 — Europeias Extras, Américas, Ásia, Ligas A-B
 Holanda (ED), Bélgica (PL), Portugal (PL), Turquia (SL), Grécia (SL), Suécia (Allsvenskan, Superettan), Finlândia (Veikkausliiga, Ykkösliiga), Noruega (Eliteserien, OBOS-ligaen), Irlanda (Premier Division).
-Brasil (Série A, Série B), México (Liga MX), Argentina (Liga Profesional), Chile (Primera División), Colômbia (Primera A), Uruguai (Liga AUF), Peru (Liga 1), Paraguai (Copa de Primera), Equador (Liga Pro), Bolívia (División Profesional).
-EUA (MLS, USL Championship, USL League One), Canadá (Premier League).
-Japão (J1 League, J2 League), Coreia do Sul (K League 1, K League 2), China (Super League), Áustria (BL), Suíça (SL).
-*No passado dependiam de scripts divididos (ex: Footy vs FBRef). Agora, o pipeline da API-Football e Flashscore abrange tudo.*
-
----
-
-## 4. Casas de Apostas e Mercados
-
-### Mercados Target do Flashscore
-O extrator headless processa o JSON interceptado do Cloudflare.
-1. `FT` (Tempo Regulamentar) e `HT` (Primeiro Tempo).
-2. `1x2`, `ou` (Over/Under), `ah` (Asian Handicap), `dc` (Double Chance), `dnb` (Empate Anula), `btts` (Ambas Marcam).
-
-### O "Closing Line Value" (CLV)
-O modelo atuarial M2 exige a linha de fechamento antes do apito inicial para calibragem Kelley.
-O sistema carimba `is_closing=True` nos snapshots armazenados do Flashscore extraídos 2min antes do ínicio, ou através do backfill (marcadores históricos).
-
----
-
-## 5. Schedule de Coleta e Orquestração
+Brasil (Série A, Série B), México (Liga MX), Argentina## 5. Schedule de Coleta e Orquestração
 
 ### Lógica Produtiva (Daily)
-A orquestração agora utiliza uma **grade rígida no APScheduler** configurada em `src/scheduler/orchestrator.py` dividindo os backfills e rastreamentos diários em janelas horárias desencontradas para contornar sobreposições.
+A orquestração utiliza uma **grade rígida no APScheduler** configurada em `src/scheduler/orchestrator.py` dividindo os backfills e rastreamentos diários em janelas horárias desencontradas para contornar sobreposições.
 Janelas notáveis Flashscore:
-- **Traking Prematch:** Rastreamentos de `phase: tracking_2x` fixados às `16:30` (e execuções dinâmicas engatilhadas).
-- **Backfill Múltiplo:** 7 janelas cadenciadas de *Historical Backfill*, rigorosamente espaçadas por 2h45m (`00:45`, `05:30`, `08:15`, `11:00`, `13:45`, `19:15`, `22:00`).
+- **Tracking Prematch:** Rastreamentos divididos em 3 execuções diárias com limites estritos de runtime:
+  - **06:20 BRT** (Max 1h50m de duração)
+  - **13:50 BRT** (Max 1h50m de duração)
+  - **21:20 BRT** (Max 2h30m de duração)
+- **Backfill Múltiplo:** 5 janelas cadenciadas de *Historical Backfill* (`00:45`, `08:20`, `11:05`, `15:50`, `18:35`).
+- **Validação de Layout:** O script `scripts/check_flashscore_integrity.py` roda diariamente às `03:00 BRT` para testar os seletores do DOM do Flashscore contra a Premier League. Se falhar, envia um alerta **CRITICAL** no Telegram contendo o trecho do HTML que quebrou e um prompt pré-formatado pronto para cópia/correção via IA.
+- **Cleaner de Status:** O script `scripts/run_flashscore_scheduled_cleaner.py` roda diariamente às `04:20 BRT` buscando partidas marcadas como `'scheduled'` com kickoff no passado (janela > 3h) para atualizá-las diretamente a partir de suas páginas de detalhes.
+- **Cluster Discovery:** O script `scripts/run_flashscore_discovery_fixtures.py` roda diariamente às `05:15 BRT` e associa IDs de jogos futuros. Ele divide as ligas em 2 clusters de forma determinística (par/ímpar por dia do ano) e executa apenas para ligas que não tiveram discovery nas últimas 40 horas.
 - **Watchdog de Backfill:** O script `scripts/check_backfill_status.py` roda de hora em hora (via APScheduler) e inspeciona se o backfill sequencial está ativo. Se inativo, ele determina se o encerramento ocorreu por finalização natural das ligas e temporadas pendentes (com 100% dos aliases normalizados e 0 partidas a processar) ou devido a um erro, notificando com alertas ricos no Telegram. Ele também valida o status do serviço systemd e a existência de processos ativos no sistema operacional.
 - **Limites Globais:** O runtime de todos os crawlers acoplados ao Flashscore usam limite temporal hard guardado pelo orchestrator de **160 minutos (2h40m)**, e um soft timeout interno do script de **155 minutos (~2.58h)** para desligamento suave e sem travamentos no sistema OS, garantindo no mínimo 5 minutos de idle state antes da próxima janela.
 
@@ -140,7 +126,7 @@ A etapa vigente do projeto consiste em robustecer a base de dados utilizando scr
 ### 7.1. API-Football Backfill (`run_apifootball_backfill.py`)
 - O script `run_apifootball_backfill.py` rastreia ligas descendentes (2025 -> 2024 -> 2021).
 - Usa `JSON states` para retomar operações se crashar.
-- Verifica modularmente: Falta a stat? (Hit). Faltam Eventos? (Hit). Não regasta payload duplicado.
+- Verifica modularmente: Falta a stat? (Hit). Faltam Eventos? (Hit). Não resgata payload duplicado.
 - Há a subferramenta `run_apifootball_stats_only.py` desenhada sutilmente para tapar "buracos" esparsos onde o collect de endpoints statistics falhou no passado isoladamente, filtrando puramente via `blocked_shots_home IS NULL`.
 
 ### 7.2. Flashscore Backfill (`run_flashscore_backfill.py`)
@@ -150,6 +136,10 @@ A etapa vigente do projeto consiste em robustecer a base de dados utilizando scr
 
 ### 7.3. Flashscore Complementary (`run_flashscore_complementary.py`)
 - Um braço cirúrgico do backfill voltado apenas a suprir lacunas dos mercados ("btts", "1x2", "dc", "dnb" e "stats") em partidas que outrora extraíram com sucesso *apenas* "ah" (Asian Handicap) e "ou".
-- Opera sobre table fila `fc_complementary_queue` populada com base em exports estáticos JSON de segurança, não tocando em dados regulares. Upsert usa `COALESCE` para não sobrepor outras estatísticas pré-existentes limpas.
+- Opera sobre tabela fila `fc_complementary_queue` populada com base em exports estáticos JSON de segurança, não tocando em dados regulares. Upsert usa `COALESCE` para não sobrepor outras estatísticas pré-existentes limpas.
+
+### 7.4. Limpeza de Status Passados e Monitoramento de Layout
+- **Cleaner de Status (`run_flashscore_scheduled_cleaner.py`):** Realiza uma varredura direta via URL de detalhes dos jogos (`https://www.flashscore.com/match/{id}/`) para corrigir partidas travadas como `'scheduled'` que já ocorreram, identificando placares finais, do primeiro tempo, ou adiamentos/cancelamentos.
+- **Validador de Integridade (`check_flashscore_integrity.py`):** Script autônomo que testa seletores DOM do Flashscore diariamente, emitindo alertas imediatos no Telegram caso alguma classe CSS tenha sido modificada, facilitando auto-correção via IA.
 
 **Mapeamento e Progresso:** Prioridade MÁXIMA nestes pipelines. Qualquer novo desenvolvimento que não seja para fix de selectors nesses scripts não agregará valor neste subciclo, portanto manter atenção concentrada em estabilidade de runtime nesses arquivos pesados.
