@@ -31,6 +31,7 @@ from src.scheduler.jobs import (
     check_backfill_status,
     flashscore_scheduled_cleaner,
     flashscore_integrity_check,
+    flashscore_retrofit_daily,
 )
 
 logger = get_logger(__name__)
@@ -78,11 +79,20 @@ class AppOrchestrator:
             misfire_grace_time=1800
         )
 
-        # 00:45 - Flashscore Backfill (janela 1)
+        # 01:15 - Flashscore Retrofit Daily
+        self.scheduler.add_job(
+            flashscore_retrofit_daily,
+            'cron',
+            hour=1, minute=15,
+            id="flashscore_retrofit_daily",
+            misfire_grace_time=3600
+        )
+
+        # 22:30 - Flashscore Backfill (janela 1 - remanejada de 00:45)
         self.scheduler.add_job(
             flashscore_historical_backfill,
             'cron',
-            hour=0, minute=45,
+            hour=22, minute=30,
             id="flashscore_backfill_1",
             misfire_grace_time=3600
         )

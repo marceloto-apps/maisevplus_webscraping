@@ -22,7 +22,8 @@ from .odds_normalizer import calculate_overround
 
 # NOTA: `time` intencionalmente excluído do hash.
 # Odds idênticas em timestamps diferentes = dedup (não mudou nada).
-# Se precisar de heartbeat/confirmação, adicionar `time` ao payload.
+# `is_opening` incluído para garantir separação limpa entre linhas de abertura e fechamento:
+# opening e closing da mesma rodada compartilham o mesmo `time`; o hash diferencia os dois tipos.
 def compute_content_hash(
     match_id: str,
     bookmaker_id: int,
@@ -30,6 +31,7 @@ def compute_content_hash(
     line: Optional[float],
     period: str,
     odds: dict[str, Any],
+    is_opening: bool = False,
 ) -> str:
     """
     Gera um fingerprint SHA-256 de 64 chars determinístico para um snapshot
@@ -42,6 +44,10 @@ def compute_content_hash(
         line:         linha do mercado (ex: 2.5) ou None
         period:       'ft' | 'ht'
         odds:         dict de valores, ex. {'odds_1': 1.95, 'odds_x': 3.4, 'odds_2': 4.2}
+        is_opening:   True para odd de abertura, False para closing/snapshot regular.
+                      Incluído no hash para que opening e closing nunca colidam na Layer 2
+                      mesmo que as odds sejam idênticas (cenário patológico protegido pela Q1,
+                      mas garantido aqui como belt-and-suspenders).
 
     Returns:
         str: hash hexadecimal de 64 caracteres
@@ -53,6 +59,7 @@ def compute_content_hash(
         "line":        line,
         "period":      period,
         "odds":        {k: str(v) for k, v in sorted(odds.items())},
+        "is_opening":  is_opening,   # Ajuste 2: separa opening de closing na Layer 2
     }
     raw = json.dumps(payload, sort_keys=True, ensure_ascii=True)
     return hashlib.sha256(raw.encode()).hexdigest()
@@ -81,17 +88,29 @@ async def insert_odds_if_new(
 
     A Camada 2 (ON CONFLICT no UNIQUE INDEX via INSERT ... ON CONFLICT DO NOTHING)
     garante integridade caso dois workers passem na Camada 1 simultaneamente.
+
+    Ajuste 1: a Layer 1 filtra por is_opening para que opening e closing
+    consultem seus próprios últimos hashes de forma independente. Isso
+    evita que um re-scrape retorne o hash do tipo errado (ex: hash da
+    opening sendo comparado com a closing) e insira duplicatas.
+
+    Ajuste 2: is_opening entra no compute_content_hash() para garantir
+    separação na Layer 2 (UNIQUE INDEX) mesmo em cenários patológicos.
     """
     # Monta o dict de odds passadas (ignora None para o hash)
     odds_vals = {k: v for k, v in
                  [("odds_1", odds_1), ("odds_x", odds_x), ("odds_2", odds_2)]
                  if v is not None}
 
+    # Ajuste 2: is_opening incluído no hash
     content_hash = compute_content_hash(
-        match_id, bookmaker_id, market_type, line, period, odds_vals
+        match_id, bookmaker_id, market_type, line, period, odds_vals,
+        is_opening=is_opening,
     )
 
-    # --- Camada 1: verificar último hash (filtrado por source) ---
+    # --- Camada 1: verificar último hash do mesmo tipo (opening ou closing) ---
+    # Ajuste 1: filtra AND is_opening para que cada tipo consulte apenas
+    # seu próprio histórico, evitando collatão de hashes em re-scrapes.
     last_hash = await conn.fetchval(
         """
         SELECT content_hash
@@ -102,10 +121,11 @@ async def insert_odds_if_new(
           AND line IS NOT DISTINCT FROM $4
           AND period = $5
           AND source = $6
+          AND is_opening = $7
         ORDER BY time DESC
         LIMIT 1
         """,
-        match_id, bookmaker_id, market_type, line, period, source,
+        match_id, bookmaker_id, market_type, line, period, source, is_opening,
     )
     if last_hash == content_hash:
         return False   # duplicata — skip

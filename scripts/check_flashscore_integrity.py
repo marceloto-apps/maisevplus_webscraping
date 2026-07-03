@@ -37,6 +37,7 @@ async def main():
     failed_field = ""
     match_html_sample = ""
     
+    odds_html_sample = ""
     try:
         async with AsyncCamoufox(headless=True, os="linux") as browser:
             context = await browser.new_context(
@@ -44,8 +45,9 @@ async def main():
                 locale="pt-BR"
             )
             page = await context.new_page()
-            await page.goto(url, wait_until="domcontentloaded", timeout=30000)
             
+            # 1. Carrega a listagem de fixtures
+            await page.goto(url, wait_until="domcontentloaded", timeout=30000)
             try:
                 await page.wait_for_selector('div[id^="g_1_"]', timeout=15000)
             except Exception:
@@ -53,6 +55,25 @@ async def main():
                 
             await page.wait_for_timeout(2000)
             html = await page.content()
+            
+            # 2. Se achar partida, tenta ir para a página de odds dela para validar seletor da opening
+            soup = BeautifulSoup(html, "html.parser")
+            match_div = soup.find("div", id=re.compile(r'^g_1_'))
+            fs_id = None
+            if match_div:
+                fs_id = match_div.get("id", "")[4:]
+                
+            if fs_id:
+                odds_url = f"https://www.flashscore.com/match/{fs_id}/#/odds-comparison/1x2-odds/full-time"
+                logger.info(f"Navegando para página de odds da partida: {odds_url}")
+                try:
+                    await page.goto(odds_url, wait_until="domcontentloaded", timeout=30000)
+                    await page.wait_for_selector("div.ui-table__row, a.oddsCell__odd", timeout=15000)
+                    await page.wait_for_timeout(2000)
+                    odds_html_sample = await page.content()
+                except Exception as e:
+                    logger.warning(f"Erro ao navegar/aguardar página de odds: {e}")
+                    
             await page.close()
             await context.close()
             
@@ -62,7 +83,6 @@ async def main():
         if not match_div:
             failed_field = "match_node (div g_1_)"
             error_reason = "Nenhum div g_1_ (nó de partida) foi encontrado na página."
-            # Pega uma parte do body para analisar
             body = soup.find("body")
             match_html_sample = str(body)[:1000] if body else html[:1000]
         else:
@@ -85,18 +105,38 @@ async def main():
             elif not time_node:
                 failed_field = "event__time / event__stageTime (horário do jogo)"
                 error_reason = "Nó de classe 'event__stageTime' ou 'event__time' não encontrado dentro do nó da partida."
+            elif not odds_html_sample:
+                failed_field = "oddsCell__odd (tabela de odds)"
+                error_reason = "Página de comparação de odds não renderizou nenhuma linha/célula de odds."
+                match_html_sample = html[:1000]
             else:
                 home_team = home_node.get_text(strip=True)
                 away_team = away_node.get_text(strip=True)
                 date_text = time_node.get_text(strip=True)
                 
-                if not home_team or not away_team or not date_text:
-                    failed_field = "text_extraction (conteúdo de texto)"
-                    error_reason = f"Extração de texto retornou campos vazios: Home='{home_team}', Away='{away_team}', Data='{date_text}'"
+                # Validação do seletor da opening odd no HTML da página de odds
+                odds_soup = BeautifulSoup(odds_html_sample, "html.parser")
+                odd_cells = odds_soup.find_all("a", class_=lambda c: c and "oddsCell__odd" in c)
+                
+                # Verifica se encontrou células de odds
+                if not odd_cells:
+                    failed_field = "oddsCell__odd (células de odds)"
+                    error_reason = "Nenhuma célula de odd ('a.oddsCell__odd') foi encontrada no HTML da página de comparação de odds."
+                    match_html_sample = odds_html_sample[:1200]
                 else:
-                    logger.info(f"Integridade OK! Exemplo: {home_team} vs {away_team} em {date_text} (ID: {fs_id})")
-                    success = True
-                    
+                    # Verifica se pelo menos uma célula tem o separador '»' no title
+                    has_opening = any('»' in (cell.get('title') or '') for cell in odd_cells)
+                    if not has_opening:
+                        failed_field = "oddsCell__odd[title*='»'] (opening odds)"
+                        error_reason = "Nenhuma célula de odd possui o atributo 'title' contendo o separador '»' de opening odds."
+                        match_html_sample = str(odd_cells[0])[:1200]
+                    elif not home_team or not away_team or not date_text:
+                        failed_field = "text_extraction (conteúdo de texto)"
+                        error_reason = f"Extração de texto retornou campos vazios: Home='{home_team}', Away='{away_team}', Data='{date_text}'"
+                    else:
+                        logger.info(f"Integridade OK! Exemplo: {home_team} vs {away_team} em {date_text} (ID: {fs_id}) | Opening odds validadas!")
+                        success = True
+                        
     except Exception as e:
         error_reason = f"Erro de execução do Camoufox / Exception: {str(e)}"
         failed_field = "execution"

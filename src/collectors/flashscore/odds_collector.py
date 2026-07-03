@@ -26,6 +26,7 @@ class CollectionMetrics:
     unknown_bookmakers: set = None
     parse_errors: int = 0
     total_bookmakers_extracted: int = 0
+    opening_found: int = 0  # partidas com ao menos 1 linha de opening inserida
     
     def __post_init__(self):
         if self.unknown_bookmakers is None:
@@ -239,7 +240,7 @@ class FlashscoreOddsCollector(BaseCollector):
                     raise e
         return False
 
-    async def collect_match(self, browser, conn, match_id_uuid: str, flashscore_id: str, is_closing: bool, job_id: str, metrics: CollectionMetrics, is_prematch: bool = False, kickoff: datetime = None, skip_stats: bool = False) -> dict:
+    async def collect_match(self, browser, conn, match_id_uuid: str, flashscore_id: str, is_closing: bool, job_id: str, metrics: CollectionMetrics, is_prematch: bool = False, kickoff: datetime = None, skip_stats: bool = False, skip_closing: bool = False) -> dict:
         """
         Para uma única partida, usa navegação SPA (cliques) para acessar a aba de odds e estatísticas.
         Primeiro coleta as odds (que é o mercado principal e mais importante) e
@@ -577,51 +578,56 @@ class FlashscoreOddsCollector(BaseCollector):
                 except Exception as e:
                     logger.error(f"[Flashscore] [STATS] Falha ao coletar/salvar estatísticas para {flashscore_id}: {e}")
 
-            # 3. Agora, navegar e CLICAR na aba "ODDS" (navegação SPA)
-            odds_tab = None
+            # 3. Navegar diretamente para a URL de odds-comparison (1x2 FT).
+            # Para evitar erros de SPA routing e redirecionamentos, usamos a URL canônica resolvida
+            # (page.url) e montamos o path de odds direto. Se page.url não for resolvida, usa o fallback de hash.
+            current_url = page.url
+            if "flashscore.com/match/" in current_url:
+                base_clean = current_url.split("?")[0].rstrip("/")
+                odds_url = f"{base_clean}/odds/1x2-odds/full-time/?mid={flashscore_id}"
+            else:
+                odds_url = f"https://www.flashscore.com/match/{flashscore_id}/#/odds-comparison/1x2-odds/full-time"
+
+            logger.debug(f"[Flashscore] Navegando diretamente para odds: {odds_url}")
             try:
-                await page.wait_for_selector("a[href*='/odds/'], a[href*='/1x2-odds/']", timeout=15000)
-                odds_tab = await page.query_selector("a[href*='/odds/'], a[href*='/1x2-odds/']")
+                await page.goto(odds_url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
+            except Exception as e:
+                logger.warning(f"[Flashscore] Timeout navegando para odds de {flashscore_id}: {e}")
+
+            # 4. Aguardar tabela de odds — polling do HTML com timeout total de 25s.
+            # Fallback: wait_for_selector primeiro (mais rápido quando funciona),
+            # depois poll do source (mais confiável com SPAs lentas ou anti-bot delays).
+            odds_table_ready = False
+            try:
+                await page.wait_for_selector("div.ui-table__row, a.oddsCell__odd", timeout=15000)
+                odds_table_ready = True
+                logger.debug(f"[Flashscore] Tabela de odds carregou via selector para {flashscore_id}")
             except Exception:
-                logger.warning(f"[Flashscore] Aba Odds não encontrada para {flashscore_id}")
+                # Polling do HTML fonte — útil quando o DOM virtual não dispara o selector
+                # mas o HTML já contém os dados (Flashscore SSR ou pre-render parcial)
+                logger.debug(f"[Flashscore] Selector timeout — polling HTML para {flashscore_id}")
+                poll_start = asyncio.get_event_loop().time()
+                while asyncio.get_event_loop().time() - poll_start < 10.0:
+                    html_check = await page.content()
+                    if "ui-table__row" in html_check or "oddsCell__odd" in html_check:
+                        odds_table_ready = True
+                        logger.debug(f"[Flashscore] Tabela de odds encontrada via HTML poll para {flashscore_id}")
+                        break
+                    await asyncio.sleep(1.0)
+
+            if not odds_table_ready:
+                logger.warning(f"[Flashscore] Tabela de odds não renderizou para {flashscore_id}")
                 return {
                     "total_inserted": total_inserted,
                     "markets_collected": markets_collected,
                     "markets_failed": list(set(self.markets_to_scrape.keys()) - set(markets_collected)),
                     "is_complete": False,
                 }
-            
-            if not odds_tab:
-                logger.warning(f"[Flashscore] Aba Odds não encontrada para {flashscore_id}")
-                return {
-                    "total_inserted": total_inserted,
-                    "markets_collected": markets_collected,
-                    "markets_failed": list(set(self.markets_to_scrape.keys()) - set(markets_collected)),
-                    "is_complete": False,
-                }
-            
-            await odds_tab.click()
-            logger.debug(f"[Flashscore] Cliquei na aba Odds de {flashscore_id}")
-            
-            # 4. Esperar a tabela de odds do primeiro mercado (1x2 FT) renderizar
-            try:
-                await page.wait_for_selector("div.ui-table__row", timeout=15000)
-            except Exception:
-                # Tenta seletor alternativo
-                try:
-                    await page.wait_for_selector("a.oddsCell__odd", timeout=5000)
-                except Exception:
-                    logger.warning(f"[Flashscore] Tabela de odds não renderizou para {flashscore_id}")
-                    return {
-                        "total_inserted": total_inserted,
-                        "markets_collected": markets_collected,
-                        "markets_failed": list(set(self.markets_to_scrape.keys()) - set(markets_collected)),
-                        "is_complete": False,
-                    }
             
             # 5. Iterar pelos mercados — o primeiro (1x2_ft) já está carregado após o clique na aba Odds.
             first_market_key = next(iter(self.markets_to_scrape), None)
             is_first_market = (first_market_key == "1x2_ft")
+            match_opening_inserted = False  # flag por mercado para contabilizar opening_found
             for m_key, m_config in self.markets_to_scrape.items():
                 logger.debug(f"[Flashscore] Coletando {m_key} para {flashscore_id}")
                 
@@ -678,36 +684,82 @@ class FlashscoreOddsCollector(BaseCollector):
                                     time=now
                                 )
                             else:
-                                is_new = await insert_odds_if_new(
-                                    conn=conn,
-                                    match_id=match_id_uuid,
-                                    bookmaker_id=bm_db_id,
-                                    market_type=entry["market_type"],
-                                    line=entry["line"],
-                                    period=entry["period"],
-                                    odds_1=entry["odds_1"],
-                                    odds_x=entry["odds_x"],
-                                    odds_2=entry["odds_2"],
-                                    source=self.source_name,
-                                    collect_job_id=job_id,
-                                    is_opening=False,
-                                    is_closing=is_closing,
-                                    time=now
-                                )
+                                # ── CLOSING (comportamento existente, inalterado) ──
+                                is_new = False
+                                if not skip_closing:
+                                    is_new = await insert_odds_if_new(
+                                        conn=conn,
+                                        match_id=match_id_uuid,
+                                        bookmaker_id=bm_db_id,
+                                        market_type=entry["market_type"],
+                                        line=entry["line"],
+                                        period=entry["period"],
+                                        odds_1=entry["odds_1"],
+                                        odds_x=entry["odds_x"],
+                                        odds_2=entry["odds_2"],
+                                        source=self.source_name,
+                                        collect_job_id=job_id,
+                                        is_opening=False,
+                                        is_closing=is_closing,
+                                        time=now
+                                    )
+
                             if is_new:
                                 total_inserted += 1
                             else:
                                 logger.debug(f"[DEBUG-DEDUP] Odds ignoradas. Ja existem para {our_bm_key} / {entry['market_type']}")
                         except Exception as e:
                             logger.error(f"[DEBUG-INSERT] Falha crassa ao inserir: {e}")
+
+                        # ── OPENING (linha adicional, isolada) ──
+                        # Inserida SEMPRE após a closing, em try/except proprio.
+                        # Qualquer falha aqui apenas é logada — nunca propaga
+                        # nem faz rollback da closing já persistida.
+                        # Não estão na mesma transação atômica: cada insert_odds_if_new
+                        # executa seu próprio conn.execute() independente.
+                        if not is_prematch:
+                            opening_1 = entry.get("opening_1")
+                            opening_x = entry.get("opening_x")
+                            opening_2 = entry.get("opening_2")
+                            # Só insere se ao menos um valor de abertura estiver presente
+                            # (title sem '»' = odd não se moveu, Q1 = ignorar silenciosamente)
+                            if any(v is not None for v in [opening_1, opening_x, opening_2]):
+                                try:
+                                    opening_inserted = await insert_odds_if_new(
+                                        conn=conn,
+                                        match_id=match_id_uuid,
+                                        bookmaker_id=bm_db_id,
+                                        market_type=entry["market_type"],
+                                        line=entry["line"],
+                                        period=entry["period"],
+                                        odds_1=opening_1,
+                                        odds_x=opening_x,
+                                        odds_2=opening_2,
+                                        source=self.source_name,
+                                        collect_job_id=job_id,
+                                        is_opening=True,
+                                        is_closing=False,
+                                        time=now,   # mesmo timestamp da closing (Q3)
+                                    )
+                                    if opening_inserted:
+                                        match_opening_inserted = True
+                                except Exception as e:
+                                    logger.warning(
+                                        f"[Flashscore] [OPENING] Falha ao inserir opening para "
+                                        f"{our_bm_key}/{entry['market_type']}: {e} — closing não afetada."
+                                    )
                             
                     if len(odds_entries) > 0:
                         markets_collected.append(m_key)
                         # Marca odds como coletadas no BD
                         await conn.execute("UPDATE matches SET flashscore_odds_collected = TRUE WHERE match_id = $1", match_id_uuid)
+                        # Contabiliza opening se ao menos uma linha de abertura foi inserida neste mercado
+                        if match_opening_inserted:
+                            metrics.opening_found += 1
+                            match_opening_inserted = False  # reset para o próximo mercado
                     else:
                         markets_failed.append(m_key)
-                        
+
                 except Exception as e:
                     logger.warning(f"[Flashscore] Erro no mercado {m_key} para {flashscore_id}: {e}")
                     markets_failed.append(m_key)
@@ -773,7 +825,10 @@ class FlashscoreOddsCollector(BaseCollector):
                             
                         metrics.total_processed += 1
                         logger.info(f"[Flashscore] Progresso: {idx+1}/{len(match_ids)} | Match: {fs_id}")
-                        result = await self.collect_match(browser, conn, m_uuid, fs_id, is_closing, job_id, metrics, is_prematch, kickoff)
+                        result = await self.collect_match(
+                            browser, conn, m_uuid, fs_id, is_closing, job_id, metrics,
+                            is_prematch, kickoff, skip_stats=kwargs.get("skip_stats", False)
+                        )
                         inserted = result["total_inserted"]
                         
                         if inserted > 0:
@@ -781,7 +836,6 @@ class FlashscoreOddsCollector(BaseCollector):
                             
                         total_collected += 1  # Conta matches processados
                         total_new += inserted
-                        
                         # Respeitar rate limits / evitar bans parecendo scripts
                         await asyncio.sleep(2)
                         
@@ -794,14 +848,14 @@ class FlashscoreOddsCollector(BaseCollector):
                                     source, total_matches, matches_with_odds,
                                     bet365_found, pinnacle_found, avg_bookmakers,
                                     unidentified_rows, unknown_bookmakers, parse_errors,
-                                    success_rate, alert_level, job_id
-                                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                                    success_rate, alert_level, job_id, opening_found
+                                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
                             ''', 
                             self.source_name, metrics.total_processed, metrics.with_odds,
                             metrics.bet365_found, metrics.pinnacle_found, metrics.avg_bookmakers,
                             metrics.unidentified_rows, list(metrics.unknown_bookmakers), metrics.parse_errors,
-                            metrics.success_rate, alert_level, job_id)
-                            logger.info(f"[Flashscore] HealthMetrics salvas: {metrics.success_rate:.1%} success rate | Level: {alert_level}")
+                            metrics.success_rate, alert_level, job_id, metrics.opening_found)
+                            logger.info(f"[Flashscore] HealthMetrics salvas: {metrics.success_rate:.1%} success rate | Level: {alert_level.replace('🔴', 'RED').replace('🟡', 'YELLOW').replace('🟢', 'GREEN')}")
                         except Exception as e:
                             logger.error(f"[Flashscore] Falha ao salvar scraping_health: {e}")
                             

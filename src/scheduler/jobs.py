@@ -29,6 +29,7 @@ NOTIFY_ON_SUCCESS: set[str] = {
     "flashscore_discovery",
     "db_backup",
     "run_data_quality_routine",
+    "flashscore_retrofit_daily",
 }
 
 def update_backfill_status(status: str, last_run_started: str = None, last_run_finished: str = None, last_error: str = None, processed_matches: int = None, details: str = None):
@@ -836,6 +837,72 @@ async def flashscore_historical_backfill():
             logger.warning("nordvpn_disconnect_failed", error=str(e))
 
     return {"job": "flashscore_historical_backfill", "records_count": records_count, "details": details}
+
+
+@safe_job
+async def flashscore_retrofit_daily():
+    """
+    Trigger: 01:15 BRT
+    Retrofit diário de opening odds usando a tabela retrofit_queue como controle de fila.
+    """
+    import subprocess
+    import sys
+
+    # Janela de tempo de segurança (3 horas de limite)
+    GUARD_SECONDS = 3 * 3600 + 300
+
+    try:
+        logger.info("spawning_flashscore_retrofit_subprocess")
+        proc = await asyncio.create_subprocess_exec(
+            "xvfb-run", "-a", sys.executable, "scripts/run_flashscore_retrofit.py",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        try:
+            stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                proc.communicate(), timeout=GUARD_SECONDS
+            )
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+            logger.error("flashscore_retrofit_subprocess_timeout", guard_s=GUARD_SECONDS)
+            raise RuntimeError(
+                f"Subprocess do retrofit não encerrou em {GUARD_SECONDS}s — processo morto forçadamente."
+            )
+
+        if proc.returncode != 0:
+            stderr_text = (stderr_bytes or b"").decode("utf-8", errors="replace")[-600:]
+            logger.error("flashscore_retrofit_subprocess_failed", returncode=proc.returncode)
+            raise RuntimeError(
+                f"Subprocess do retrofit encerrou com código {proc.returncode}.\n{stderr_text}"
+            )
+
+        logger.info("flashscore_retrofit_subprocess_success")
+
+        # Extrai estatísticas do stdout para o safe_job / Telegram
+        stdout_text = (stdout_bytes or b"").decode("utf-8", errors="replace")
+        import re as _re
+        
+        success_matches = 0
+        matches = _re.findall(r"Sucesso \(gravou opening\):\s*(\d+)", stdout_text)
+        if matches:
+            success_matches = sum(int(m) for m in matches)
+            
+        no_opening = 0
+        matches_no = _re.findall(r"Sem opening no Flashscore \(no_opening\):\s*(\d+)", stdout_text)
+        if matches_no:
+            no_opening = sum(int(m) for m in matches_no)
+
+        details = f"Sucesso (opening gravada): {success_matches}\nSem opening: {no_opening}"
+
+    except RuntimeError:
+        raise
+    except Exception as e:
+        logger.error("flashscore_retrofit_spawn_failed", error=str(e))
+        raise
+
+    return {"job": "flashscore_retrofit_daily", "records_count": success_matches, "details": details}
 
 
 @safe_job

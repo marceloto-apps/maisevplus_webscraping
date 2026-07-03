@@ -507,3 +507,291 @@ leagues:
       "2023/2024": { footystats: 9580, fd: null }
       "2024/2025": { footystats: 12326, fd: null }
       "2025/2026": { footystats: 15047, fd: null }
+
+  ZAF_PL:
+    name: "Premiership"
+    country: "South Africa"
+    tier: 3
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 0, fd: null }
+      "2022/2023": { footystats: 0, fd: null }
+      "2023/2024": { footystats: 0, fd: null }
+      "2024/2025": { footystats: 0, fd: null }
+      "2025/2026": { footystats: 0, fd: null }
+
+  BIH_PL:
+    name: "wwin Liga BiH"
+    country: "Bosnia & Herzegovina"
+    tier: 3
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 0, fd: null }
+      "2022/2023": { footystats: 0, fd: null }
+      "2023/2024": { footystats: 0, fd: null }
+      "2024/2025": { footystats: 0, fd: null }
+      "2025/2026": { footystats: 0, fd: null }
+
+  QAT_PL:
+    name: "QSL"
+    country: "Qatar"
+    tier: 3
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 0, fd: null }
+      "2022/2023": { footystats: 0, fd: null }
+      "2023/2024": { footystats: 0, fd: null }
+      "2024/2025": { footystats: 0, fd: null }
+      "2025/2026": { footystats: 0, fd: null }
+
+  CRC_PD:
+    name: "Primera Division"
+    country: "Costa Rica"
+    tier: 3
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 0, fd: null }
+      "2022/2023": { footystats: 0, fd: null }
+      "2023/2024": { footystats: 0, fd: null }
+      "2024/2025": { footystats: 0, fd: null }
+      "2025/2026": { footystats: 0, fd: null }
+
+  SVK_NL:
+    name: "Nike Liga"
+    country: "Slovakia"
+    tier: 3
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 0, fd: null }
+      "2022/2023": { footystats: 0, fd: null }
+      "2023/2024": { footystats: 0, fd: null }
+      "2024/2025": { footystats: 0, fd: null }
+      "2025/2026": { footystats: 0, fd: null }
+
+  EST_ML:
+    name: "Meistriliiga"
+    country: "Estonia"
+    tier: 3
+    season_format: "feb_dec"
+    seasons:
+      "2022": { footystats: 0, fd: null }
+      "2023": { footystats: 0, fd: null }
+      "2024": { footystats: 0, fd: null }
+      "2025": { footystats: 0, fd: null }
+      "2026": { footystats: 0, fd: null }
+
+  SVN_PL:
+    name: "Prva Liga"
+    country: "Slovenia"
+    tier: 3
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 0, fd: null }
+      "2022/2023": { footystats: 0, fd: null }
+      "2023/2024": { footystats: 0, fd: null }
+      "2024/2025": { footystats: 0, fd: null }
+      "2025/2026": { footystats: 0, fd: null }
+
+  GEO_CEL:
+    name: "Crystalbet Erovnuli Liga"
+    country: "Georgia"
+    tier: 3
+    season_format: "feb_dec"
+    seasons:
+      "2022": { footystats: 0, fd: null }
+      "2023": { footystats: 0, fd: null }
+      "2024": { footystats: 0, fd: null }
+      "2025": { footystats: 0, fd: null }
+      "2026": { footystats: 0, fd: null }
+
+  GRE_SL2:
+    name: "Super League 2"
+    country: "Greece"
+    tier: 3
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 0, fd: null }
+      "2022/2023": { footystats: 0, fd: null }
+      "2023/2024": { footystats: 0, fd: null }
+      "2024/2025": { footystats: 0, fd: null }
+      "2025/2026": { footystats: 0, fd: null }
+
+  HUN_NB2:
+    name: "NB II"
+    country: "Hungary"
+    tier: 3
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 0, fd: null }
+      "2022/2023": { footystats: 0, fd: null }
+      "2023/2024": { footystats: 0, fd: null }
+      "2024/2025": { footystats: 0, fd: null }
+      "2025/2026": { footystats: 0, fd: null }
+
+  FRO_PL:
+    name: "Premier League"
+    country: "Faroe Islands"
+    tier: 3
+    season_format: "feb_dec"
+    seasons:
+      "2022": { footystats: 0, fd: null }
+      "2023": { footystats: 0, fd: null }
+      "2024": { footystats: 0, fd: null }
+      "2025": { footystats: 0, fd: null }
+      "2026": { footystats: 0, fd: null }
+
+  IND_ISL:
+    name: "ISL"
+    country: "India"
+    tier: 3
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 0, fd: null }
+      "2022/2023": { footystats: 0, fd: null }
+      "2023/2024": { footystats: 0, fd: null }
+      "2024/2025": { footystats: 0, fd: null }
+      "2025/2026": { footystats: 0, fd: null }
+
+  IDN_SL:
+    name: "Liga 1"
+    country: "Indonesia"
+    tier: 3
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 0, fd: null }
+      "2022/2023": { footystats: 0, fd: null }
+      "2023/2024": { footystats: 0, fd: null }
+      "2024/2025": { footystats: 0, fd: null }
+      "2025/2026": { footystats: 0, fd: null }
+
+  NIR_PL:
+    name: "NIFL Premiership"
+    country: "Northern Ireland"
+    tier: 3
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 0, fd: null }
+      "2022/2023": { footystats: 0, fd: null }
+      "2023/2024": { footystats: 0, fd: null }
+      "2024/2025": { footystats: 0, fd: null }
+      "2025/2026": { footystats: 0, fd: null }
+
+  LVA_VS:
+    name: "Optibet Virsliga"
+    country: "Latvia"
+    tier: 3
+    season_format: "feb_dec"
+    seasons:
+      "2022": { footystats: 0, fd: null }
+      "2023": { footystats: 0, fd: null }
+      "2024": { footystats: 0, fd: null }
+      "2025": { footystats: 0, fd: null }
+      "2026": { footystats: 0, fd: null }
+
+  LTU_TL:
+    name: "A Lyga"
+    country: "Lithuania"
+    tier: 3
+    season_format: "feb_dec"
+    seasons:
+      "2022": { footystats: 0, fd: null }
+      "2023": { footystats: 0, fd: null }
+      "2024": { footystats: 0, fd: null }
+      "2025": { footystats: 0, fd: null }
+      "2026": { footystats: 0, fd: null }
+
+  MAR_BP:
+    name: "Botola Pro"
+    country: "Morocco"
+    tier: 3
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 0, fd: null }
+      "2022/2023": { footystats: 0, fd: null }
+      "2023/2024": { footystats: 0, fd: null }
+      "2024/2025": { footystats: 0, fd: null }
+      "2025/2026": { footystats: 0, fd: null }
+
+  WAL_CP:
+    name: "Cymru Premier"
+    country: "Wales"
+    tier: 3
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 0, fd: null }
+      "2022/2023": { footystats: 0, fd: null }
+      "2023/2024": { footystats: 0, fd: null }
+      "2024/2025": { footystats: 0, fd: null }
+      "2025/2026": { footystats: 0, fd: null }
+
+  POL_D1:
+    name: "Division 1"
+    country: "Poland"
+    tier: 3
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 0, fd: null }
+      "2022/2023": { footystats: 0, fd: null }
+      "2023/2024": { footystats: 0, fd: null }
+      "2024/2025": { footystats: 0, fd: null }
+      "2025/2026": { footystats: 0, fd: null }
+
+  CZE_CL:
+    name: "Chance Liga"
+    country: "Czech Republic"
+    tier: 3
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 0, fd: null }
+      "2022/2023": { footystats: 0, fd: null }
+      "2023/2024": { footystats: 0, fd: null }
+      "2024/2025": { footystats: 0, fd: null }
+      "2025/2026": { footystats: 0, fd: null }
+
+  RUS_PL:
+    name: "FNL"
+    country: "Russia"
+    tier: 3
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 0, fd: null }
+      "2022/2023": { footystats: 0, fd: null }
+      "2023/2024": { footystats: 0, fd: null }
+      "2024/2025": { footystats: 0, fd: null }
+      "2025/2026": { footystats: 0, fd: null }
+
+  TUR_1L:
+    name: "1. Lig"
+    country: "Turkey"
+    tier: 3
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 0, fd: null }
+      "2022/2023": { footystats: 0, fd: null }
+      "2023/2024": { footystats: 0, fd: null }
+      "2024/2025": { footystats: 0, fd: null }
+      "2025/2026": { footystats: 0, fd: null }
+
+  UKR_PL:
+    name: "Premier League"
+    country: "Ukraine"
+    tier: 3
+    season_format: "aug_may"
+    seasons:
+      "2021/2022": { footystats: 0, fd: null }
+      "2022/2023": { footystats: 0, fd: null }
+      "2023/2024": { footystats: 0, fd: null }
+      "2024/2025": { footystats: 0, fd: null }
+      "2025/2026": { footystats: 0, fd: null }
+
+  VEN_LF:
+    name: "Liga FUTVE"
+    country: "Venezuela"
+    tier: 3
+    season_format: "feb_dec"
+    seasons:
+      "2022": { footystats: 0, fd: null }
+      "2023": { footystats: 0, fd: null }
+      "2024": { footystats: 0, fd: null }
+      "2025": { footystats: 0, fd: null }
+      "2026": { footystats: 0, fd: null }

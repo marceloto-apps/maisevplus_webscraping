@@ -6,6 +6,10 @@ from src.collectors.flashscore.config import resolve_bookmaker
 
 logger = get_logger(__name__)
 
+# Separador que o Flashscore usa no atributo title para indicar movimento de odd.
+# Formato: "<abertura> » <fechamento>"  (U+00BB RIGHT-POINTING DOUBLE ANGLE QUOTATION MARK)
+_OPENING_SEPARATOR = '»'
+
 # Padrões conhecidos que NÃO são bookmakers (filtrar)
 _NOISE_PATTERNS = re.compile(
     r'livebet|livescore|advert|promo|banner|badge',
@@ -97,25 +101,34 @@ def _parse_line_value(raw_text: str, signed: bool = False) -> Optional[float]:
 
 def _extract_line_from_cell(row, signed: bool = False) -> Optional[float]:
     """
-    Extrai o valor da linha (handicap/total) a partir da célula CSS dedicada do Flashscore.
-    
-    O DOM do Flashscore usa a classe 'oddsCell__handicap' (ou variações) para a célula
-    que contém exclusivamente o valor da linha, sem misturar com bookmaker ou odds.
+    Extrai o valor da linha (handicap/total) a partir da célula dedicada do Flashscore.
+    Suporta seletores modernos (data-testid) e fallbacks legados.
     """
-    # Tentativa 1: Classe CSS específica do Flashscore para a célula de handicap/total
-    handicap_cell = row.find(
-        lambda tag: tag.name in ("a", "div", "span")
-        and tag.get("class")
-        and any("handicap" in c.lower() for c in (tag.get("class") or []))
-    )
+    # 1. Tentativa por data-testid (seletor moderno do Flashscore)
+    cell = row.find(lambda tag: tag.get("data-testid") == "wcl-oddsCell")
     
-    if handicap_cell:
-        # Dentro da célula, o valor pode estar num span filho ou ser texto direto
-        inner_span = handicap_cell.find("span")
-        raw = (inner_span.get_text(strip=True) if inner_span else handicap_cell.get_text(strip=True))
+    # 2. Tentativa por classe CSS específica (legado/fallback)
+    if not cell:
+        cell = row.find(
+            lambda tag: tag.name in ("a", "div", "span")
+            and tag.get("class")
+            and any("handicap" in c.lower() for c in (tag.get("class") or []))
+        )
+        
+    # 3. Fallback genérico para qualquer elemento de oddsCell que não seja link de odd/bookmaker
+    if not cell:
+        cell = row.find(
+            lambda tag: tag.name in ("div", "span")
+            and tag.get("class")
+            and any("oddscell" in c.lower() for c in (tag.get("class") or []))
+            and not any(x in "".join(tag.get("class")).lower() for x in ("oddscell__odd", "oddscell__bookmaker"))
+        )
+
+    if cell:
+        val_span = cell.find(lambda tag: tag.get("data-testid") == "wcl-oddsValue")
+        raw = (val_span.get_text(strip=True) if val_span else cell.get_text(strip=True))
         
         # Caso especial: Flashscore exibe célula vazia para handicap 0
-        # A célula CSS existe mas não contém texto visível
         if not raw and signed:
             return 0.0
         
@@ -228,18 +241,33 @@ class FlashscoreParser:
             cells = row.find_all("a", class_=lambda c: c and "oddsCell__odd" in c)
             
             vals = []
+            opening_vals = []  # valores de abertura extraídos do atributo title
             for cell in cells:
-                # O valor fica dentro de um <span> no link
-                # Pega todos os spans e filtra o que parece ser um número decimal
+                # 2a. Valor de FECHAMENTO — span visível dentro do link
                 inner_spans = cell.find_all("span")
+                closing_text = None
                 for span in inner_spans:
                     text = span.get_text(strip=True)
                     if text and re.match(r'^\d+\.?\d*$', text):
-                        vals.append(text)
+                        closing_text = text
                         break  # Pega só o primeiro span numérico de cada cell
+                vals.append(closing_text)
+
+                # 2b. Valor de ABERTURA — atributo title no formato "2.15 » 1.85"
+                # Ignorado silenciosamente se ausente ou sem separador (odd não se moveu).
+                title = cell.get('title', '') or ''
+                if _OPENING_SEPARATOR in title:
+                    opening_part = title.split(_OPENING_SEPARATOR)[0].strip()
+                    try:
+                        opening_vals.append(float(opening_part))
+                    except ValueError:
+                        opening_vals.append(None)
+                else:
+                    opening_vals.append(None)
             
-            # Substitui "-" por None e converte pra float
-            parsed_vals = [float(v) if v != "-" else None for v in vals if v]
+            # Filtra vals para remover Nones e converter pra float
+            parsed_vals = [float(v) if v and v != "-" else None for v in vals]
+            parsed_vals = [v for v in parsed_vals if v is not None]
             if not parsed_vals:
                 continue
                 
@@ -254,20 +282,16 @@ class FlashscoreParser:
                             "line": None,
                             "odds_1": parsed_vals[0],
                             "odds_x": parsed_vals[1],
-                            "odds_2": parsed_vals[2]
+                            "odds_2": parsed_vals[2],
+                            # Abertura: None se o title não tiver '»' (odd não se moveu)
+                            "opening_1": opening_vals[0] if len(opening_vals) > 0 else None,
+                            "opening_x": opening_vals[1] if len(opening_vals) > 1 else None,
+                            "opening_2": opening_vals[2] if len(opening_vals) > 2 else None,
                         })
                 elif sys_market == "ou":
                     # Over/Under: Bookmaker | Total Line | Over | Under
                     # Extrai a linha (total) pela célula CSS dedicada
                     line_val = _extract_line_from_cell(row, signed=False)
-                    
-                    # Fallback: regex no texto completo da row
-                    if line_val is None:
-                        line_text = row.get_text(separator=' ', strip=True)
-                        line_val = _parse_line_from_text(line_text, signed=False)
-                        # Validar que o fallback não pegou uma odd como linha
-                        if line_val is not None and not _is_valid_line(line_val):
-                            line_val = None
                     
                     if len(parsed_vals) >= 2 and line_val is not None:
                         # Frequentemente, a própria linha parseou no parsed_vals. 
@@ -278,6 +302,7 @@ class FlashscoreParser:
                             real_odds = parsed_vals[-2:]
                             
                         if len(real_odds) >= 2:
+                            # Abertura: células 0=Over, 1=Under (mesma ordem que closing)
                             results.append({
                                 "bookmaker": our_bm_key,
                                 "market_type": "ou",
@@ -285,20 +310,15 @@ class FlashscoreParser:
                                 "line": line_val,
                                 "odds_1": real_odds[0], # Over
                                 "odds_x": None,
-                                "odds_2": real_odds[1]  # Under
+                                "odds_2": real_odds[1], # Under
+                                "opening_1": opening_vals[0] if len(opening_vals) > 0 else None,
+                                "opening_x": None,
+                                "opening_2": opening_vals[1] if len(opening_vals) > 1 else None,
                             })
                 elif sys_market == "ah":
                     # Asian Handicap: Bookmaker | Handicap | ODD 1 | ODD 2
                     # Extrai a linha (handicap) pela célula CSS dedicada
                     line_val = _extract_line_from_cell(row, signed=True)
-                    
-                    # Fallback: regex no texto completo da row
-                    if line_val is None:
-                        line_text = row.get_text(separator=' ', strip=True)
-                        line_val = _parse_line_from_text(line_text, signed=True)
-                        # Validar que o fallback não pegou uma odd como linha
-                        if line_val is not None and not _is_valid_line(line_val):
-                            line_val = None
                     
                     # Fallback final para handicap 0:
                     # No Flashscore, quando o AH é 0 a célula oddsCell__handicap
@@ -316,7 +336,7 @@ class FlashscoreParser:
                     # As odds geralmente são as últimas duas colunas da row
                     if line_val is not None and len(parsed_vals) >= 2:
                         # odds1 = home, odds2 = away
-                        real_odds = parsed_vals[-2:] 
+                        real_odds = parsed_vals[-2:]
                         results.append({
                             "bookmaker": our_bm_key,
                             "market_type": "ah",
@@ -324,7 +344,10 @@ class FlashscoreParser:
                             "line": line_val,
                             "odds_1": real_odds[0],
                             "odds_x": None,
-                            "odds_2": real_odds[1]
+                            "odds_2": real_odds[1],
+                            "opening_1": opening_vals[0] if len(opening_vals) > 0 else None,
+                            "opening_x": None,
+                            "opening_2": opening_vals[1] if len(opening_vals) > 1 else None,
                         })
                 elif sys_market == "dc":
                     # Double Chance: 1X | 12 | X2
@@ -336,7 +359,10 @@ class FlashscoreParser:
                             "line": None,
                             "odds_1": parsed_vals[0], # 1X
                             "odds_x": parsed_vals[1], # 12
-                            "odds_2": parsed_vals[2]  # X2
+                            "odds_2": parsed_vals[2], # X2
+                            "opening_1": opening_vals[0] if len(opening_vals) > 0 else None,
+                            "opening_x": opening_vals[1] if len(opening_vals) > 1 else None,
+                            "opening_2": opening_vals[2] if len(opening_vals) > 2 else None,
                         })
                 elif sys_market == "dnb":
                     # Draw No Bet: 1 | 2
@@ -348,7 +374,10 @@ class FlashscoreParser:
                             "line": None,
                             "odds_1": parsed_vals[0], # 1
                             "odds_x": None,
-                            "odds_2": parsed_vals[1]  # 2
+                            "odds_2": parsed_vals[1], # 2
+                            "opening_1": opening_vals[0] if len(opening_vals) > 0 else None,
+                            "opening_x": None,
+                            "opening_2": opening_vals[1] if len(opening_vals) > 1 else None,
                         })
                 elif sys_market == "btts":
                     # Both Teams To Score: Yes | No
@@ -360,7 +389,10 @@ class FlashscoreParser:
                             "line": None,
                             "odds_1": parsed_vals[0], # Yes
                             "odds_x": None,
-                            "odds_2": parsed_vals[1]  # No
+                            "odds_2": parsed_vals[1], # No
+                            "opening_1": opening_vals[0] if len(opening_vals) > 0 else None,
+                            "opening_x": None,
+                            "opening_2": opening_vals[1] if len(opening_vals) > 1 else None,
                         })
             except Exception as e:
                 logger.debug(f"[FlashscoreParser] Ignorando row {bm_title} mal formatada: {e}")
