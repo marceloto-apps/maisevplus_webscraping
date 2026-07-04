@@ -279,7 +279,7 @@ class TestParseOddsTableAH:
     def test_integer_line(self):
         html = self._html_ah_row("-3")
         config = {"sys_market": "ah", "period": "ft"}
-        result = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
+        result, _ = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
         assert len(result) == 1
         assert result[0]["line"] == -3.0
         assert result[0]["odds_1"] == 1.90
@@ -288,35 +288,35 @@ class TestParseOddsTableAH:
     def test_zero_line(self):
         html = self._html_ah_row("0")
         config = {"sys_market": "ah", "period": "ft"}
-        result = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
+        result, _ = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
         assert len(result) == 1
         assert result[0]["line"] == 0.0
 
     def test_positive_integer_line(self):
         html = self._html_ah_row("+2")
         config = {"sys_market": "ah", "period": "ft"}
-        result = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
+        result, _ = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
         assert len(result) == 1
         assert result[0]["line"] == 2.0
 
     def test_quarter_line(self):
         html = self._html_ah_row("-3, -3.5")
         config = {"sys_market": "ah", "period": "ft"}
-        result = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
+        result, _ = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
         assert len(result) == 1
         assert result[0]["line"] == -3.25
 
     def test_half_line(self):
         html = self._html_ah_row("-0.5")
         config = {"sys_market": "ah", "period": "ft"}
-        result = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
+        result, _ = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
         assert len(result) == 1
         assert result[0]["line"] == -0.5
 
     def test_quarter_line_negative_zero(self):
         html = self._html_ah_row("-0.5, 0")
         config = {"sys_market": "ah", "period": "ft"}
-        result = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
+        result, _ = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
         assert len(result) == 1
         assert result[0]["line"] == -0.25
 
@@ -337,7 +337,7 @@ class TestParseOddsTableAH:
         </body></html>
         """
         config = {"sys_market": "ah", "period": "ft"}
-        result = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
+        result, _ = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
         assert len(result) == 1
         assert result[0]["line"] == 0.0
         assert result[0]["odds_1"] == 1.90
@@ -358,7 +358,7 @@ class TestParseOddsTableAH:
         </body></html>
         """
         config = {"sys_market": "ah", "period": "ft"}
-        result = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
+        result, _ = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
         assert len(result) == 1
         assert result[0]["line"] == 0.0
         assert result[0]["odds_1"] == 1.57
@@ -386,7 +386,7 @@ class TestParseOddsTableOU:
     def test_half_line(self):
         html = self._html_ou_row("2.5")
         config = {"sys_market": "ou", "period": "ft"}
-        result = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
+        result, _ = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
         assert len(result) == 1
         assert result[0]["line"] == 2.5
         assert result[0]["odds_1"] == 1.85
@@ -395,34 +395,34 @@ class TestParseOddsTableOU:
     def test_integer_line(self):
         html = self._html_ou_row("2")
         config = {"sys_market": "ou", "period": "ft"}
-        result = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
+        result, _ = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
         assert len(result) == 1
         assert result[0]["line"] == 2.0
 
     def test_integer_line_one(self):
         html = self._html_ou_row("1")
         config = {"sys_market": "ou", "period": "ft"}
-        result = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
+        result, _ = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
         assert len(result) == 1
         assert result[0]["line"] == 1.0
 
     def test_integer_line_three(self):
         html = self._html_ou_row("3")
         config = {"sys_market": "ou", "period": "ft"}
-        result = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
+        result, _ = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
         assert len(result) == 1
         assert result[0]["line"] == 3.0
 
     def test_quarter_line(self):
         html = self._html_ou_row("2, 2.5")
         config = {"sys_market": "ou", "period": "ft"}
-        result = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
+        result, _ = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
         assert len(result) == 1
         assert result[0]["line"] == 2.25
 
     def test_quarter_line_high(self):
         html = self._html_ou_row("3.5, 4")
         config = {"sys_market": "ou", "period": "ft"}
-        result = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
+        result, _ = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
         assert len(result) == 1
         assert result[0]["line"] == 3.75

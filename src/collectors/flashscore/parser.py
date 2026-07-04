@@ -121,7 +121,7 @@ def _extract_line_from_cell(row, signed: bool = False) -> Optional[float]:
             lambda tag: tag.name in ("div", "span")
             and tag.get("class")
             and any("oddscell" in c.lower() for c in (tag.get("class") or []))
-            and not any(x in "".join(tag.get("class")).lower() for x in ("oddscell__odd", "oddscell__bookmaker"))
+            and not any(x in "".join(tag.get("class")).lower() for x in ("oddscell__odd", "oddscellodd", "oddscell__bookmaker", "oddscellbookmaker"))
         )
 
     if cell:
@@ -238,7 +238,7 @@ class FlashscoreParser:
                 
             # 2. Extrai os valores numéricos da linha
             # Pega todas as <a> com classe oddsCell__odd
-            cells = row.find_all("a", class_=lambda c: c and "oddsCell__odd" in c)
+            cells = row.find_all("a", class_=lambda c: c and any(x in c.lower() for x in ("oddscell__odd", "oddscellodd")))
             
             vals = []
             opening_vals = []  # valores de abertura extraídos do atributo title
