@@ -117,7 +117,7 @@ async def main():
     batch_size = args.batch_size
     batches = [matches_list[i:i + batch_size] for i in range(0, len(matches_list), batch_size)]
     
-    updated_counts = {"finished": 0, "postponed": 0, "cancelled": 0, "ignored": 0}
+    updated_counts = {"finished": 0, "postponed": 0, "cancelled": 0, "rescheduled": 0, "ignored": 0}
     processed_count = 0
     
     print(f"Dividido em {len(batches)} lotes de tamanho máximo {batch_size}.\n")
@@ -169,12 +169,13 @@ async def main():
     except KeyboardInterrupt:
         print("\n[WARN] Execução interrompida pelo usuário.")
     finally:
-        total_updated = updated_counts["finished"] + updated_counts["postponed"] + updated_counts["cancelled"]
+        total_updated = updated_counts["finished"] + updated_counts["postponed"] + updated_counts["cancelled"] + updated_counts["rescheduled"]
         print("================ SUMMARY ================")
         print(f"Total avaliado: {processed_count}/{total_matches}")
         print(f"• Atualizados para Finalizados: {updated_counts['finished']}")
         print(f"• Atualizados para Adiados: {updated_counts['postponed']}")
         print(f"• Atualizados para Cancelados: {updated_counts['cancelled']}")
+        print(f"• Reagendados (novo kickoff): {updated_counts['rescheduled']}")
         print(f"• Ignorados/Inconclusivos: {updated_counts['ignored']}")
         print(f"Total de atualizações no banco de dados: {total_updated}")
         print("=========================================")

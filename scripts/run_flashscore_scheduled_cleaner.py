@@ -104,6 +104,36 @@ async def clean_match(conn, page, match_id_uuid, fs_id, home_team, away_team, ki
                         ht_away = int(parts_colon[1].strip())
                         break
 
+    # 3.5. Extrai e valida a data de kickoff do Flashscore
+    start_time_locator = page.locator(".duelParticipant__startTime")
+    page_kickoff_dt = None
+    if await start_time_locator.count() > 0:
+        time_text = await start_time_locator.first.inner_text()
+        time_text = time_text.strip()
+        # Expressão para DD.MM.YYYY HH:MM ou DD.MM. HH:MM
+        m = re.search(r'(\d{2})\.(\d{2})\.(?:\s*(\d{4}))?\s+(\d{2}):(\d{2})', time_text)
+        if m:
+            day = int(m.group(1))
+            month = int(m.group(2))
+            year_str = m.group(3)
+            hour = int(m.group(4))
+            minute = int(m.group(5))
+            
+            # Se não tiver ano explícito, assume o ano do kickoff atual no banco
+            if year_str:
+                year = int(year_str)
+            else:
+                year = kickoff.year
+                
+            from zoneinfo import ZoneInfo
+            sp_tz = ZoneInfo("America/Sao_Paulo")
+            page_kickoff_dt = datetime(year, month, day, hour, minute, tzinfo=sp_tz)
+
+    kickoff_changed = False
+    if page_kickoff_dt and abs((page_kickoff_dt - kickoff.astimezone(page_kickoff_dt.tzinfo)).total_seconds()) > 60:
+        kickoff_changed = True
+        logger.info(f"Partida {fs_id} teve kickoff alterado: DB={kickoff} -> Página={page_kickoff_dt}")
+
     # 4. Atualizar o DB conforme o resultado
     if match_status == "finished" and ft_home is not None and ft_away is not None:
         logger.info(f"Atualizando partida finalizada no DB: {home_team} {ft_home}-{ft_away} {away_team}")
@@ -112,10 +142,11 @@ async def clean_match(conn, page, match_id_uuid, fs_id, home_team, away_team, ki
             SET status = 'finished',
                 ft_home = $1, ft_away = $2,
                 ht_home = $3, ht_away = $4,
+                kickoff = CASE WHEN $5::boolean THEN $6::timestamptz ELSE kickoff END,
                 scraping_flashscore = FALSE,
                 updated_at = NOW()
-            WHERE match_id = $5
-        """, ft_home, ft_away, ht_home, ht_away, match_id_uuid)
+            WHERE match_id = $7
+        """, ft_home, ft_away, ht_home, ht_away, kickoff_changed, page_kickoff_dt, match_id_uuid)
         return "finished"
         
     elif match_status in ("postponed", "cancelled"):
@@ -123,12 +154,24 @@ async def clean_match(conn, page, match_id_uuid, fs_id, home_team, away_team, ki
         await conn.execute("""
             UPDATE matches
             SET status = $1,
+                kickoff = CASE WHEN $2::boolean THEN $3::timestamptz ELSE kickoff END,
                 scraping_flashscore = FALSE,
                 updated_at = NOW()
-            WHERE match_id = $2
-        """, match_status, match_id_uuid)
+            WHERE match_id = $4
+        """, match_status, kickoff_changed, page_kickoff_dt, match_id_uuid)
         return match_status
         
+    elif kickoff_changed:
+        logger.info(f"Atualizando apenas data de kickoff no DB para data futura: {page_kickoff_dt}")
+        await conn.execute("""
+            UPDATE matches
+            SET kickoff = $1,
+                status = 'scheduled',
+                updated_at = NOW()
+            WHERE match_id = $2
+        """, page_kickoff_dt, match_id_uuid)
+        return "rescheduled"
+
     else:
         logger.warning(f"Partida {fs_id} avaliada, mas nenhum status/placar conclusivo foi extraído (Status Text: '{status_text}')")
         return None
@@ -164,7 +207,7 @@ async def main():
             
         logger.info(f"Encontradas {len(rows)} partidas travadas no passado. Iniciando Camoufox...")
         
-        updated_counts = {"finished": 0, "postponed": 0, "cancelled": 0, "ignored": 0}
+        updated_counts = {"finished": 0, "postponed": 0, "cancelled": 0, "rescheduled": 0, "ignored": 0}
         
         async with AsyncCamoufox(headless=True, os="linux") as browser:
             context = await browser.new_context(
@@ -192,7 +235,7 @@ async def main():
             await page.close()
             await context.close()
             
-        total_updated = updated_counts["finished"] + updated_counts["postponed"] + updated_counts["cancelled"]
+        total_updated = updated_counts["finished"] + updated_counts["postponed"] + updated_counts["cancelled"] + updated_counts["rescheduled"]
         msg = (
             f"🧹 *Flashscore Scheduled Cleaner*\n"
             f"Status: SUCCESS\n\n"
@@ -200,6 +243,7 @@ async def main():
             f"• Atualizadas p/ Finalizadas: {updated_counts['finished']}\n"
             f"• Atualizadas p/ Adiadas: {updated_counts['postponed']}\n"
             f"• Atualizadas p/ Canceladas: {updated_counts['cancelled']}\n"
+            f"• Reagendadas (novo kickoff): {updated_counts['rescheduled']}\n"
             f"• Ignoradas (inconclusivo): {updated_counts['ignored']}\n\n"
             f"Total de atualizações no DB: {total_updated}"
         )
