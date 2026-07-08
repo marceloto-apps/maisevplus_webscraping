@@ -39,6 +39,15 @@ async def main():
     pool = await get_pool()
     
     async with pool.acquire() as conn:
+        # Recuperar ligas que ficaram travadas no status 'running' por mais de 6 horas
+        recovered = await conn.execute("""
+            UPDATE retrofit_queue
+            SET status = 'pending'
+            WHERE status = 'running' AND last_attempt_at < NOW() - INTERVAL '6 hours'
+        """)
+        if recovered != "UPDATE 0":
+            logger.info(f"Recuperadas ligas travadas em 'running': {recovered}")
+
         league_id = args.league_id
         
         # 1. Identificar qual liga processar
@@ -245,9 +254,13 @@ async def main():
                 logger.info(f"Todos os matches elegíveis da liga {league_id} foram concluídos.")
                 await conn.execute("UPDATE retrofit_queue SET status = 'completed' WHERE league_id = $1", league_id)
             else:
-                logger.warning(f"Execução finalizada com {remaining} partidas ainda elegíveis (concluídas com falhas temporárias).")
-                # Se completou o loop mas algumas falharam, muda para completed conforme instrução
-                await conn.execute("UPDATE retrofit_queue SET status = 'completed' WHERE league_id = $1", league_id)
+                logger.info(f"Execução parcial concluída. {remaining} partidas ainda elegíveis na liga {league_id}. Voltando status para 'pending'.")
+                await conn.execute("""
+                    UPDATE retrofit_queue
+                    SET status = 'pending',
+                        attempts = 0
+                    WHERE league_id = $1
+                """, league_id)
 
         # 5. Salvar métricas de saúde da coleta (HealthMetrics)
         # Denominador de saúde = success_matches + failed_matches. no_opening não conta como falha.
