@@ -64,13 +64,32 @@ async def main():
                 fs_id = match_div.get("id", "")[4:]
                 
             if fs_id:
-                odds_url = f"https://www.flashscore.com/match/{fs_id}/#/odds-comparison/1x2-odds/full-time"
-                logger.info(f"Navegando para página de odds da partida: {odds_url}")
+                base_match_url = f"https://www.flashscore.com/match/{fs_id}/"
+                logger.info(f"Navegando para página base do jogo: {base_match_url}")
                 try:
-                    await page.goto(odds_url, wait_until="domcontentloaded", timeout=30000)
-                    await page.wait_for_selector("div.ui-table__row, a.oddsCell__odd", timeout=15000)
+                    await page.goto(base_match_url, wait_until="domcontentloaded", timeout=30000)
                     await page.wait_for_timeout(2000)
-                    odds_html_sample = await page.content()
+                    
+                    # Tenta fechar cookie banner se existir
+                    try:
+                        accept_btn = page.locator('button#onetrust-accept-btn-handler')
+                        if await accept_btn.count() > 0:
+                            await accept_btn.click(timeout=3000)
+                            await page.wait_for_timeout(500)
+                    except Exception:
+                        pass
+                        
+                    # Clica na aba de odds
+                    await page.wait_for_selector("a[href*='/odds/']", timeout=10000)
+                    odds_tab = await page.query_selector("a[href*='/odds/']")
+                    if odds_tab:
+                        await odds_tab.click()
+                        await page.wait_for_timeout(3000)
+                        
+                        # Aguarda a tabela de odds carregar
+                        await page.wait_for_selector("div.ui-table__row, a[class*='oddsCell']", timeout=15000)
+                        await page.wait_for_timeout(2000)
+                        odds_html_sample = await page.content()
                 except Exception as e:
                     logger.warning(f"Erro ao navegar/aguardar página de odds: {e}")
                     
@@ -116,12 +135,12 @@ async def main():
                 
                 # Validação do seletor da opening odd no HTML da página de odds
                 odds_soup = BeautifulSoup(odds_html_sample, "html.parser")
-                odd_cells = odds_soup.find_all("a", class_=lambda c: c and "oddsCell__odd" in c)
+                odd_cells = odds_soup.find_all("a", class_=lambda c: c and any(x in c.lower() for x in ("oddscell__odd", "oddscellodd")))
                 
                 # Verifica se encontrou células de odds
                 if not odd_cells:
                     failed_field = "oddsCell__odd (células de odds)"
-                    error_reason = "Nenhuma célula de odd ('a.oddsCell__odd') foi encontrada no HTML da página de comparação de odds."
+                    error_reason = "Nenhuma célula de odd ('a.oddsCell__odd' / 'a.oddsCellodd') foi encontrada no HTML da página de comparação de odds."
                     match_html_sample = odds_html_sample[:1200]
                 else:
                     # Verifica se pelo menos uma célula tem o separador '»' no title
