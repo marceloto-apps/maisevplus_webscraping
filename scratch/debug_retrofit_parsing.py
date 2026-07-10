@@ -88,6 +88,9 @@ async def main():
             print("Tabela de odds carregou via selector.")
         except Exception as e:
             print(f"Timeout ao carregar tabela de odds: {e}")
+            print(f"Page Title: {await page.title()}")
+            body_text = await page.locator("body").inner_text()
+            print(f"Page body text snippet (first 1000 chars):\n{body_text[:1000]}")
             # Tira um screenshot para diagnóstico
             screenshot_path = "scratch/failed_match_screenshot.png"
             await page.screenshot(path=screenshot_path)
