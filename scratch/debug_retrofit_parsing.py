@@ -55,11 +55,10 @@ async def main():
         )
         page = await context.new_page()
         
-        # URL da aba 1x2_ft
-        url = f"https://www.flashscore.com/match/{flashscore_id}/#/odds-comparison/1x2-odds/full-time"
-        print(f"Navegando para {url}...")
-        
-        await page.goto(url, wait_until="domcontentloaded", timeout=40000)
+        # 1. Navegar primeiro para a página base
+        base_url = f"https://www.flashscore.com/match/{flashscore_id}/"
+        print(f"Navegando para base: {base_url}...")
+        await page.goto(base_url, wait_until="domcontentloaded", timeout=40000)
         
         # Aceita cookies
         try:
@@ -71,10 +70,21 @@ async def main():
         except Exception:
             print("Botão de cookies não apareceu.")
 
+        # 2. Computar a URL real de odds igual em produção
+        current_url = page.url
+        if "flashscore.com/match/" in current_url:
+            base_clean = current_url.split("?")[0].rstrip("/")
+            odds_url = f"{base_clean}/odds/1x2-odds/full-time/?mid={flashscore_id}"
+        else:
+            odds_url = f"https://www.flashscore.com/match/{flashscore_id}/#/odds-comparison/1x2-odds/full-time"
+            
+        print(f"Navegando para odds real: {odds_url}...")
+        await page.goto(odds_url, wait_until="domcontentloaded", timeout=40000)
+
         # Aguarda a tabela de odds carregar
-        selector = "div.ui-table"
+        selector = "div.ui-table__row, a.oddsCell__odd"
         try:
-            await page.wait_for_selector(selector, timeout=10000)
+            await page.wait_for_selector(selector, timeout=15000)
             print("Tabela de odds carregou via selector.")
         except Exception as e:
             print(f"Timeout ao carregar tabela de odds: {e}")
