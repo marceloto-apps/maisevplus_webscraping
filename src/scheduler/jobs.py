@@ -847,6 +847,27 @@ async def flashscore_retrofit_daily():
     """
     import subprocess
     import sys
+    import random
+    import re
+
+    # 1. Tentar conectar ao Brasil via NordVPN para carregar bookmakers brasileiros (ex: bet365/Betano)
+    servers = ["br89", "br105", "br75", "br116", "br76", "br81"]
+    target_server = random.choice(servers)
+    
+    try:
+        logger.info("nordvpn_connecting_for_retrofit", server=target_server)
+        subprocess.run(["nordvpn", "connect", target_server], check=True, capture_output=True, text=True, timeout=45)
+        
+        status_res = subprocess.run(["nordvpn", "status"], capture_output=True, text=True, timeout=20)
+        ip_match = re.search(r"\bIP:\s*([\d\.]+)", status_res.stdout)
+        new_ip = ip_match.group(1) if ip_match else "Desconhecido"
+        logger.info("nordvpn_connected_for_retrofit_ok", server=target_server, ip=new_ip)
+    except FileNotFoundError:
+        logger.warning("nordvpn_binary_not_found_skipping_rotation_for_retrofit")
+    except subprocess.CalledProcessError as e:
+        logger.error("nordvpn_failed_for_retrofit", error=e.stderr.strip())
+    except subprocess.TimeoutExpired as e:
+        logger.error("nordvpn_timeout_for_retrofit", cmd=str(e.cmd), timeout=e.timeout)
 
     # Janela de tempo de segurança (3 horas de limite)
     GUARD_SECONDS = 3 * 3600 + 300
@@ -899,6 +920,16 @@ async def flashscore_retrofit_daily():
 
     except RuntimeError:
         raise
+    finally:
+        # Garante desconexão da NordVPN ao final do processo
+        try:
+            logger.info("nordvpn_disconnecting_after_retrofit")
+            subprocess.run(["nordvpn", "disconnect"], check=True, capture_output=True, text=True, timeout=30)
+            logger.info("nordvpn_disconnected_after_retrofit_ok")
+        except FileNotFoundError:
+            pass
+        except Exception as e:
+            logger.warning("nordvpn_disconnect_after_retrofit_failed", error=str(e))
     except Exception as e:
         logger.error("flashscore_retrofit_spawn_failed", error=str(e))
         raise
