@@ -920,6 +920,9 @@ async def flashscore_retrofit_daily():
 
     except RuntimeError:
         raise
+    except Exception as e:
+        logger.error("flashscore_retrofit_spawn_failed", error=str(e))
+        raise
     finally:
         # Garante desconexão da NordVPN ao final do processo
         try:
@@ -930,9 +933,6 @@ async def flashscore_retrofit_daily():
             pass
         except Exception as e:
             logger.warning("nordvpn_disconnect_after_retrofit_failed", error=str(e))
-    except Exception as e:
-        logger.error("flashscore_retrofit_spawn_failed", error=str(e))
-        raise
 
     return {"job": "flashscore_retrofit_daily", "records_count": success_matches, "details": details}
 
