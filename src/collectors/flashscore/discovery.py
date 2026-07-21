@@ -30,34 +30,54 @@ def _extract_team_name(node) -> str:
     O Flashscore injeta elementos filho com textos de status ("Winner", "Advancing to next round: X",
     etc.) dentro do mesmo nó pai. O get_text() ingênuo os concatena ao nome.
 
-    Estratégia:
-      1. Tenta encontrar o elemento específico do nome do time via classes 'name' ou atributo data-testid.
-      2. Se não encontrar, tenta o primeiro NavigableString direto do nó.
-      3. Como último recurso, clona o nó, remove tags de metadados indesejados (SVG, button) e extrai o texto.
+    Estratégia (em ordem de prioridade, da mais específica à mais genérica):
+      1. Tenta o span com classe wcl-name_* (CSS Module do novo layout — mais preciso).
+         Este seletor evita duplicar o nome que também aparece no atributo alt da <img>.
+      2. Tenta encontrar o elemento por classe genérica 'name' ou 'participantName'.
+      3. Tenta o atributo alt da <img> de escudo do time (limpo e direto).
+      4. Tenta o primeiro NavigableString direto do nó.
+      5. Como último recurso, clona o nó, remove tags de metadados indesejados e extrai get_text().
     """
-    # 1. Tentar encontrar o elemento específico do nome do time (span com classe contendo 'name')
-    name_el = node.find(class_=re.compile(r'name|participantName', re.I))
-    if not name_el:
-        name_el = node.find(attrs={"data-testid": "wcl-scores-simple-text-01"})
-    
+    # 1. Span com classe wcl-name_* — introduzido no novo layout (2025+)
+    #    A classe usa CSS Modules com sufixo hash (ex: wcl-name_jjfMf), mas sempre começa com "wcl-name"
+    name_el = node.find(lambda tag: tag.name == "span" and tag.get("class")
+                        and any(c.startswith("wcl-name") for c in tag.get("class", [])))
     if name_el:
         raw = name_el.get_text(strip=True)
-        return _TEAM_SUFFIX_RE.sub("", raw).strip()
+        if raw:
+            return _TEAM_SUFFIX_RE.sub("", raw).strip()
+
+    # 2. Span/div com classe genérica 'name' ou 'participantName' (legado)
+    name_el = node.find(class_=re.compile(r'\bname\b|participantName', re.I))
+    if name_el:
+        raw = name_el.get_text(strip=True)
+        if raw:
+            return _TEAM_SUFFIX_RE.sub("", raw).strip()
+
+    # 3. Atributo alt da <img> de escudo — geralmente contém o nome limpo do time
+    img_el = node.find("img", attrs={"data-testid": "wcl-participantLogo"})
+    if not img_el:
+        img_el = node.find("img", alt=True)
+    if img_el:
+        alt = (img_el.get("alt") or "").strip()
+        if alt:
+            return _TEAM_SUFFIX_RE.sub("", alt).strip()
 
     from bs4 import NavigableString
-    # 2. Primeiro NavigableString direto — geralmente é o nome puro do time
+    # 4. Primeiro NavigableString direto — geralmente é o nome puro do time no layout legado
     for child in node.children:
         if isinstance(child, NavigableString):
             text = str(child).strip()
             if text:
                 return text
 
-    # 3. Fallback: get_text() completo, mas antes clona e decompõe elementos indesejados (SVG com cartões vermelhos, etc.)
+    # 5. Fallback: get_text() completo, mas antes clona e decompõe elementos indesejados
+    #    (SVG com cartões vermelhos, <img>, <button>, etc.)
     import copy
     node_copy = copy.copy(node)
-    for bad_tag in node_copy.find_all(['svg', 'button', 'script', 'style']):
+    for bad_tag in node_copy.find_all(['svg', 'button', 'script', 'style', 'img']):
         bad_tag.decompose()
-        
+
     raw = node_copy.get_text(strip=True)
     return _TEAM_SUFFIX_RE.sub("", raw).strip()
 
@@ -172,20 +192,39 @@ class FlashscoreDiscovery(BaseCollector):
                 return tid
             return None
 
-        for match_div in soup.find_all("div", id=re.compile(r"^g_1_")):
+        match_divs = soup.find_all("div", id=re.compile(r"^g_1_"))
+        if not match_divs:
+            # Diagnóstico: loga um trecho do HTML para facilitar depuração de mudanças de layout
+            body = soup.find("body")
+            html_sample = str(body)[:800] if body else html[:800]
+            logger.warning(
+                f"[FlashscoreDiscovery] Nenhum nó 'div[id^=g_1_]' encontrado na página {url}. "
+                f"HTML pode não ter renderizado (JS/anti-bot?). "
+                f"Tamanho do HTML: {len(html)} bytes. Trecho: {html_sample[:200]!r}"
+            )
+
+        for match_div in match_divs:
             try:
                 fs_id = match_div["id"].replace("g_1_", "")
-                
+
                 home_node = match_div.find("div", class_=re.compile("homeParticipant"))
                 away_node = match_div.find("div", class_=re.compile("awayParticipant"))
+
+                # Seletor de tempo: tenta classe semântica legada primeiro, depois data-testid moderno
                 time_node = match_div.find(class_=re.compile(r"event__(stageTime|time)"))
-                
+                if not time_node:
+                    time_node = match_div.find(attrs={"data-testid": "wcl-stageTime"})
+
                 if not home_node or away_node is None or not time_node:
                     continue
-                    
+
                 home_team = _extract_team_name(home_node)
                 away_team = _extract_team_name(away_node)
-                date_text = time_node.get_text(strip=True) # Ex: "22.03. 15:15" ou "16.12.2023 15:15"
+
+                # Extração de data/hora: prefere o span interno com o conteúdo textual
+                # (o span pai data-testid="wcl-stageTime" contém um span filho com o texto limpo)
+                inner_time = time_node.find(attrs={"data-testid": "wcl-scores-simple-text-01"})
+                date_text = (inner_time or time_node).get_text(strip=True)  # Ex: "22.03. 15:15"
                 
                 # Parse do kickoff com hora e minuto
                 date_match = re.search(r'(\d{1,2})\.(\d{1,2})\.(?:\s*(\d{4}))?\s+(\d{1,2}):(\d{1,2})', date_text)
@@ -222,15 +261,29 @@ class FlashscoreDiscovery(BaseCollector):
                 
                 if mode == "results" or "results" in url:
                     status = 'finished'
-                    score_home_node = match_div.find(class_=re.compile("event__score--home"))
-                    score_away_node = match_div.find(class_=re.compile("event__score--away"))
+
+                    # Placar FT: tenta classe semântica legada, depois data-testid + data-side modernos
+                    score_home_node = match_div.find(class_=re.compile(r"event__score--home"))
+                    score_away_node = match_div.find(class_=re.compile(r"event__score--away"))
+
+                    # Fallback moderno: span[data-testid='wcl-tableScore'][data-side='home/away']
+                    if not score_home_node:
+                        score_home_node = match_div.find(
+                            attrs={"data-testid": "wcl-tableScore", "data-side": "home"}
+                        )
+                    if not score_away_node:
+                        score_away_node = match_div.find(
+                            attrs={"data-testid": "wcl-tableScore", "data-side": "away"}
+                        )
+
                     if score_home_node and score_away_node:
                         try:
                             ft_home = int(score_home_node.get_text(strip=True))
                             ft_away = int(score_away_node.get_text(strip=True))
                         except ValueError:
                             pass
-                            
+
+                    # Placar HT: tenta div.event__part (legado)
                     part_node = match_div.find("div", class_="event__part")
                     if part_node:
                         part_text = part_node.get_text(strip=True)
@@ -395,9 +448,13 @@ class FlashscoreDiscovery(BaseCollector):
 
                             await page.goto(url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
 
-                            # Espera explícita pelo primeiro jogo renderizar (sinal que o JS principal rodou)
+                            # Espera explícita pelo primeiro jogo renderizar (sinal que o JS principal rodou).
+                            # Tenta seletor legado (div[id^="g_1_"]) e depois o novo link interno (a[id^="match-row-g_1_"]).
                             try:
-                                await page.wait_for_selector('div[id^="g_1_"]', timeout=15000)
+                                await page.wait_for_selector(
+                                    'div[id^="g_1_"], a[id^="match-row-g_1_"]',
+                                    timeout=20000
+                                )
                             except Exception:
                                 logger.warning(f"[Flashscore] Timeout esperando os jogos carregarem em: {url}")
                                 # Continua para tentar mesmo assim (pode não haver jogos listados)

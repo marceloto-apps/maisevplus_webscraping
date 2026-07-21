@@ -49,7 +49,7 @@ async def main():
             # 1. Carrega a listagem de fixtures
             await page.goto(url, wait_until="domcontentloaded", timeout=30000)
             try:
-                await page.wait_for_selector('div[id^="g_1_"]', timeout=15000)
+                await page.wait_for_selector('div[id^="g_1_"], a[id^="match-row-g_1_"]', timeout=20000)
             except Exception:
                 pass
                 
@@ -104,6 +104,8 @@ async def main():
             error_reason = "Nenhum div g_1_ (nó de partida) foi encontrado na página."
             body = soup.find("body")
             match_html_sample = str(body)[:1000] if body else html[:1000]
+            # Adiciona contexto extra: tamanho do HTML e URL final (para detectar anti-bot/redirecionamentos)
+            error_reason += f" | HTML size: {len(html)} bytes | URL final: {page.url if 'page' in dir() else url}"
         else:
             match_html_sample = str(match_div)[:1200]
             fs_id = match_div.get("id", "")[4:]
