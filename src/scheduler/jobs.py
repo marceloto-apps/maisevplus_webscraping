@@ -874,9 +874,12 @@ async def flashscore_retrofit_daily():
 
     try:
         logger.info("spawning_flashscore_retrofit_subprocess")
+        cmd = [sys.executable, "scripts/run_flashscore_retrofit.py", "--limit-matches", "400", "--headless"]
+        if sys.platform != "win32":
+            cmd = ["xvfb-run", "-a"] + cmd
+
         proc = await asyncio.create_subprocess_exec(
-            "xvfb-run", "-a", sys.executable, "scripts/run_flashscore_retrofit.py",
-            "--limit-matches", "400", "--headless",
+            *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )

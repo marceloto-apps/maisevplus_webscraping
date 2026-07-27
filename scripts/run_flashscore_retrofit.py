@@ -153,10 +153,10 @@ async def main():
                     
                     logger.info(f"[{b_idx+1}/{len(batches)}] Retrofit match {idx+1}/{len(batch)} | FS ID: {fs_id}")
                     
-                    async with pool.acquire() as conn:
-                        try:
-                            # Executar coleta para esta partida única
-                            # is_closing=False garante a lógica de capturar e persistir a opening
+                    has_opening = False
+                    try:
+                        # Executar coleta para esta partida única com conexão isolada
+                        async with pool.acquire() as conn:
                             result = await collector.collect_match(
                                 browser, conn, m_uuid, fs_id,
                                 is_closing=False, job_id=job_id, metrics=metrics,
@@ -172,45 +172,52 @@ async def main():
                                 )
                             """, m_uuid)
                             
+                        # Atualiza estatísticas e log da partida em conexão dedicada
+                        async with pool.acquire() as conn:
+                            status = 'success' if has_opening else 'no_opening'
                             if has_opening:
-                                status = 'success'
                                 success_matches += 1
-                                error_msg = None
                             else:
-                                status = 'no_opening'
                                 no_opening_matches += 1
-                                error_msg = None
                                 
-                            # Atualizar log da partida
                             await conn.execute("""
                                 INSERT INTO retrofit_match_log (match_id, league_id, status, error_message, processed_at)
-                                VALUES ($1, $2, $3, $4, NOW())
+                                VALUES ($1, $2, $3, NULL, NOW())
                                 ON CONFLICT (match_id) DO UPDATE SET
                                     status = EXCLUDED.status,
                                     error_message = EXCLUDED.error_message,
                                     processed_at = NOW()
-                            """, m_uuid, league_id, status, error_msg)
+                            """, m_uuid, league_id, status)
                             
-                        except Exception as e:
-                            logger.error(f"Falha catastrófica ao processar match {fs_id}: {e}")
-                            failed_matches += 1
-                            # Gravar status como failed
                             await conn.execute("""
-                                INSERT INTO retrofit_match_log (match_id, league_id, status, error_message, processed_at)
-                                VALUES ($1, $2, 'failed', $3, NOW())
-                                ON CONFLICT (match_id) DO UPDATE SET
-                                    status = EXCLUDED.status,
-                                    error_message = EXCLUDED.error_message,
-                                    processed_at = NOW()
-                            """, m_uuid, league_id, str(e))
-                        
-                        # Atualizar contadores na retrofit_queue de forma incremental
-                        await conn.execute("""
-                            UPDATE retrofit_queue
-                            SET processed_matches = processed_matches + 1,
-                                success_matches = success_matches + $2
-                            WHERE league_id = $1
-                        """, league_id, 1 if (has_opening if 'has_opening' in locals() else False) else 0)
+                                UPDATE retrofit_queue
+                                SET processed_matches = processed_matches + 1,
+                                    success_matches = success_matches + $2
+                                WHERE league_id = $1
+                            """, league_id, 1 if has_opening else 0)
+                            
+                    except Exception as e:
+                        logger.error(f"Falha ao processar match {fs_id}: {e}")
+                        failed_matches += 1
+                        # Gravar status como failed usando conexão nova e segura
+                        try:
+                            async with pool.acquire() as err_conn:
+                                await err_conn.execute("""
+                                    INSERT INTO retrofit_match_log (match_id, league_id, status, error_message, processed_at)
+                                    VALUES ($1, $2, 'failed', $3, NOW())
+                                    ON CONFLICT (match_id) DO UPDATE SET
+                                        status = EXCLUDED.status,
+                                        error_message = EXCLUDED.error_message,
+                                        processed_at = NOW()
+                                """, m_uuid, league_id, str(e)[:500])
+                                
+                                await err_conn.execute("""
+                                    UPDATE retrofit_queue
+                                    SET processed_matches = processed_matches + 1
+                                    WHERE league_id = $1
+                                """, league_id)
+                        except Exception as log_err:
+                            logger.error(f"Erro ao salvar retrofit_match_log de falha para {fs_id}: {log_err}")
 
                     # Respeitar rate limits
                     await asyncio.sleep(2.0)
