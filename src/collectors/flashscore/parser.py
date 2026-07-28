@@ -254,8 +254,9 @@ class FlashscoreParser:
                 vals.append(closing_text)
 
                 # 2b. Valor de ABERTURA — atributo title no formato "2.15 » 1.85"
-                # Ignorado silenciosamente se ausente ou sem separador (odd não se moveu).
-                title = cell.get('title', '') or ''
+                # Se houver separador '»', extrai a primeira parte (abertura).
+                # Se a odd não se moveu (sem '»'), a abertura é igual à odd de fechamento (title ou closing_text).
+                title = (cell.get('title', '') or '').strip()
                 if _OPENING_SEPARATOR in title:
                     opening_part = title.split(_OPENING_SEPARATOR)[0].strip()
                     try:
@@ -263,7 +264,18 @@ class FlashscoreParser:
                     except ValueError:
                         opening_vals.append(None)
                 else:
-                    opening_vals.append(None)
+                    opening_val = None
+                    if title:
+                        try:
+                            opening_val = float(title)
+                        except ValueError:
+                            pass
+                    if opening_val is None and closing_text:
+                        try:
+                            opening_val = float(closing_text)
+                        except ValueError:
+                            pass
+                    opening_vals.append(opening_val)
             
             # Filtra vals para remover Nones e converter pra float
             parsed_vals = [float(v) if v and v != "-" else None for v in vals]

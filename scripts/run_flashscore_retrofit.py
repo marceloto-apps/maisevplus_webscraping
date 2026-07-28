@@ -101,6 +101,7 @@ async def main():
             FROM matches m
             WHERE m.league_id = $1
               AND m.flashscore_id IS NOT NULL
+              AND m.kickoff <= NOW()
               AND NOT EXISTS (
                   SELECT 1 FROM odds_history o
                   WHERE o.match_id = m.match_id AND o.is_opening = TRUE
@@ -109,7 +110,7 @@ async def main():
                   SELECT 1 FROM retrofit_match_log l
                   WHERE l.match_id = m.match_id AND l.status = 'no_opening'
               )
-            ORDER BY m.kickoff
+            ORDER BY m.kickoff DESC
         """, league_id)
         
         total_eligible = len(matches)

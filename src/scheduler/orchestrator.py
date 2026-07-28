@@ -24,6 +24,7 @@ from src.scheduler.jobs import (
     prematch_tracking_1,
     prematch_tracking_2,
     prematch_tracking_3,
+    prematch_tracking_4,
     health_check,
     set_scheduler,
     run_data_quality_routine,
@@ -200,49 +201,50 @@ class AppOrchestrator:
             misfire_grace_time=3600
         )
 
-        # 11:05 - Flashscore Backfill (janela 3)
-        self.scheduler.add_job(
-            flashscore_historical_backfill,
-            'cron',
-            hour=11, minute=5,
-            id="flashscore_backfill_3",
-            misfire_grace_time=3600
-        )
-
-        # 13:50 - Flashscore Prematch Tracking 2 (Max 1h50m duration)
+        # 11:05 - Flashscore Prematch Tracking 2 (Max 1h50m duration)
         self.scheduler.add_job(
             prematch_tracking_2,
             'cron',
-            hour=13, minute=50,
+            hour=11, minute=5,
             id="prematch_tracking_2",
             misfire_grace_time=1800,
             replace_existing=True
         )
 
-        # 15:50 - Flashscore Backfill (janela 4)
+        # 13:50 - Flashscore Backfill (janela 3)
         self.scheduler.add_job(
             flashscore_historical_backfill,
             'cron',
-            hour=15, minute=50,
-            id="flashscore_backfill_4",
+            hour=13, minute=50,
+            id="flashscore_backfill_3",
             misfire_grace_time=3600
         )
 
-        # 18:35 - Flashscore Backfill (janela 5)
-        self.scheduler.add_job(
-            flashscore_historical_backfill,
-            'cron',
-            hour=18, minute=35,
-            id="flashscore_backfill_5",
-            misfire_grace_time=3600
-        )
-
-        # 21:20 - Flashscore Prematch Tracking 3 (Max 2h30m duration)
+        # 15:50 - Flashscore Prematch Tracking 3 (Max 1h50m duration)
         self.scheduler.add_job(
             prematch_tracking_3,
             'cron',
-            hour=21, minute=20,
+            hour=15, minute=50,
             id="prematch_tracking_3",
+            misfire_grace_time=1800,
+            replace_existing=True
+        )
+
+        # 18:35 - Flashscore Retrofit Daily (janela 2)
+        self.scheduler.add_job(
+            flashscore_retrofit_daily,
+            'cron',
+            hour=18, minute=35,
+            id="flashscore_retrofit_2",
+            misfire_grace_time=3600
+        )
+
+        # 21:20 - Flashscore Prematch Tracking 4 (Max 2h30m duration)
+        self.scheduler.add_job(
+            prematch_tracking_4,
+            'cron',
+            hour=21, minute=20,
+            id="prematch_tracking_4",
             misfire_grace_time=1800,
             replace_existing=True
         )

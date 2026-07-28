@@ -98,6 +98,23 @@ LEAGUE_FLASHSCORE_PATHS: Dict[str, str] = {
     "TUR_1L": "football/turkey/1-lig",
     "UKR_PL": "football/ukraine/premier-league",
     "VEN_LF": "football/venezuela/liga-futve",
+    "GER_3L": "football/germany/3-liga",
+    "SAU_SPL": "football/saudi-arabia/saudi-pro-league",
+    "ARG_TF": "football/argentina/torneo-federal",
+    "BHR_PL": "football/bahrain/premier-league",
+    "BLR_VL": "football/belarus/vysshaya-liga",
+    "BRA_SC": "football/brazil/serie-c",
+    "CHI_LDA": "football/chile/liga-de-ascenso",
+    "CHN_L1": "football/china/jia-league",
+    "CRO_PNL": "football/croatia/prva-nl",
+    "DEN_D1": "football/denmark/1st-division",
+    "FIN_YKK2": "football/finland/ykkonen",
+    "FRA_NAT": "football/france/national",
+    "ISR_LL": "football/israel/leumit-league",
+    "ITA_SCA": "football/italy/serie-c-group-a",
+    "ITA_SCB": "football/italy/serie-c-group-b",
+    "ITA_SCC": "football/italy/serie-c-group-c",
+    "THA_TL1": "football/thailand/thai-league-1",
 }
 
 

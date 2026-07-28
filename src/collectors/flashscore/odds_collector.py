@@ -578,33 +578,54 @@ class FlashscoreOddsCollector(BaseCollector):
                 except Exception as e:
                     logger.error(f"[Flashscore] [STATS] Falha ao coletar/salvar estatísticas para {flashscore_id}: {e}")
 
-            # 3. Navegar diretamente para a URL de odds-comparison (1x2 FT).
-            # Para evitar erros de SPA routing e redirecionamentos, usamos a URL canônica resolvida
-            # (page.url) e montamos o path de odds direto. Se page.url não for resolvida, usa o fallback de hash.
-            current_url = page.url
-            if "flashscore.com/match/" in current_url:
-                base_clean = current_url.split("?")[0].rstrip("/")
-                odds_url = f"{base_clean}/odds/1x2-odds/full-time/?mid={flashscore_id}"
-            else:
-                odds_url = f"https://www.flashscore.com/match/{flashscore_id}/#/odds-comparison/1x2-odds/full-time"
-
-            logger.debug(f"[Flashscore] Navegando diretamente para odds: {odds_url}")
+            # 3. Navegar para a aba de odds (1x2 FT) clicando no botão ODDS via SPA
             try:
-                await page.goto(odds_url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
-            except Exception as e:
-                logger.warning(f"[Flashscore] Timeout navegando para odds de {flashscore_id}: {e}")
+                await page.wait_for_selector("div[role='tablist'], a[href*='/odds/'], a[href*='/1x2-odds/']", timeout=10000)
+            except Exception:
+                pass
 
-            # 4. Aguardar tabela de odds — polling do HTML com timeout total de 25s.
-            # Fallback: wait_for_selector primeiro (mais rápido quando funciona),
-            # depois poll do source (mais confiável com SPAs lentas ou anti-bot delays).
+            odds_clicked = await page.evaluate('''() => {
+                let ot = document.getElementById('onetrust-consent-sdk');
+                if (ot) ot.style.display = 'none';
+                
+                // 1. Tentar por link semântico a[href*="/odds/"]
+                let oddsLink = document.querySelector('a[href*="/odds/"], a[href*="/1x2-odds/"]');
+                if (oddsLink) {
+                    oddsLink.click();
+                    return true;
+                }
+                
+                // 2. Tentar por texto no botão/link
+                let btn = Array.from(document.querySelectorAll('a, button, div[role="tab"]'))
+                            .find(el => {
+                                let txt = (el.textContent || el.innerText || "").trim().toUpperCase();
+                                return (txt === 'ODDS' || txt === 'COTAÇÕES') && txt.length < 20;
+                            });
+                if (btn) {
+                    btn.click();
+                    return true;
+                }
+                return false;
+            }''')
+            
+            if not odds_clicked:
+                odds_url = f"https://www.flashscore.com/match/{flashscore_id}/#/odds-comparison/1x2-odds/full-time"
+                logger.debug(f"[Flashscore] Botão ODDS não clicado via SPA. Fallback para {odds_url}")
+                try:
+                    await page.goto(odds_url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
+                except Exception as e:
+                    logger.warning(f"[Flashscore] Timeout navegando para odds de {flashscore_id}: {e}")
+            else:
+                logger.debug(f"[Flashscore] Aba ODDS clicada com sucesso via SPA para {flashscore_id}")
+
+            # 4. Aguardar tabela de odds — selector e polling do HTML
             odds_table_ready = False
             try:
-                await page.wait_for_selector("div.ui-table__row, a.oddsCell__odd", timeout=15000)
+                await page.wait_for_selector("div.ui-table__row, a.oddsCell__odd, div[class*='odds']", timeout=15000)
                 odds_table_ready = True
                 logger.debug(f"[Flashscore] Tabela de odds carregou via selector para {flashscore_id}")
             except Exception:
-                # Polling do HTML fonte — útil quando o DOM virtual não dispara o selector
-                # mas o HTML já contém os dados (Flashscore SSR ou pre-render parcial)
+                # Polling do HTML fonte
                 logger.debug(f"[Flashscore] Selector timeout — polling HTML para {flashscore_id}")
                 poll_start = asyncio.get_event_loop().time()
                 while asyncio.get_event_loop().time() - poll_start < 10.0:

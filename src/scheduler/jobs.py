@@ -379,6 +379,10 @@ async def prematch_tracking_2():
 
 @safe_job
 async def prematch_tracking_3():
+    return await _run_prematch_tracker("tracking_2x", timeout_hours=1.83) # 1h50m
+
+@safe_job
+async def prematch_tracking_4():
     return await _run_prematch_tracker("tracking_2x", timeout_hours=2.5) # 2h30m
 
 @safe_job
