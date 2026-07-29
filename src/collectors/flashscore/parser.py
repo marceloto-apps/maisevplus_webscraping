@@ -52,18 +52,18 @@ def _log_unidentified_row(row):
 def _extract_bookmaker_from_row(row) -> Optional[str]:
     """
     Tenta extrair o nome do bookmaker de uma row da tabela de odds.
-    Usa cascata de 4 camadas:
+    Usa cascata de 5 camadas:
     1. href semântico (/bookmaker/...)
     2. Atributos WCL analytics (data-analytics-bookmaker-id / data-analytics-aff-id)
     3. Seletor clássico por classe/testid CSS
     4. Tag <img> com alt text descritivo
+    5. Fallback por bm_<id>
     """
     # ── CAMADA 1: Seletor semântico por href (/bookmaker/...) ──
     link = row.find('a', href=lambda h: h and '/bookmaker/' in h)
     if link:
         name = link.get('title') or link.get_text(strip=True)
         if name and not _NOISE_PATTERNS.search(name):
-            logger.debug(f"Bookmaker via href semântico: {name}")
             return name.strip()
 
     # ── CAMADA 2: Atributos WCL Analytics (data-analytics-bookmaker-id / data-analytics-aff-id) ──
@@ -76,7 +76,6 @@ def _extract_bookmaker_from_row(row) -> Optional[str]:
             if m:
                 bm_id = m.group(1)
         if bm_id and bm_id in _FLASHSCORE_NUMERIC_BM_MAP:
-            logger.debug(f"Bookmaker via WCL Analytics ID ({bm_id}): {_FLASHSCORE_NUMERIC_BM_MAP[bm_id]}")
             return _FLASHSCORE_NUMERIC_BM_MAP[bm_id]
 
     # ── CAMADA 3: Seletor por classe CSS / data-testid com title ou text ──
@@ -87,7 +86,6 @@ def _extract_bookmaker_from_row(row) -> Optional[str]:
     if link:
         name = link.get('title') or link.get_text(strip=True)
         if name and not _NOISE_PATTERNS.search(name):
-            logger.debug(f"Bookmaker via classe/testid CSS: {name}")
             return name.strip()
 
     # ── CAMADA 4: Busca por <img> com alt ou title descritivo ──
@@ -95,7 +93,6 @@ def _extract_bookmaker_from_row(row) -> Optional[str]:
     if img:
         alt = img.get('alt', '').strip() or img.get('title', '').strip()
         if alt and not _NOISE_PATTERNS.search(alt):
-            logger.debug(f"Bookmaker via img alt/title: {alt}")
             return alt
 
     # ── CAMADA 5: Se houver bm_id na WCL, usa bm_<id> ──
@@ -107,7 +104,6 @@ def _extract_bookmaker_from_row(row) -> Optional[str]:
             if m:
                 bm_id = m.group(1)
         if bm_id:
-            logger.debug(f"Bookmaker via WCL Analytics ID fallback: bm_{bm_id}")
             return f"bm_{bm_id}"
 
     return None
@@ -359,8 +355,6 @@ class FlashscoreParser:
         _unknown_bookmakers_in_batch = parsing_stats["unknown_bookmakers"]
         
         for index, row in enumerate(rows):
-            if index == 0:
-                logger.debug(f"FIRST ODDS ROW DOM:\n{row.prettify()}")
             
             raw_name = _extract_bookmaker_from_row(row)
             if raw_name is None:
