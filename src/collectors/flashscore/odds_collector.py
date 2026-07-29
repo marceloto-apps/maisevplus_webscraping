@@ -280,13 +280,22 @@ class FlashscoreOddsCollector(BaseCollector):
             except Exception as e:
                 logger.warning(f"[Flashscore] Timeout na página base de {flashscore_id}: {e}")
 
-            # Aceitar banner de cookies se estiver presente
+            # Aceitar modal de idade (18+) e banner de cookies se estiverem presentes
+            try:
+                age_btn = page.locator("button:has-text('18 AND OLDER'), button:has-text('18+'), button:has-text('SOU MAIOR')")
+                if await age_btn.count() > 0:
+                    await age_btn.first.click()
+                    logger.debug(f"[Flashscore] Modal de idade (18+) aceito para {flashscore_id}")
+                    await page.wait_for_timeout(500)
+            except Exception:
+                pass
+
             try:
                 accept_btn = page.locator('button#onetrust-accept-btn-handler')
-                await accept_btn.wait_for(state="visible", timeout=4000)
-                await accept_btn.click()
-                logger.debug(f"[Flashscore] Consentimento de cookies aceito para {flashscore_id}")
-                await page.wait_for_timeout(500)
+                if await accept_btn.count() > 0:
+                    await accept_btn.click()
+                    logger.debug(f"[Flashscore] Consentimento de cookies aceito para {flashscore_id}")
+                    await page.wait_for_timeout(500)
             except Exception:
                 pass
 
@@ -597,39 +606,31 @@ class FlashscoreOddsCollector(BaseCollector):
                 let ot = document.getElementById('onetrust-consent-sdk');
                 if (ot) ot.style.display = 'none';
                 
-                // 1. Tentar por link semântico a[href*="/odds/"] ou data-testid
-                let oddsLink = document.querySelector('a[href*="/odds/"], a[href*="/odds-comparison/"], a[href*="/1x2-odds/"], [data-testid*="odds"]');
+                let els = Array.from(document.querySelectorAll('a, button, div[role="tab"]'));
+                let oddsLink = els.find(l => {
+                    let href = (l.getAttribute('href') || '').toLowerCase();
+                    let txt = (l.textContent || l.innerText || '').trim().toUpperCase();
+                    if (href.includes('legal-age') || href.includes('version') || l.closest('footer')) return false;
+                    return txt === 'ODDS' || txt === 'COTAÇÕES' || href.includes('/odds-comparison/') || href.includes('/odds/');
+                });
                 if (oddsLink) {
                     oddsLink.click();
-                    return true;
-                }
-                
-                // 2. Tentar por texto no botão/link
-                let btn = Array.from(document.querySelectorAll('a, button, div[role="tab"], [data-testid*="tab"]'))
-                            .find(el => {
-                                let txt = (el.textContent || el.innerText || "").trim().toUpperCase();
-                                return (txt === 'ODDS' || txt === 'COTAÇÕES' || txt.includes('ODDS')) && txt.length < 25;
-                            });
-                if (btn) {
-                    btn.click();
                     return true;
                 }
                 return false;
             }''')
             
             if not odds_clicked:
-                odds_url = f"https://www.flashscore.com/match/{flashscore_id}/odds/1x2-odds/full-time/"
+                curr_url = page.url
+                if "/match/" in curr_url and "?" in curr_url:
+                    odds_url = curr_url.replace("/?", "/odds/1x2-odds/full-time/?")
+                else:
+                    odds_url = f"https://www.flashscore.com/match/{flashscore_id}/odds/1x2-odds/full-time/"
                 logger.debug(f"[Flashscore] Botão ODDS não clicado via SPA. Fallback para {odds_url}")
                 try:
                     await page.goto(odds_url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
                 except Exception as e:
-                    # Tenta fallback secundário com hash caso a URL direta falhe
-                    odds_url_hash = f"https://www.flashscore.com/match/{flashscore_id}/#/odds-comparison/1x2-odds/full-time"
-                    logger.warning(f"[Flashscore] Timeout em URL direta. Tentando fallback hash: {odds_url_hash} ({e})")
-                    try:
-                        await page.goto(odds_url_hash, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
-                    except Exception:
-                        pass
+                    pass
             else:
                 logger.debug(f"[Flashscore] Aba ODDS clicada com sucesso via SPA para {flashscore_id}")
 

@@ -178,110 +178,69 @@ def _is_valid_line(val: float) -> bool:
 
 def _extract_cell_odds(cell) -> tuple[Optional[str], Optional[float]]:
     """
-    Extrai o valor de FECHAMENTO (texto bruto da odd) e ABERTURA (float) de uma celula de odd.
-    Suporta atributos 'title', 'data-title', 'data-tooltip' na celula ou em elementos filhos,
-    alem do separador '»' (U+00BB) para movimento de odds.
+    Extrai o valor de FECHAMENTO (texto bruto da odd) e ABERTURA (float) de uma célula de odd.
+    Suporta atributos 'title', 'data-title', 'data-tooltip', 'aria-label' na célula ou elementos filhos.
     """
     closing_text = None
     
-    val_node = cell.find(lambda tag: tag.get("data-testid") == "wcl-oddsValue")
-    if val_node:
-        t = val_node.get_text(strip=True)
-        if t and (t == "-" or re.match(r'^\d+\.?\d*$', t)):
-            closing_text = t
+    # 1. Buscar valor de fechamento via regex no texto da célula
+    raw_text = cell.get_text(strip=True).replace(",", ".").strip()
+    match = re.search(r'\d+\.\d+|\d+', raw_text)
+    if match:
+        closing_text = match.group(0)
+    elif "-" in raw_text:
+        closing_text = "-"
             
-    if not closing_text:
-        inner_spans = cell.find_all("span")
-        for span in inner_spans:
-            text = span.get_text(strip=True)
-            if text and (text == "-" or re.match(r'^\d+\.?\d*$', text)):
-                closing_text = text
-                break
-
-    if not closing_text:
-        text = cell.get_text(strip=True)
-        if text and (text == "-" or re.match(r'^\d+\.?\d*$', text)):
-            closing_text = text
-            
+    # 2. Buscar valor de abertura nos atributos title / tooltip / aria-label
     raw_title = ""
     for target in [cell] + list(cell.find_all(True)):
-        t = target.get('title') or target.get('data-title') or target.get('data-tooltip') or ''
-        if t and _OPENING_SEPARATOR in t:
+        t = target.get('title') or target.get('data-title') or target.get('data-tooltip') or target.get('aria-label') or ''
+        if t and any(c.isdigit() for c in t):
             raw_title = t.strip()
             break
-        elif t and not raw_title:
-            raw_title = t.strip()
 
     opening_val = None
-    if _OPENING_SEPARATOR in raw_title:
-        opening_part = raw_title.split(_OPENING_SEPARATOR)[0].strip()
+    if raw_title:
+        nums = re.findall(r'\d+\.\d+|\d+', raw_title.replace(",", "."))
+        if nums:
+            try:
+                opening_val = float(nums[0])
+            except ValueError:
+                pass
+
+    if opening_val is None and closing_text and closing_text != "-":
         try:
-            opening_val = float(opening_part)
+            opening_val = float(closing_text)
         except ValueError:
-            opening_val = None
-    else:
-        if raw_title:
-            try:
-                opening_val = float(raw_title)
-            except ValueError:
-                pass
-        if opening_val is None and closing_text and closing_text != "-":
-            try:
-                opening_val = float(closing_text)
-            except ValueError:
-                pass
+            pass
 
     return closing_text, opening_val
 
 
 def _find_odds_cells(row) -> List:
     """Busca todas as células de odds dentro de uma linha da tabela."""
-    cells = row.find_all(
-        lambda tag: tag.name in ("button", "a", "div", "span", "td") and (
-            (tag.get("data-testid") and "wcl-oddscell" in tag.get("data-testid").lower())
-            or
-            (tag.get("data-analytics-element") and "odd_cell" in tag.get("data-analytics-element").lower())
-            or
+    odds_cells = row.find_all(
+        lambda tag: tag.name in ("a", "button", "div", "span") and (
             (tag.get("class") and any(
                 x in " ".join(tag.get("class")).lower() 
-                for x in ("wcl-oddscell", "wcloddscell", "oddscell__odd", "oddscellodd", "wcl-oddsvalue", "oddscell")
+                for x in ("oddscell__odd", "wcl-oddscell", "wcloddscell", "oddscell")
             ))
+            or (tag.get("data-testid") and "oddscell" in tag.get("data-testid").lower())
         )
     )
+    
+    if odds_cells:
+        primary_cells = []
+        for cell in odds_cells:
+            if not any(parent in odds_cells for parent in cell.parents):
+                primary_cells.append(cell)
+        return primary_cells
 
-    filtered_cells = []
-    for c in cells:
-        if any(c in prev.descendants for prev in filtered_cells):
-            continue
-        
-        c_class = " ".join(c.get("class") or []).lower()
-        c_testid = (c.get("data-testid") or "").lower()
-        href = (c.get("href") or "").lower()
-        
-        # Ignora se a célula de odd for vazia/removida (sem cotação ativa)
-        if "wcl-empty" in c_class or "wcl-removed" in c_class:
-            continue
-        if "/bookmaker/" in href or "bookmaker" in c_class or "bookmaker" in c_testid:
-            continue
-        if "handicap" in c_class or "handicap" in c_testid or "total" in c_class:
-            continue
-            
-        filtered_cells.append(c)
-
-    if filtered_cells:
-        return filtered_cells
-
-    a_tags = row.find_all(["a", "button"])
-    for a in a_tags:
-        href = (a.get("href") or "").lower()
-        a_class = " ".join(a.get("class") or []).lower()
-        if "/bookmaker/" in href or "bookmaker" in a_class or "handicap" in a_class:
-            continue
-        text = a.get_text(strip=True)
-        if text and (text == "-" or re.search(r'\d+\.?\d*', text)):
-            filtered_cells.append(a)
-
-    return filtered_cells
+    # Fallback para tags <a> com odds numéricas
+    return [
+        a for a in row.find_all("a")
+        if a.get_text(strip=True) and (a.get_text(strip=True) == "-" or re.search(r'\d+\.\d+|\d+', a.get_text(strip=True)))
+    ]
 
 
 def _find_odds_rows(soup: BeautifulSoup) -> List:
@@ -378,8 +337,8 @@ class FlashscoreParser:
             if our_bm_key is None:
                 if raw_name.lower() not in _unknown_bookmakers_in_batch:
                     _unknown_bookmakers_in_batch.add(raw_name.lower())
-                    logger.warning(f"Bookmaker desconhecido: '{raw_name}'")
-                continue
+                    logger.warning(f"Bookmaker sem de-para prévio: '{raw_name}', usando slug '{raw_name.strip().lower().replace(' ', '_').replace('.', '')}'")
+                our_bm_key = raw_name.strip().lower().replace(" ", "_").replace(".", "")
                 
             cells = _find_odds_cells(row)
             vals = []
@@ -503,5 +462,5 @@ class FlashscoreParser:
     @staticmethod
     def extract_match_ids_from_schedule(html: str) -> List[str]:
         """No DOM da página de schedule/results de uma liga, extrai os IDs dos matches."""
-        ids = list(set(re.findall(r'/match/([A-Za-z0-9]{8,})/?', html)))
-        return ids
+        ids = list(set(re.findall(r'g_1_([A-Za-z0-9]{8})', html) + re.findall(r'/match/([A-Za-z0-9]{8})', html)))
+        return [i for i in ids if len(i) == 8 and i.isalnum() and i != "football"]
