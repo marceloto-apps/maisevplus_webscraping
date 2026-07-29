@@ -205,19 +205,32 @@ def _extract_cell_odds(cell) -> tuple[Optional[str], Optional[float]]:
     # 2. Buscar valor de abertura nos atributos title / tooltip / aria-label
     raw_title = ""
     for target in [cell] + list(cell.find_all(True)):
-        t = target.get('title') or target.get('data-title') or target.get('data-tooltip') or target.get('aria-label') or ''
-        if t and any(c.isdigit() for c in t):
-            raw_title = t.strip()
-            break
+        t = target.get('title') or target.get('data-title') or target.get('data-tooltip') or ''
+        if t:
+            if "»" in t or ">" in t or _OPENING_SEPARATOR in t:
+                raw_title = t.strip()
+                break
+            elif re.search(r'\d+\.\d+', t) and not any(x in t.lower() for x in ("bet", "1x", "kto", "win", "365", "logo")):
+                raw_title = t.strip()
 
     opening_val = None
     if raw_title:
-        nums = re.findall(r'\d+\.\d+|\d+', raw_title.replace(",", "."))
-        if nums:
-            try:
-                opening_val = float(nums[0])
-            except ValueError:
-                pass
+        if "»" in raw_title or ">" in raw_title or _OPENING_SEPARATOR in raw_title:
+            parts = re.split(r'»|>|' + re.escape(_OPENING_SEPARATOR), raw_title)
+            if parts and parts[0].strip():
+                m_open = re.search(r'\d+\.\d+|\d+', parts[0].strip().replace(",", "."))
+                if m_open:
+                    try:
+                        opening_val = float(m_open.group(0))
+                    except ValueError:
+                        pass
+        else:
+            nums = re.findall(r'\d+\.\d+', raw_title.replace(",", "."))
+            if nums:
+                try:
+                    opening_val = float(nums[0])
+                except ValueError:
+                    pass
 
     if opening_val is None and closing_text and closing_text != "-":
         try:
