@@ -49,10 +49,6 @@ async def main():
                       SELECT 1 FROM odds_history oh 
                       WHERE oh.match_id = m.match_id AND oh.time >= $1
                   )
-                  OR EXISTS (
-                      SELECT 1 FROM prematch_odds po 
-                      WHERE po.match_id = m.match_id AND po.created_at >= $1
-                  )
               )
         """
         params = [since_dt]
