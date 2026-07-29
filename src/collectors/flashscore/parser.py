@@ -62,9 +62,9 @@ def _extract_bookmaker_from_row(row) -> Optional[str]:
     # ── CAMADA 1: Seletor semântico por href (/bookmaker/...) ──
     link = row.find('a', href=lambda h: h and '/bookmaker/' in h)
     if link:
-        name = link.get('title') or link.get_text(strip=True)
+        name = (link.get('title') or link.get_text(strip=True)).rstrip('*').strip()
         if name and not _NOISE_PATTERNS.search(name):
-            return name.strip()
+            return name
 
     # ── CAMADA 2: Atributos WCL Analytics (data-analytics-bookmaker-id / data-analytics-aff-id) ──
     bm_cell = row.find(lambda tag: tag.get("data-analytics-bookmaker-id") or tag.get("data-analytics-aff-id"))
@@ -84,14 +84,14 @@ def _extract_bookmaker_from_row(row) -> Optional[str]:
         (tag.get("data-testid") and "bookmaker" in tag.get("data-testid").lower())
     ))
     if link:
-        name = link.get('title') or link.get_text(strip=True)
+        name = (link.get('title') or link.get_text(strip=True)).rstrip('*').strip()
         if name and not _NOISE_PATTERNS.search(name):
-            return name.strip()
+            return name
 
     # ── CAMADA 4: Busca por <img> com alt ou title descritivo ──
     img = row.find('img')
     if img:
-        alt = img.get('alt', '').strip() or img.get('title', '').strip()
+        alt = (img.get('alt', '') or img.get('title', '')).rstrip('*').strip()
         if alt and not _NOISE_PATTERNS.search(alt):
             return alt
 
