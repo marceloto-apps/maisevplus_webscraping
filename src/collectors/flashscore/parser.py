@@ -79,14 +79,25 @@ def _extract_bookmaker_from_row(row) -> Optional[str]:
             logger.debug(f"Bookmaker via classe/testid CSS: {name}")
             return name.strip()
 
-    # ── CAMADA 4: Busca por <img> com alt descritivo ──
-    img = row.find('img', alt=True)
+    # ── CAMADA 4: Busca por <img> com alt ou title descritivo ──
+    img = row.find('img')
     if img:
-        alt = img.get('alt', '').strip()
+        alt = img.get('alt', '').strip() or img.get('title', '').strip()
         if alt and not _NOISE_PATTERNS.search(alt):
-            if resolve_bookmaker(alt) is not None:
-                logger.debug(f"Bookmaker via img alt: {alt}")
-                return alt
+            logger.debug(f"Bookmaker via img alt/title: {alt}")
+            return alt
+
+    # ── CAMADA 5: Se houver bm_id na WCL, usa bm_<id> ──
+    bm_cell = row.find(lambda tag: tag.get("data-analytics-bookmaker-id") or tag.get("data-analytics-aff-id"))
+    if bm_cell:
+        bm_id = bm_cell.get("data-analytics-bookmaker-id")
+        if not bm_id and bm_cell.get("data-analytics-aff-id"):
+            m = re.search(r'^b(\d+)_', bm_cell.get("data-analytics-aff-id"))
+            if m:
+                bm_id = m.group(1)
+        if bm_id:
+            logger.debug(f"Bookmaker via WCL Analytics ID fallback: bm_{bm_id}")
+            return f"bm_{bm_id}"
 
     return None
 
