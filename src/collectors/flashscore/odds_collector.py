@@ -109,7 +109,7 @@ class FlashscoreOddsCollector(BaseCollector):
                     # Clicar na aba do mercado usando JS evaluate (priorizando href)
                     clicked_market = await page.evaluate('''async (market_slug) => {
                         // 1. Tentar por href (mais robusto e independente de idioma)
-                        let link = document.querySelector(`a[href*="/odds/${market_slug}/"]`);
+                        let link = document.querySelector(`a[href*="/odds/${market_slug}/"], a[href*="/${market_slug}/"]`);
                         if (link) {
                             link.click();
                             return true;
@@ -118,17 +118,17 @@ class FlashscoreOddsCollector(BaseCollector):
                         // 2. Fallback por palavras-chave
                         let keywords = {
                             "1x2-odds": ["1X2"],
-                            "over-under": ["OVER", "UNDER", "ACIMA", "ABAIXO", "MÁS", "MAS", "MENOS", "ÜBER", "UNTER", "PLUS", "MOINS"],
-                            "asian-handicap": ["ASIAN", "ASIÁTICO", "ASIATICO", "ASIATIQUE", "ASIATISCHES"],
+                            "over-under": ["OVER", "UNDER", "ACIMA", "ABAIXO", "MÁS", "MAS", "MENOS", "ÜBER", "UNTER", "PLUS", "MOINS", "O/U", "TOTAL", "GOALS", "GOLS"],
+                            "asian-handicap": ["ASIAN", "ASIÁTICO", "ASIATICO", "ASIATIQUE", "ASIATISCHES", "AH", "HANDICAP"],
                             "both-teams-to-score": ["BOTH", "BTTS", "AMBAS", "AMBOS", "BEIDE", "DEUX", "SQUADRE"],
-                            "double-chance": ["DOUBLE", "DUPLA", "DOBLE", "DOPPELTE", "DOPPIA"],
+                            "double-chance": ["DOUBLE", "DUPLA", "DOBLE", "DOPPELTE", "DOPPIA", "DC"],
                             "draw-no-bet": ["DRAW NO", "DNB", "ANULA", "VÁLIDA", "VALIDA", "UNENTSCHIEDEN", "REMBOURSÉ", "RIMBORSO"]
                         }[market_slug] || [];
                         
-                        let btn = Array.from(document.querySelectorAll('button[role="tab"], a[role="tab"], div[role="tab"]'))
+                        let btn = Array.from(document.querySelectorAll('button, a, div[role="tab"], [data-testid*="tab"], a[href*="/odds/"]'))
                                     .find(el => {
                                         let txt = (el.textContent || el.innerText || "").trim().toUpperCase();
-                                        return keywords.some(k => txt.includes(k)) && txt.length < 30;
+                                        return keywords.some(k => txt.includes(k)) && txt.length < 35;
                                     });
                         if (btn) {
                             btn.click();
@@ -138,8 +138,14 @@ class FlashscoreOddsCollector(BaseCollector):
                     }''', market_href)
                     
                     if not clicked_market:
-                        logger.debug(f"[Flashscore] Sub-aba '{market_href}' não encontrada/clicada no menu de odds de {page.url}. Pulando.")
-                        return False
+                        # Fallback: tentar navegação direta via URL para a sub-aba do mercado
+                        target_url = f"https://www.flashscore.com/match/{flashscore_id}/odds/{market_href}/full-time/"
+                        logger.debug(f"[Flashscore] Sub-aba '{market_href}' não clicada via SPA. Tentando navegação direta: {target_url}")
+                        try:
+                            await page.goto(target_url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
+                        except Exception as e:
+                            logger.debug(f"[Flashscore] Falha ao navegar diretamente para {market_href}: {e}")
+                            return False
 
                     # 1.1. Aguardar a URL atualizar para conter o market_href
                     start_wait = asyncio.get_event_loop().time()
