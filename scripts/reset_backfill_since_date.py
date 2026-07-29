@@ -30,7 +30,7 @@ async def main():
     parser.add_argument("--all-leagues", action="store_true", help="Resetar para todas as ligas desde a data especificada")
     args = parser.parse_args()
 
-    since_str = args.since-date if hasattr(args, "since_date") else args.since_date
+    since_str = args.since_date
     since_dt = datetime.strptime(args.since_date, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
 
     pool = await get_pool()
