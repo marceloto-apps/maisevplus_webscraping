@@ -126,6 +126,7 @@ async def main():
     parser.add_argument("--league", type=str, default=None, help="Código da liga (ex: ENG_PL, BRA_SA). Se omitido, roda todas.")
     parser.add_argument("--limit", type=int, default=999999, help="Máximo de partidas para processar (default: 999999)")
     parser.add_argument("--timeout-hours", type=float, default=2.5, help="Tempo máximo de execução (horas)")
+    parser.add_argument("--headless", action="store_true", help="Rodar browser em modo headless")
     args = parser.parse_args()
 
     if args.league and args.league not in LEAGUE_FLASHSCORE_PATHS:
@@ -159,7 +160,7 @@ async def main():
 
         # Abre o navegador central
         async with AsyncCamoufox(
-            headless=False,  # Deve rodar sob xvfb-run na VPS
+            headless=args.headless,
             enable_cache=True
         ) as browser:
             total_collected = 0
