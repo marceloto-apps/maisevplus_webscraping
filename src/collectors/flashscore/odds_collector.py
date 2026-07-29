@@ -283,10 +283,10 @@ class FlashscoreOddsCollector(BaseCollector):
             # Aceitar modal de idade (18+) e banner de cookies se estiverem presentes
             try:
                 age_btn = page.locator("button:has-text('18 AND OLDER'), button:has-text('18+'), button:has-text('SOU MAIOR')")
-                if await age_btn.count() > 0:
-                    await age_btn.first.click()
-                    logger.debug(f"[Flashscore] Modal de idade (18+) aceito para {flashscore_id}")
-                    await page.wait_for_timeout(500)
+                await age_btn.first.wait_for(state="visible", timeout=5000)
+                await age_btn.first.click()
+                logger.debug(f"[Flashscore] Modal de idade (18+) aceito para {flashscore_id}")
+                await page.wait_for_timeout(500)
             except Exception:
                 pass
 

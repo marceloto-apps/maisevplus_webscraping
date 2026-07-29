@@ -35,18 +35,16 @@ async def test_vps_headless(fs_id: str = "E3uvsQPP"):
         await page.goto(url, wait_until="domcontentloaded", timeout=40000)
         await page.wait_for_timeout(2000)
 
-        # 1. Clicar no <button> de idade ("18 AND OLDER" / "18+")
-        logger.info("[VPS-TEST] Buscando <button> de idade...")
+        # 1. Clicar no <button> de idade com wait_for
+        logger.info("[VPS-TEST] Aguardando possível modal de idade...")
         try:
             btn = page.locator("button:has-text('18 AND OLDER'), button:has-text('18+'), button:has-text('SOU MAIOR')")
-            if await btn.count() > 0:
-                await btn.first.click()
-                logger.info("🎉 [VPS-TEST] <button> de idade clicado com sucesso!")
-                await page.wait_for_timeout(1000)
-            else:
-                logger.info("[VPS-TEST] Nenhum <button> de idade visível no DOM inicial.")
-        except Exception as e:
-            logger.warning(f"[VPS-TEST] Erro ao clicar no botão de idade: {e}")
+            await btn.first.wait_for(state="visible", timeout=6000)
+            await btn.first.click()
+            logger.info("🎉 [VPS-TEST] <button> de idade clicado com sucesso!")
+            await page.wait_for_timeout(1000)
+        except Exception:
+            logger.info("[VPS-TEST] Nenhum modal de idade surgiu dentro do tempo.")
 
         # 2. Fechar banner de cookies
         try:
@@ -76,7 +74,15 @@ async def test_vps_headless(fs_id: str = "E3uvsQPP"):
         }''')
 
         logger.info(f"[VPS-TEST] Resultado do clique em ODDS: {odds_clicked}")
-        await page.wait_for_timeout(4000)
+
+        # 4. Aguardar a tabela de odds carregar no DOM
+        try:
+            await page.wait_for_selector("div.wclOddsRow, [data-testid='wcl-oddsCell'], button.wcl-oddsCell", timeout=8000)
+            logger.info("🎉 [VPS-TEST] Tabela de odds visível no DOM!")
+        except Exception as e:
+            logger.warning(f"[VPS-TEST] Timeout aguardando tabela de odds: {e}")
+
+        await page.wait_for_timeout(2000)
 
         # Salvar HTML e Screenshot
         html = await page.content()
