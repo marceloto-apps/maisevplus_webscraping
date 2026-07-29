@@ -85,7 +85,7 @@ class FlashscoreOddsCollector(BaseCollector):
                 # Helper para capturar o estado atual da tabela
                 async def get_table_state():
                     return await page.evaluate('''() => {
-                        let rows = Array.from(document.querySelectorAll('div.ui-table__row'));
+                        let rows = Array.from(document.querySelectorAll('div.ui-table__row, [data-testid="wcl-tableRow"], [data-testid="wcl-oddsCell"], .oddsCell__odd'));
                         return rows.map(r => r.textContent.trim()).join('|');
                     }''')
 
@@ -580,7 +580,7 @@ class FlashscoreOddsCollector(BaseCollector):
 
             # 3. Navegar para a aba de odds (1x2 FT) clicando no botão ODDS via SPA
             try:
-                await page.wait_for_selector("div[role='tablist'], a[href*='/odds/'], a[href*='/1x2-odds/']", timeout=10000)
+                await page.wait_for_selector("div[role='tablist'], a[href*='/odds/'], a[href*='/odds-comparison/'], a[href*='/1x2-odds/'], [data-testid*='odds']", timeout=10000)
             except Exception:
                 pass
 
@@ -588,18 +588,18 @@ class FlashscoreOddsCollector(BaseCollector):
                 let ot = document.getElementById('onetrust-consent-sdk');
                 if (ot) ot.style.display = 'none';
                 
-                // 1. Tentar por link semântico a[href*="/odds/"]
-                let oddsLink = document.querySelector('a[href*="/odds/"], a[href*="/1x2-odds/"]');
+                // 1. Tentar por link semântico a[href*="/odds/"] ou data-testid
+                let oddsLink = document.querySelector('a[href*="/odds/"], a[href*="/odds-comparison/"], a[href*="/1x2-odds/"], [data-testid*="odds"]');
                 if (oddsLink) {
                     oddsLink.click();
                     return true;
                 }
                 
                 // 2. Tentar por texto no botão/link
-                let btn = Array.from(document.querySelectorAll('a, button, div[role="tab"]'))
+                let btn = Array.from(document.querySelectorAll('a, button, div[role="tab"], [data-testid*="tab"]'))
                             .find(el => {
                                 let txt = (el.textContent || el.innerText || "").trim().toUpperCase();
-                                return (txt === 'ODDS' || txt === 'COTAÇÕES') && txt.length < 20;
+                                return (txt === 'ODDS' || txt === 'COTAÇÕES' || txt.includes('ODDS')) && txt.length < 25;
                             });
                 if (btn) {
                     btn.click();
@@ -609,19 +609,25 @@ class FlashscoreOddsCollector(BaseCollector):
             }''')
             
             if not odds_clicked:
-                odds_url = f"https://www.flashscore.com/match/{flashscore_id}/#/odds-comparison/1x2-odds/full-time"
+                odds_url = f"https://www.flashscore.com/match/{flashscore_id}/odds/1x2-odds/full-time/"
                 logger.debug(f"[Flashscore] Botão ODDS não clicado via SPA. Fallback para {odds_url}")
                 try:
                     await page.goto(odds_url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
                 except Exception as e:
-                    logger.warning(f"[Flashscore] Timeout navegando para odds de {flashscore_id}: {e}")
+                    # Tenta fallback secundário com hash caso a URL direta falhe
+                    odds_url_hash = f"https://www.flashscore.com/match/{flashscore_id}/#/odds-comparison/1x2-odds/full-time"
+                    logger.warning(f"[Flashscore] Timeout em URL direta. Tentando fallback hash: {odds_url_hash} ({e})")
+                    try:
+                        await page.goto(odds_url_hash, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
+                    except Exception:
+                        pass
             else:
                 logger.debug(f"[Flashscore] Aba ODDS clicada com sucesso via SPA para {flashscore_id}")
 
             # 4. Aguardar tabela de odds — selector e polling do HTML
             odds_table_ready = False
             try:
-                await page.wait_for_selector("div.ui-table__row, a.oddsCell__odd, div[class*='odds']", timeout=15000)
+                await page.wait_for_selector("div.ui-table__row, [data-testid='wcl-tableRow'], [data-testid='wcl-oddsCell'], a.oddsCell__odd, div[class*='odds']", timeout=15000)
                 odds_table_ready = True
                 logger.debug(f"[Flashscore] Tabela de odds carregou via selector para {flashscore_id}")
             except Exception:
@@ -630,7 +636,7 @@ class FlashscoreOddsCollector(BaseCollector):
                 poll_start = asyncio.get_event_loop().time()
                 while asyncio.get_event_loop().time() - poll_start < 10.0:
                     html_check = await page.content()
-                    if "ui-table__row" in html_check or "oddsCell__odd" in html_check:
+                    if any(x in html_check for x in ("ui-table__row", "wcl-tableRow", "wcl-oddsCell", "wcl-oddsValue", "oddsCell__odd", "oddsCell", "wcl-cell")):
                         odds_table_ready = True
                         logger.debug(f"[Flashscore] Tabela de odds encontrada via HTML poll para {flashscore_id}")
                         break
