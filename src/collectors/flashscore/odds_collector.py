@@ -78,7 +78,7 @@ class FlashscoreOddsCollector(BaseCollector):
                 self.bm_ids[row['name'].lower()] = row['bookmaker_id']
                 self.bm_ids[row['name']] = row['bookmaker_id']
 
-    async def _navigate_to_market_tab(self, page, market_href, period_slug=None, max_retries=0):
+    async def _navigate_to_market_tab(self, page, market_href, period_slug=None, flashscore_id=None, max_retries=0):
         """Navega para uma aba de mercado com retry."""
         for attempt in range(max_retries + 1):
             try:
@@ -671,7 +671,7 @@ class FlashscoreOddsCollector(BaseCollector):
                         period_slug = market_parts[1] if len(market_parts) > 1 else ""  # ex: "full-time"
                         
                         # Clicar na aba do tipo de mercado (ex: Over/Under, Asian Handicap, etc.)
-                        navigated = await self._navigate_to_market_tab(page, market_type_slug, period_slug)
+                        navigated = await self._navigate_to_market_tab(page, market_type_slug, period_slug=period_slug, flashscore_id=flashscore_id)
                         if not navigated:
                             markets_failed.append(m_key)
                             continue

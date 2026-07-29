@@ -16,6 +16,20 @@ _NOISE_PATTERNS = re.compile(
     re.IGNORECASE
 )
 
+# Mapeamento de IDs numéricos de analytics do Flashscore WCL para os nossos nomes de bookmakers
+_FLASHSCORE_NUMERIC_BM_MAP = {
+    "141": "bet365",
+    "160": "betano",
+    "264": "pinnacle",
+    "16": "bet365",
+    "4": "betfair_ex",
+    "2": "1xbet",
+    "12": "bwin",
+    "3": "williamhill",
+    "8": "unibet",
+    "15": "888sport",
+}
+
 def _log_unidentified_row(row):
     """Log de diagnóstico para rows que falham em todas as camadas da cascata."""
     try:
@@ -27,11 +41,13 @@ def _log_unidentified_row(row):
 def _extract_bookmaker_from_row(row) -> Optional[str]:
     """
     Tenta extrair o nome do bookmaker de uma row da tabela de odds.
-    Usa cascata de 3 camadas, da mais estável à menos estável.
+    Usa cascata de 4 camadas:
+    1. href semântico (/bookmaker/...)
+    2. Atributos WCL analytics (data-analytics-bookmaker-id / data-analytics-aff-id)
+    3. Seletor clássico por classe/testid CSS
+    4. Tag <img> com alt text descritivo
     """
-    name = None
-
-    # ── CAMADA 1: Seletor semântico por href (mais resistente) ──
+    # ── CAMADA 1: Seletor semântico por href (/bookmaker/...) ──
     link = row.find('a', href=lambda h: h and '/bookmaker/' in h)
     if link:
         name = link.get('title') or link.get_text(strip=True)
@@ -39,8 +55,21 @@ def _extract_bookmaker_from_row(row) -> Optional[str]:
             logger.debug(f"Bookmaker via href semântico: {name}")
             return name.strip()
 
-    # ── CAMADA 2: Seletor clássico por classe CSS ou data-testid (fallback) ──
-    link = row.find(lambda tag: tag.name in ("a", "div") and (
+    # ── CAMADA 2: Atributos WCL Analytics (data-analytics-bookmaker-id / data-analytics-aff-id) ──
+    bm_cell = row.find(lambda tag: tag.get("data-analytics-bookmaker-id") or tag.get("data-analytics-aff-id"))
+    if bm_cell:
+        bm_id = bm_cell.get("data-analytics-bookmaker-id")
+        if not bm_id and bm_cell.get("data-analytics-aff-id"):
+            aff = bm_cell.get("data-analytics-aff-id")
+            m = re.search(r'^b(\d+)_', aff)
+            if m:
+                bm_id = m.group(1)
+        if bm_id and bm_id in _FLASHSCORE_NUMERIC_BM_MAP:
+            logger.debug(f"Bookmaker via WCL Analytics ID ({bm_id}): {_FLASHSCORE_NUMERIC_BM_MAP[bm_id]}")
+            return _FLASHSCORE_NUMERIC_BM_MAP[bm_id]
+
+    # ── CAMADA 3: Seletor por classe CSS / data-testid com title ou text ──
+    link = row.find(lambda tag: tag.name in ("a", "div", "button") and (
         (tag.get("class") and any("bookmaker" in c.lower() for c in tag.get("class"))) or
         (tag.get("data-testid") and "bookmaker" in tag.get("data-testid").lower())
     ))
@@ -50,7 +79,7 @@ def _extract_bookmaker_from_row(row) -> Optional[str]:
             logger.debug(f"Bookmaker via classe/testid CSS: {name}")
             return name.strip()
 
-    # ── CAMADA 3: Busca por <img> com alt descritivo ──
+    # ── CAMADA 4: Busca por <img> com alt descritivo ──
     img = row.find('img', alt=True)
     if img:
         alt = img.get('alt', '').strip()
@@ -208,12 +237,14 @@ def _extract_cell_odds(cell) -> tuple[Optional[str], Optional[float]]:
 def _find_odds_cells(row) -> List:
     """Busca todas as células de odds dentro de uma linha da tabela."""
     cells = row.find_all(
-        lambda tag: tag.name in ("a", "div", "span", "td") and (
+        lambda tag: tag.name in ("button", "a", "div", "span", "td") and (
             (tag.get("data-testid") and "wcl-oddscell" in tag.get("data-testid").lower())
+            or
+            (tag.get("data-analytics-element") and "odd_cell" in tag.get("data-analytics-element").lower())
             or
             (tag.get("class") and any(
                 x in " ".join(tag.get("class")).lower() 
-                for x in ("oddscell__odd", "oddscellodd", "wcl-oddscell", "wcl-oddsvalue", "oddscell")
+                for x in ("wcl-oddscell", "wcloddscell", "oddscell__odd", "oddscellodd", "wcl-oddsvalue", "oddscell")
             ))
         )
     )
@@ -227,6 +258,9 @@ def _find_odds_cells(row) -> List:
         c_testid = (c.get("data-testid") or "").lower()
         href = (c.get("href") or "").lower()
         
+        # Ignora se a célula de odd for vazia/removida (sem cotação ativa)
+        if "wcl-empty" in c_class or "wcl-removed" in c_class:
+            continue
         if "/bookmaker/" in href or "bookmaker" in c_class or "bookmaker" in c_testid:
             continue
         if "handicap" in c_class or "handicap" in c_testid or "total" in c_class:
@@ -237,7 +271,7 @@ def _find_odds_cells(row) -> List:
     if filtered_cells:
         return filtered_cells
 
-    a_tags = row.find_all("a")
+    a_tags = row.find_all(["a", "button"])
     for a in a_tags:
         href = (a.get("href") or "").lower()
         a_class = " ".join(a.get("class") or []).lower()
@@ -251,12 +285,12 @@ def _find_odds_cells(row) -> List:
 
 
 def _find_odds_rows(soup: BeautifulSoup) -> List:
-    """Localiza todas as linhas de bookmaker na tabela de odds."""
-    rows = soup.find_all(
+    """Localiza todas as linhas de bookmaker na tabela de odds, ignorando o cabeçalho."""
+    all_rows = soup.find_all(
         lambda tag: tag.name in ("div", "tr") and (
             (tag.get("class") and any(
                 x in " ".join(tag.get("class")).lower() 
-                for x in ("ui-table__row", "ui-tablerow", "wcl-tablerow", "wcl-oddsrow", "oddsrow", "tablerow")
+                for x in ("wcloddsrow", "ui-table__row", "ui-tablerow", "wcl-tablerow", "wcl-oddsrow", "oddsrow", "tablerow")
             ))
             or
             (tag.get("data-testid") and any(
@@ -266,16 +300,22 @@ def _find_odds_rows(soup: BeautifulSoup) -> List:
         )
     )
 
-    if rows:
-        return rows
+    odds_rows = []
+    for r in all_rows:
+        # Se for linha de cabeçalho ("1", "X", "2"), ignora
+        if r.find(class_=lambda c: c and "wcloddsheader" in c.lower()) or r.find(lambda t: t.get("data-testid") == "wcl-scores-overline-02"):
+            continue
+        odds_rows.append(r)
+
+    if odds_rows:
+        return odds_rows
 
     bm_elements = soup.find_all(
         lambda tag: (
-            (tag.name == "a" and tag.get("href") and "/bookmaker/" in tag.get("href").lower())
-            or
-            (tag.get("class") and any("bookmaker" in c.lower() for c in (tag.get("class") or [])))
-            or
-            (tag.get("data-testid") and "bookmaker" in tag.get("data-testid").lower())
+            tag.get("data-analytics-bookmaker-id")
+            or tag.get("data-analytics-aff-id")
+            or (tag.name == "a" and tag.get("href") and "/bookmaker/" in tag.get("href").lower())
+            or (tag.get("class") and any("bookmaker" in c.lower() for c in (tag.get("class") or [])))
         )
     )
 
@@ -291,7 +331,7 @@ def _find_odds_rows(soup: BeautifulSoup) -> List:
                 or (t.get("class") and any("oddscell" in c.lower() for c in (t.get("class") or [])))
             )
             
-            if "row" in p_class or "row" in p_testid or "table" in p_class or has_odds:
+            if "wcloddsrow" in p_class or "row" in p_class or "row" in p_testid or "table" in p_class or has_odds:
                 if parent not in candidate_rows:
                     candidate_rows.append(parent)
                 break
