@@ -19,11 +19,8 @@ async def audit_matches():
     async with pool.acquire() as conn:
         for fs_id in FS_IDS:
             m = await conn.fetchrow("""
-                SELECT m.match_id, m.flashscore_id, m.kickoff, m.scraping_flashscore,
-                       ht.name as home_team, at.name as away_team
+                SELECT m.match_id, m.flashscore_id, m.kickoff, m.scraping_flashscore
                 FROM matches m
-                JOIN teams ht ON m.home_team_id = ht.team_id
-                JOIN teams at ON m.away_team_id = at.team_id
                 WHERE m.flashscore_id = $1
             """, fs_id)
 
@@ -32,8 +29,8 @@ async def audit_matches():
 
             match_uuid = m["match_id"]
             print("\n" + "="*90)
-            print(f"📌 MATCH: {m['home_team']} vs {m['away_team']} | FS ID: {fs_id} | UUID: {match_uuid}")
-            print(f"   Kickoff: {m['kickoff']} | Scraping Status: {m['scraping_flashscore']}")
+            print(f"[MATCH] FS ID: {fs_id} | UUID: {match_uuid}")
+            print(f"   Kickoff: {m['kickoff']} | Scraping Status (scraping_flashscore): {m['scraping_flashscore']}")
             print("="*90)
 
             # 1. Total de odds na tabela odds_history
@@ -41,7 +38,7 @@ async def audit_matches():
             total_opening = await conn.fetchval("SELECT count(*) FROM odds_history WHERE match_id = $1 AND is_opening = true", match_uuid)
             total_closing = await conn.fetchval("SELECT count(*) FROM odds_history WHERE match_id = $1 AND is_closing = true", match_uuid)
             
-            print(f"📊 RESUMO ODDS_HISTORY: Total = {total_oh} | Abertura (is_opening=true) = {total_opening} | Fechamento (is_closing=true) = {total_closing}")
+            print(f"RESUMO ODDS_HISTORY: Total = {total_oh} | Abertura (is_opening=true) = {total_opening} | Fechamento (is_closing=true) = {total_closing}")
 
             # 2. Resumo por Mercado
             markets = await conn.fetch("""
