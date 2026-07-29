@@ -637,7 +637,8 @@ class FlashscoreOddsCollector(BaseCollector):
             # 4. Aguardar tabela de odds — selector e polling do HTML
             odds_table_ready = False
             try:
-                await page.wait_for_selector("div.ui-table__row, [data-testid='wcl-tableRow'], [data-testid='wcl-oddsCell'], a.oddsCell__odd, div[class*='odds']", timeout=15000)
+                await page.wait_for_selector("div.wclOddsRow, div.ui-table__row, [data-testid='wcl-oddsCell'], button.wcl-oddsCell, a.oddsCell__odd", timeout=15000)
+                await page.wait_for_timeout(2000)
                 odds_table_ready = True
                 logger.debug(f"[Flashscore] Tabela de odds carregou via selector para {flashscore_id}")
             except Exception:
