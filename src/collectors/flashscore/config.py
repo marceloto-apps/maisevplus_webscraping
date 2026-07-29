@@ -125,21 +125,35 @@ _RAW_BOOKMAKER_MAP: Dict[str, str] = {
     # Casas principais
     "bet365": "bet365",
     "Betfair": "betfair_ex",
+    "betfair": "betfair_ex",
+    "Betano": "betano",
+    "betano": "betano",
     "Betano.br": "betano",
+    "1xBet": "1xbet",
     "1xBet.br": "1xbet",
+    "1xbet": "1xbet",
+    "Superbet": "superbet",
     "Superbet.br": "superbet",
+    "superbet": "superbet",
     "Pinnacle": "pinnacle",
+    "pinnacle": "pinnacle",
     # Casas secundárias ativas
     "Betnacional": "betnacional",
+    "betnacional": "betnacional",
+    "KTO": "kto",
     "KTO.br": "kto",
+    "kto": "kto",
     "Estrelabet": "estrela_bet",
+    "estrelabet": "estrela_bet",
     "F12": "f12",
+    "f12": "f12",
+    "Multibet": "multibet",
     "Multibet.br": "multibet",
+    "multibet": "multibet",
     "Bet7k": "bet7k",
+    "bet7k": "bet7k",
     "SeguroBet": "segurobet",
-    # EXCLUÍDAS (não mapear): esportesdasorte, betesporte, br4bet, casadeapostas,
-    # luvabet, betdasorte, betboom, esportivabet, brasilbet, brasildasorte,
-    # goldebet, jogodeouro, lotogreen, alfabet
+    "segurobet": "segurobet",
 }
 
 FLASHSCORE_BOOKMAKER_MAP = {k.strip().lower(): v for k, v in _RAW_BOOKMAKER_MAP.items()}
