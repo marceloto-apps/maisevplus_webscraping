@@ -218,16 +218,38 @@ async def main():
                 
                 # Validação do seletor da opening odd no HTML da página de odds
                 odds_soup = BeautifulSoup(odds_html_sample, "html.parser")
-                odd_cells = odds_soup.find_all("a", class_=lambda c: c and any(x in c.lower() for x in ("oddscell__odd", "oddscellodd")))
+                odd_cells = odds_soup.find_all(
+                    lambda tag: tag.name in ("a", "div", "span", "td") and (
+                        (tag.get("data-testid") and "wcl-oddscell" in tag.get("data-testid").lower())
+                        or
+                        (tag.get("class") and any(x in " ".join(tag.get("class")).lower() for x in ("oddscell__odd", "oddscellodd", "wcl-oddscell", "wcl-oddsvalue", "oddscell")))
+                    )
+                )
+                
+                # Filtrar elementos de bookmakers ou células de handicap
+                odd_cells = [
+                    c for c in odd_cells
+                    if not ("/bookmaker/" in (c.get("href") or "").lower() or "bookmaker" in " ".join(c.get("class") or []).lower())
+                    and not ("handicap" in " ".join(c.get("class") or []).lower() or "handicap" in (c.get("data-testid") or "").lower())
+                ]
                 
                 # Verifica se encontrou células de odds
                 if not odd_cells:
                     failed_field = "oddsCell__odd (células de odds)"
-                    error_reason = "Nenhuma célula de odd ('a.oddsCell__odd' / 'a.oddsCellodd') foi encontrada no HTML da página de comparação de odds."
+                    error_reason = "Nenhuma célula de odd foi encontrada no HTML da página de comparação de odds."
                     match_html_sample = odds_html_sample[:1200]
                 else:
-                    # Verifica se pelo menos uma célula tem o separador '»' no title
-                    has_opening = any('»' in (cell.get('title') or '') for cell in odd_cells)
+                    # Verifica se pelo menos uma célula tem o separador '»' no title (na própria célula ou em elementos filhos)
+                    has_opening = False
+                    for cell in odd_cells:
+                        for target in [cell] + list(cell.find_all(True)):
+                            t = target.get('title') or target.get('data-title') or target.get('data-tooltip') or ''
+                            if '»' in t:
+                                has_opening = True
+                                break
+                        if has_opening:
+                            break
+
                     if not has_opening:
                         failed_field = "oddsCell__odd[title*='»'] (opening odds)"
                         error_reason = "Nenhuma célula de odd possui o atributo 'title' contendo o separador '»' de opening odds."

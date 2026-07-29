@@ -236,46 +236,200 @@ class FlashscoreParser:
                     logger.warning(f"Bookmaker desconhecido: '{raw_name}'")
                 continue
                 
-            # 2. Extrai os valores numéricos da linha
-            # Pega todas as <a> com classe oddsCell__odd
-            cells = row.find_all("a", class_=lambda c: c and any(x in c.lower() for x in ("oddscell__odd", "oddscellodd")))
+def _extract_cell_odds(cell) -> tuple[Optional[str], Optional[float]]:
+    """
+    Extrai o valor de FECHAMENTO (texto bruto da odd) e ABERTURA (float) de uma célula de odd.
+    Suporta atributos 'title', 'data-title', 'data-tooltip' na célula ou em elementos filhos,
+    além do separador '»' (U+00BB) para movimento de odds.
+    
+    Retorna: (closing_text, opening_val)
+    """
+    # 1. Extração do valor de FECHAMENTO (closing_text)
+    closing_text = None
+    
+    # 1a. Tenta elementos com data-testid="wcl-oddsValue" (WCL moderno)
+    val_node = cell.find(lambda tag: tag.get("data-testid") == "wcl-oddsValue")
+    if val_node:
+        t = val_node.get_text(strip=True)
+        if t and (t == "-" or re.match(r'^\d+\.?\d*$', t)):
+            closing_text = t
+            
+    # 1b. Tenta inner spans se ainda não encontrou
+    if not closing_text:
+        inner_spans = cell.find_all("span")
+        for span in inner_spans:
+            text = span.get_text(strip=True)
+            if text and (text == "-" or re.match(r'^\d+\.?\d*$', text)):
+                closing_text = text
+                break
+
+    # 1c. Fallback pro texto direto da célula
+    if not closing_text:
+        text = cell.get_text(strip=True)
+        if text and (text == "-" or re.match(r'^\d+\.?\d*$', text)):
+            closing_text = text
+            
+    # 2. Extração do valor de ABERTURA (opening_val)
+    # Procura 'title', 'data-title', 'data-tooltip' na célula e nos seus filhos
+    raw_title = ""
+    for target in [cell] + list(cell.find_all(True)):
+        t = target.get('title') or target.get('data-title') or target.get('data-tooltip') or ''
+        if t and _OPENING_SEPARATOR in t:
+            raw_title = t.strip()
+            break
+        elif t and not raw_title:
+            raw_title = t.strip()
+
+    opening_val = None
+    if _OPENING_SEPARATOR in raw_title:
+        opening_part = raw_title.split(_OPENING_SEPARATOR)[0].strip()
+        try:
+            opening_val = float(opening_part)
+        except ValueError:
+            opening_val = None
+    else:
+        if raw_title:
+            try:
+                opening_val = float(raw_title)
+            except ValueError:
+                pass
+        if opening_val is None and closing_text and closing_text != "-":
+            try:
+                opening_val = float(closing_text)
+            except ValueError:
+                pass
+
+    return closing_text, opening_val
+
+
+def _find_odds_cells(row) -> List:
+    """
+    Busca todas as células de odds dentro de uma linha da tabela.
+    Aplica estratégia de resiliência em 3 camadas (WCL data-testid, classes CSS legadas/modernas e fallback semântico).
+    """
+    # ── CAMADA 1: Seletores específicos por data-testid e classe CSS ──
+    cells = row.find_all(
+        lambda tag: tag.name in ("a", "div", "span", "td") and (
+            # WCL data-testid
+            (tag.get("data-testid") and "wcl-oddscell" in tag.get("data-testid").lower())
+            or
+            # Classes CSS (legadas + WCL)
+            (tag.get("class") and any(
+                x in " ".join(tag.get("class")).lower() 
+                for x in ("oddscell__odd", "oddscellodd", "wcl-oddscell", "wcl-oddsvalue", "oddscell")
+            ))
+        )
+    )
+
+    filtered_cells = []
+    for c in cells:
+        # Se o elemento pai já é uma célula tratada, evita duplicar sub-elementos internos (ex: wcl-oddsValue dentro de wcl-oddsCell)
+        if any(c in prev.descendants for prev in filtered_cells):
+            continue
+        
+        c_class = " ".join(c.get("class") or []).lower()
+        c_testid = (c.get("data-testid") or "").lower()
+        href = (c.get("href") or "").lower()
+        
+        # Ignora se for link ou container de bookmaker
+        if "/bookmaker/" in href or "bookmaker" in c_class or "bookmaker" in c_testid:
+            continue
+        # Ignora se for célula dedicada de handicap/total/linha
+        if "handicap" in c_class or "handicap" in c_testid or "total" in c_class:
+            continue
+            
+        filtered_cells.append(c)
+
+    if filtered_cells:
+        return filtered_cells
+
+    # ── CAMADA 2: Fallback semântico por <a> tags na linha (excluindo bookmaker e handicap) ──
+    a_tags = row.find_all("a")
+    for a in a_tags:
+        href = (a.get("href") or "").lower()
+        a_class = " ".join(a.get("class") or []).lower()
+        if "/bookmaker/" in href or "bookmaker" in a_class:
+            continue
+        if "handicap" in a_class:
+            continue
+        text = a.get_text(strip=True)
+        if text and (text == "-" or re.search(r'\d+\.?\d*', text)):
+            filtered_cells.append(a)
+
+    return filtered_cells
+
+
+class FlashscoreParser:
+    """
+    Parser para conteúdo HTML da página do Flashscore.
+    Isola a manipulação de DOM/CSS que muda frequentemente.
+    """
+    
+    @staticmethod
+    def parse_odds_table(html: str, market_config: dict, bm_map: dict = None) -> tuple[List[Dict], Dict]:
+        """
+        Extrai as odds de uma aba de comparação de odds.
+        Retorna (odds_entries, parsing_stats).
+        """
+        soup = BeautifulSoup(html, "html.parser")
+        
+        parsing_stats = {
+            "unidentified_rows": 0,
+            "unknown_bookmakers": set()
+        }
+        
+        # Seletor específico para as linhas de bookmakers na tabela de odds
+        # Confirmado no DOM real: div.ui-table__row contém bookmaker + odds cells
+        rows = soup.find_all("div", class_="ui-table__row")
+        
+        if not rows:
+            # Fallback: tenta seletor alternativo (incluindo data-testid moderno)
+            rows = soup.find_all(
+                lambda tag: tag.name == "div" and (
+                    (tag.get("class") and any("oddsCell__bookmakerPart" in c for c in tag.get("class"))) or
+                    (tag.get("data-testid") and "tablerow" in tag.get("data-testid").lower())
+                )
+            )
+            if rows:
+                rows = [r if "tablerow" in (r.get("data-testid") or "").lower() else r.parent for r in rows if r]
+        
+        if not rows:
+            logger.debug(f"No odds rows found in HTML ({len(html)} bytes). Odds table may not have rendered.")
+        
+        results = []
+        sys_market = market_config["sys_market"]
+        period = market_config["period"]
+        
+        _unknown_bookmakers_in_batch = parsing_stats["unknown_bookmakers"]
+        
+        for index, row in enumerate(rows):
+            if index == 0:
+                logger.debug(f"FIRST ODDS ROW DOM:\n{row.prettify()}")
+            
+            # 1. Tenta identificar o bookmaker com a cascata
+            raw_name = _extract_bookmaker_from_row(row)
+            
+            if raw_name is None:
+                _log_unidentified_row(row)
+                parsing_stats["unidentified_rows"] += 1
+                continue
+                
+            our_bm_key = resolve_bookmaker(raw_name)
+            if our_bm_key is None:
+                if raw_name.lower() not in _unknown_bookmakers_in_batch:
+                    _unknown_bookmakers_in_batch.add(raw_name.lower())
+                    logger.warning(f"Bookmaker desconhecido: '{raw_name}'")
+                continue
+                
+            # 2. Extrai os valores numéricos e odds de abertura da linha
+            cells = _find_odds_cells(row)
             
             vals = []
-            opening_vals = []  # valores de abertura extraídos do atributo title
+            opening_vals = []
             for cell in cells:
-                # 2a. Valor de FECHAMENTO — span visível dentro do link
-                inner_spans = cell.find_all("span")
-                closing_text = None
-                for span in inner_spans:
-                    text = span.get_text(strip=True)
-                    if text and re.match(r'^\d+\.?\d*$', text):
-                        closing_text = text
-                        break  # Pega só o primeiro span numérico de cada cell
+                closing_text, opening_val = _extract_cell_odds(cell)
                 vals.append(closing_text)
-
-                # 2b. Valor de ABERTURA — atributo title no formato "2.15 » 1.85"
-                # Se houver separador '»', extrai a primeira parte (abertura).
-                # Se a odd não se moveu (sem '»'), a abertura é igual à odd de fechamento (title ou closing_text).
-                title = (cell.get('title', '') or '').strip()
-                if _OPENING_SEPARATOR in title:
-                    opening_part = title.split(_OPENING_SEPARATOR)[0].strip()
-                    try:
-                        opening_vals.append(float(opening_part))
-                    except ValueError:
-                        opening_vals.append(None)
-                else:
-                    opening_val = None
-                    if title:
-                        try:
-                            opening_val = float(title)
-                        except ValueError:
-                            pass
-                    if opening_val is None and closing_text:
-                        try:
-                            opening_val = float(closing_text)
-                        except ValueError:
-                            pass
-                    opening_vals.append(opening_val)
+                opening_vals.append(opening_val)
             
             # Filtra vals para remover Nones e converter pra float
             parsed_vals = [float(v) if v and v != "-" else None for v in vals]

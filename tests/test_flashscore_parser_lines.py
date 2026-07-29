@@ -426,3 +426,139 @@ class TestParseOddsTableOU:
         result, _ = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
         assert len(result) == 1
         assert result[0]["line"] == 3.75
+
+
+# ============================================================
+# Testes para a nova estrutura WCL e Odds de Abertura
+# ============================================================
+
+class TestParseOddsTableWCL:
+    """Testa parse_odds_table com a nova estrutura DOM baseada nos componentes WCL do Flashscore."""
+
+    def test_wcl_1x2_format(self):
+        html = """
+        <html><body>
+        <div class="ui-table__row" data-testid="wcl-tableRow">
+            <div data-testid="wcl-bookmaker">
+                <a href="/bookmaker/bet365/" title="bet365"><img alt="bet365"/></a>
+            </div>
+            <a data-testid="wcl-oddsCell" class="wcl-oddsCell_abc" title="2.10 » 1.95">
+                <span data-testid="wcl-oddsValue">1.95</span>
+            </a>
+            <a data-testid="wcl-oddsCell" class="wcl-oddsCell_abc" title="3.50 » 3.60">
+                <span data-testid="wcl-oddsValue">3.60</span>
+            </a>
+            <a data-testid="wcl-oddsCell" class="wcl-oddsCell_abc" title="3.80 » 4.00">
+                <span data-testid="wcl-oddsValue">4.00</span>
+            </a>
+        </div>
+        </body></html>
+        """
+        config = {"sys_market": "1x2", "period": "ft"}
+        result, _ = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
+        assert len(result) == 1
+        entry = result[0]
+        assert entry["bookmaker"] == "bet365"
+        assert entry["odds_1"] == 1.95
+        assert entry["odds_x"] == 3.60
+        assert entry["odds_2"] == 4.00
+        # Abertura
+        assert entry["opening_1"] == 2.10
+        assert entry["opening_x"] == 3.50
+        assert entry["opening_2"] == 3.80
+
+    def test_wcl_div_tag_format(self):
+        """Testa WCL usando tags <div> em vez de <a>."""
+        html = """
+        <html><body>
+        <div class="ui-table__row">
+            <div>
+                <a title="bet365"><img alt="bet365"/></a>
+            </div>
+            <div data-testid="wcl-oddsCell" title="1.80 » 1.85">
+                <span data-testid="wcl-oddsValue">1.85</span>
+            </div>
+            <div data-testid="wcl-oddsCell" title="2.05 » 2.00">
+                <span data-testid="wcl-oddsValue">2.00</span>
+            </div>
+        </div>
+        </body></html>
+        """
+        config = {"sys_market": "btts", "period": "ft"}
+        result, _ = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
+        assert len(result) == 1
+        entry = result[0]
+        assert entry["bookmaker"] == "bet365"
+        assert entry["odds_1"] == 1.85
+        assert entry["odds_2"] == 2.00
+        assert entry["opening_1"] == 1.80
+        assert entry["opening_2"] == 2.05
+
+
+class TestOpeningOddsExtraction:
+    """Testa preservação e extração de odds de abertura em diversos cenários de movimento."""
+
+    def test_opening_odds_with_movement(self):
+        """Odd de fechamento mudou em relação à abertura (contém separador '»')."""
+        html = """
+        <html><body>
+        <div class="ui-table__row">
+            <div class="oddsCell__bookmakerPart">
+                <a title="bet365"><img alt="bet365"/></a>
+            </div>
+            <a class="oddsCell__odd" title="2.50 » 2.30"><span>2.30</span></a>
+            <a class="oddsCell__odd" title="3.40 » 3.20"><span>3.20</span></a>
+            <a class="oddsCell__odd" title="2.90 » 3.10"><span>3.10</span></a>
+        </div>
+        </body></html>
+        """
+        config = {"sys_market": "1x2", "period": "ft"}
+        result, _ = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
+        assert len(result) == 1
+        assert result[0]["opening_1"] == 2.50
+        assert result[0]["opening_x"] == 3.40
+        assert result[0]["opening_2"] == 2.90
+        assert result[0]["odds_1"] == 2.30
+        assert result[0]["odds_x"] == 3.20
+        assert result[0]["odds_2"] == 3.10
+
+    def test_opening_odds_without_movement(self):
+        """Odd de fechamento é igual à abertura (sem separador '»' no title)."""
+        html = """
+        <html><body>
+        <div class="ui-table__row">
+            <div class="oddsCell__bookmakerPart">
+                <a title="bet365"><img alt="bet365"/></a>
+            </div>
+            <a class="oddsCell__odd" title="2.30"><span>2.30</span></a>
+            <a class="oddsCell__odd" title="3.20"><span>3.20</span></a>
+            <a class="oddsCell__odd" title="3.10"><span>3.10</span></a>
+        </div>
+        </body></html>
+        """
+        config = {"sys_market": "1x2", "period": "ft"}
+        result, _ = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
+        assert len(result) == 1
+        assert result[0]["opening_1"] == 2.30
+        assert result[0]["opening_x"] == 3.20
+        assert result[0]["opening_2"] == 3.10
+
+    def test_opening_odds_without_title_attribute(self):
+        """Fallback: se o elemento não tiver o atributo title, a abertura deve assumir a odd de fechamento."""
+        html = """
+        <html><body>
+        <div class="ui-table__row">
+            <div class="oddsCell__bookmakerPart">
+                <a title="bet365"><img alt="bet365"/></a>
+            </div>
+            <a class="oddsCell__odd"><span>1.90</span></a>
+            <a class="oddsCell__odd"><span>2.00</span></a>
+        </div>
+        </body></html>
+        """
+        config = {"sys_market": "btts", "period": "ft"}
+        result, _ = FlashscoreParser.parse_odds_table(html, config, BM_MAP)
+        assert len(result) == 1
+        assert result[0]["opening_1"] == 1.90
+        assert result[0]["opening_2"] == 2.00
+
