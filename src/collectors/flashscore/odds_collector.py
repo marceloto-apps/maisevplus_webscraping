@@ -235,7 +235,10 @@ class FlashscoreOddsCollector(BaseCollector):
                         await wait_for_table_change(old_state)
                 
                 # Garantir que pelo menos uma linha da tabela de odds está visível/pronta
-                await page.wait_for_selector("div.ui-table__row, a.oddsCell__odd", timeout=3000)
+                try:
+                    await page.wait_for_selector("div.wclOddsRow, [data-testid='wcl-oddsCell'], button.wcl-oddsCell, div.ui-table__row, a.oddsCell__odd, div[class*='odds']", timeout=3000)
+                except Exception:
+                    pass
                 return True
                 
             except Exception as e:
