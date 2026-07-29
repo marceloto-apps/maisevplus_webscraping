@@ -370,55 +370,56 @@ class FlashscoreParser:
                 our_bm_key = raw_name.strip().lower().replace(" ", "_").replace(".", "")
                 
             cells = _find_odds_cells(row)
-            vals = []
-            opening_vals = []
+            cell_pairs = []
             for cell in cells:
                 closing_text, opening_val = _extract_cell_odds(cell)
-                vals.append(closing_text)
-                opening_vals.append(opening_val)
+                if closing_text and closing_text != "-":
+                    try:
+                        val_float = float(closing_text)
+                        cell_pairs.append((val_float, opening_val))
+                    except ValueError:
+                        pass
             
-            parsed_vals = [float(v) if v and v != "-" else None for v in vals]
-            parsed_vals = [v for v in parsed_vals if v is not None]
-            if not parsed_vals:
+            if not cell_pairs:
                 continue
                 
             try:
                 if sys_market == "1x2":
-                    if len(parsed_vals) >= 3:
+                    if len(cell_pairs) >= 3:
                         results.append({
                             "bookmaker": our_bm_key,
                             "market_type": "1x2",
                             "period": period,
                             "line": None,
-                            "odds_1": parsed_vals[0],
-                            "odds_x": parsed_vals[1],
-                            "odds_2": parsed_vals[2],
-                            "opening_1": opening_vals[0] if len(opening_vals) > 0 else None,
-                            "opening_x": opening_vals[1] if len(opening_vals) > 1 else None,
-                            "opening_2": opening_vals[2] if len(opening_vals) > 2 else None,
+                            "odds_1": cell_pairs[0][0],
+                            "odds_x": cell_pairs[1][0],
+                            "odds_2": cell_pairs[2][0],
+                            "opening_1": cell_pairs[0][1],
+                            "opening_x": cell_pairs[1][1],
+                            "opening_2": cell_pairs[2][1],
                         })
                 elif sys_market == "ou":
                     line_val = _extract_line_from_cell(row, signed=False)
-                    if len(parsed_vals) >= 2 and line_val is not None:
-                        real_odds = [v for v in parsed_vals if v != line_val]
-                        if len(real_odds) < 2:
-                            real_odds = parsed_vals[-2:]
-                        if len(real_odds) >= 2:
+                    if line_val is not None and len(cell_pairs) >= 2:
+                        odds_pairs = [p for p in cell_pairs if p[0] != line_val]
+                        if len(odds_pairs) < 2:
+                            odds_pairs = cell_pairs[-2:]
+                        if len(odds_pairs) >= 2:
                             results.append({
                                 "bookmaker": our_bm_key,
                                 "market_type": "ou",
                                 "period": period,
                                 "line": line_val,
-                                "odds_1": real_odds[0],
+                                "odds_1": odds_pairs[0][0],
                                 "odds_x": None,
-                                "odds_2": real_odds[1],
-                                "opening_1": opening_vals[0] if len(opening_vals) > 0 else None,
+                                "odds_2": odds_pairs[1][0],
+                                "opening_1": odds_pairs[0][1],
                                 "opening_x": None,
-                                "opening_2": opening_vals[1] if len(opening_vals) > 1 else None,
+                                "opening_2": odds_pairs[1][1],
                             })
                 elif sys_market == "ah":
                     line_val = _extract_line_from_cell(row, signed=True)
-                    if line_val is None and len(parsed_vals) >= 2:
+                    if line_val is None and len(cell_pairs) >= 2:
                         has_handicap_cell = row.find(
                             lambda tag: tag.get("class")
                             and any("handicap" in c.lower() for c in (tag.get("class") or []))
@@ -426,61 +427,61 @@ class FlashscoreParser:
                         if not has_handicap_cell:
                             line_val = 0.0
                     
-                    if line_val is not None and len(parsed_vals) >= 2:
-                        real_odds = parsed_vals[-2:]
+                    if line_val is not None and len(cell_pairs) >= 2:
+                        odds_pairs = cell_pairs[-2:]
                         results.append({
                             "bookmaker": our_bm_key,
                             "market_type": "ah",
                             "period": period,
                             "line": line_val,
-                            "odds_1": real_odds[0],
+                            "odds_1": odds_pairs[0][0],
                             "odds_x": None,
-                            "odds_2": real_odds[1],
-                            "opening_1": opening_vals[0] if len(opening_vals) > 0 else None,
+                            "odds_2": odds_pairs[1][0],
+                            "opening_1": odds_pairs[0][1],
                             "opening_x": None,
-                            "opening_2": opening_vals[1] if len(opening_vals) > 1 else None,
+                            "opening_2": odds_pairs[1][1],
                         })
                 elif sys_market == "dc":
-                    if len(parsed_vals) >= 3:
+                    if len(cell_pairs) >= 3:
                         results.append({
                             "bookmaker": our_bm_key,
                             "market_type": "dc",
                             "period": period,
                             "line": None,
-                            "odds_1": parsed_vals[0],
-                            "odds_x": parsed_vals[1],
-                            "odds_2": parsed_vals[2],
-                            "opening_1": opening_vals[0] if len(opening_vals) > 0 else None,
-                            "opening_x": opening_vals[1] if len(opening_vals) > 1 else None,
-                            "opening_2": opening_vals[2] if len(opening_vals) > 2 else None,
+                            "odds_1": cell_pairs[0][0],
+                            "odds_x": cell_pairs[1][0],
+                            "odds_2": cell_pairs[2][0],
+                            "opening_1": cell_pairs[0][1],
+                            "opening_x": cell_pairs[1][1],
+                            "opening_2": cell_pairs[2][1],
                         })
                 elif sys_market == "dnb":
-                    if len(parsed_vals) >= 2:
+                    if len(cell_pairs) >= 2:
                         results.append({
                             "bookmaker": our_bm_key,
                             "market_type": "dnb",
                             "period": period,
                             "line": None,
-                            "odds_1": parsed_vals[0],
+                            "odds_1": cell_pairs[0][0],
                             "odds_x": None,
-                            "odds_2": parsed_vals[1],
-                            "opening_1": opening_vals[0] if len(opening_vals) > 0 else None,
+                            "odds_2": cell_pairs[1][0],
+                            "opening_1": cell_pairs[0][1],
                             "opening_x": None,
-                            "opening_2": opening_vals[1] if len(opening_vals) > 1 else None,
+                            "opening_2": cell_pairs[1][1],
                         })
                 elif sys_market == "btts":
-                    if len(parsed_vals) >= 2:
+                    if len(cell_pairs) >= 2:
                         results.append({
                             "bookmaker": our_bm_key,
                             "market_type": "btts",
                             "period": period,
                             "line": None,
-                            "odds_1": parsed_vals[0],
+                            "odds_1": cell_pairs[0][0],
                             "odds_x": None,
-                            "odds_2": parsed_vals[1],
-                            "opening_1": opening_vals[0] if len(opening_vals) > 0 else None,
+                            "odds_2": cell_pairs[1][0],
+                            "opening_1": cell_pairs[0][1],
                             "opening_x": None,
-                            "opening_2": opening_vals[1] if len(opening_vals) > 1 else None,
+                            "opening_2": cell_pairs[1][1],
                         })
             except Exception as e:
                 logger.debug(f"[FlashscoreParser] Ignorando row {raw_name} mal formatada: {e}")
