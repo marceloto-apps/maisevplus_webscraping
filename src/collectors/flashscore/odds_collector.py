@@ -597,6 +597,15 @@ class FlashscoreOddsCollector(BaseCollector):
                     logger.error(f"[Flashscore] [STATS] Falha ao coletar/salvar estatísticas para {flashscore_id}: {e}")
 
             # 3. Navegar para a aba de odds (1x2 FT) clicando no botão ODDS via SPA
+            # Garantir remoção do modal de idade caso tenha surgido durante a coleta de stats
+            try:
+                age_btn = page.locator("button:has-text('18 AND OLDER'), button:has-text('18+'), button:has-text('SOU MAIOR')")
+                if await age_btn.count() > 0:
+                    await age_btn.first.click()
+                    await page.wait_for_timeout(500)
+            except Exception:
+                pass
+
             try:
                 await page.wait_for_selector("div[role='tablist'], a[href*='/odds/'], a[href*='/odds-comparison/'], a[href*='/1x2-odds/'], [data-testid*='odds']", timeout=10000)
             except Exception:
@@ -619,17 +628,27 @@ class FlashscoreOddsCollector(BaseCollector):
                 }
                 return false;
             }''')
+
+            if not odds_clicked:
+                try:
+                    odds_loc = page.locator("a[href*='/odds/'], button:has-text('ODDS'), a:has-text('ODDS')").filter(has_not=page.locator("footer"))
+                    if await odds_loc.count() > 0:
+                        await odds_loc.first.click()
+                        odds_clicked = True
+                        logger.debug(f"[Flashscore] Aba ODDS clicada via Playwright locator para {flashscore_id}")
+                except Exception:
+                    pass
             
             if not odds_clicked:
                 curr_url = page.url
                 if "/match/" in curr_url and "?" in curr_url:
                     odds_url = curr_url.replace("/?", "/odds/1x2-odds/full-time/?")
                 else:
-                    odds_url = f"https://www.flashscore.com/match/{flashscore_id}/odds/1x2-odds/full-time/"
+                    odds_url = f"https://www.flashscore.com/match/{flashscore_id}/#/odds-comparison/1x2-odds/full-time"
                 logger.debug(f"[Flashscore] Botão ODDS não clicado via SPA. Fallback para {odds_url}")
                 try:
                     await page.goto(odds_url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
-                except Exception as e:
+                except Exception:
                     pass
             else:
                 logger.debug(f"[Flashscore] Aba ODDS clicada com sucesso via SPA para {flashscore_id}")
