@@ -22,7 +22,7 @@ async def check_eligible(league_id: int):
         # Quais são as primeiras partidas que o retrofit processaria?
         matches = await conn.fetch("""
             SELECT m.match_id, m.flashscore_id, m.kickoff,
-                   ht.name AS home_team, at.name AS away_team
+                   ht.name_canonical AS home_team, at.name_canonical AS away_team
             FROM matches m
             JOIN teams ht ON m.home_team_id = ht.team_id
             JOIN teams at ON m.away_team_id = at.team_id
@@ -67,14 +67,14 @@ async def check_eligible(league_id: int):
         
         # Verificar também partidas recentes COM odds (para confirmar que tínhamos antes)
         recent_with_odds = await conn.fetch("""
-            SELECT m.flashscore_id, m.kickoff, ht.name, at.name,
+            SELECT m.flashscore_id, m.kickoff, ht.name_canonical AS home_team, at.name_canonical AS away_team,
                    COUNT(DISTINCT o.bookmaker_id) as n_bookmakers
             FROM matches m
             JOIN teams ht ON m.home_team_id = ht.team_id
             JOIN teams at ON m.away_team_id = at.team_id
             JOIN odds_history o ON o.match_id = m.match_id AND o.is_opening = TRUE
             WHERE m.league_id = $1
-            GROUP BY m.flashscore_id, m.kickoff, ht.name, at.name
+            GROUP BY m.flashscore_id, m.kickoff, ht.name_canonical, at.name_canonical
             ORDER BY m.kickoff DESC
             LIMIT 5
         """, league_id)
@@ -83,14 +83,14 @@ async def check_eligible(league_id: int):
         print(f"Últimas 5 partidas COM opening odds gravadas (Liga {league_id})")
         print(f"{'='*100}")
         for m in recent_with_odds:
-            print(f"  {m['flashscore_id']} | {m['kickoff'].strftime('%Y-%m-%d %H:%M')} | {m['name']} vs {m[3]} | {m['n_bookmakers']} bookmakers")
+            print(f"  {m['flashscore_id']} | {m['kickoff'].strftime('%Y-%m-%d %H:%M')} | {m['home_team']} vs {m['away_team']} | {m['n_bookmakers']} bookmakers")
         
         if not recent_with_odds:
             print("  (Nenhuma partida com opening odds encontrada!)")
         
         # Também verificar a Premier League (para ter uma comparação)
         pl_matches = await conn.fetch("""
-            SELECT m.flashscore_id, m.kickoff, ht.name, at.name
+            SELECT m.flashscore_id, m.kickoff, ht.name_canonical AS home_team, at.name_canonical AS away_team
             FROM matches m
             JOIN teams ht ON m.home_team_id = ht.team_id
             JOIN teams at ON m.away_team_id = at.team_id
@@ -110,7 +110,7 @@ async def check_eligible(league_id: int):
         print(f"{'='*100}")
         for m in pl_matches:
             age = (datetime.now(timezone.utc) - m['kickoff'].replace(tzinfo=timezone.utc)).days
-            print(f"  {m['flashscore_id']} | {m['kickoff'].strftime('%Y-%m-%d %H:%M')} | {m['name']} vs {m[3]} | {age}d atrás")
+            print(f"  {m['flashscore_id']} | {m['kickoff'].strftime('%Y-%m-%d %H:%M')} | {m['home_team']} vs {m['away_team']} | {age}d atrás")
         
         if not pl_matches:
             print("  (Todas as partidas da PL já têm opening odds!)")
