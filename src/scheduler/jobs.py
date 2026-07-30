@@ -806,6 +806,10 @@ async def flashscore_historical_backfill():
                         summary_lines.append(line.strip())
                 if summary_lines:
                     details = "\n".join(summary_lines)
+                    # Se o contador for 0 ou None, soma a quantidade real de partidas processadas do resumo
+                    matches_in_summary = _re.findall(r"-\s+.*:\s+(\d+)\s+partidas", stdout_text)
+                    if matches_in_summary and (records_count is None or records_count == 0):
+                        records_count = sum(int(x) for x in matches_in_summary)
 
         update_backfill_status(
             "success",
@@ -878,7 +882,7 @@ async def flashscore_retrofit_daily():
 
     try:
         logger.info("spawning_flashscore_retrofit_subprocess")
-        cmd = [sys.executable, "scripts/run_flashscore_retrofit.py", "--limit-matches", "180", "--headless"]
+        cmd = [sys.executable, "scripts/run_flashscore_retrofit.py", "--limit-matches", "180", "--timeout-hours", "2.5", "--headless"]
         if sys.platform != "win32":
             cmd = ["xvfb-run", "-a"] + cmd
 

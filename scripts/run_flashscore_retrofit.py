@@ -31,6 +31,10 @@ async def main():
         help="Limite de partidas para processar nesta execução (útil para testes)."
     )
     parser.add_argument(
+        "--timeout-hours", type=float, default=2.5,
+        help="Tempo máximo de execução em horas antes de encerrar graciosamente."
+    )
+    parser.add_argument(
         "--headless", action="store_true", default=False,
         help="Rodar navegador em modo headless."
     )
@@ -141,13 +145,26 @@ async def main():
     
     catastrophic_error = None
     
+    from datetime import timedelta
+    start_time = datetime.now(timezone.utc)
+    max_duration = timedelta(hours=args.timeout_hours)
+    timeout_reached = False
+
     try:
         for b_idx, batch in enumerate(batches):
+            if timeout_reached:
+                break
+
             logger.info(f"Iniciando sub-lote {b_idx + 1}/{len(batches)} (Tamanho: {len(batch)} matches)")
             
             # Novo browser por sub-lote de 50
             async with AsyncCamoufox(headless=args.headless) as browser:
                 for idx, m in enumerate(batch):
+                    if datetime.now(timezone.utc) - start_time > max_duration:
+                        logger.info(f"[Retrofit] Limite de tempo de {args.timeout_hours}h atingido. Encerrando lote graciosamente.")
+                        timeout_reached = True
+                        break
+
                     m_uuid = m["match_id"]
                     fs_id = m["flashscore_id"]
                     kickoff = m["kickoff"]
