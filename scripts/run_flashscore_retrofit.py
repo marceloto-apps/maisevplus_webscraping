@@ -172,6 +172,10 @@ async def main():
                     logger.info(f"[{b_idx+1}/{len(batches)}] Retrofit match {idx+1}/{len(batch)} | FS ID: {fs_id}")
                     
                     has_opening = False
+                    markets_ok   = []
+                    markets_fail = []
+                    inserted_count = 0
+                    is_complete = False
                     try:
                         # Executar coleta para esta partida única com conexão isolada
                         async with pool.acquire() as conn:
@@ -182,6 +186,19 @@ async def main():
                                 skip_closing=True
                             )
                             
+                            # Log de diagnóstico granular — essencial para rastrear falhas silenciosas
+                            markets_ok   = result.get("markets_collected", [])
+                            markets_fail = result.get("markets_failed", [])
+                            inserted_count = result.get("total_inserted", 0)
+                            is_complete = result.get("is_complete", False)
+                            logger.info(
+                                f"[Retrofit-Diag] {fs_id}: "
+                                f"inserted={inserted_count}, "
+                                f"markets_ok={markets_ok}, "
+                                f"markets_fail={markets_fail}, "
+                                f"complete={is_complete}"
+                            )
+
                             # Verificar se gravou opening odds no banco (is_opening = TRUE)
                             has_opening = await conn.fetchval("""
                                 SELECT EXISTS (
@@ -189,14 +206,36 @@ async def main():
                                     WHERE match_id = $1 AND is_opening = TRUE
                                 )
                             """, m_uuid)
-                            
+
+                        # ── Determinar status ──────────────────────────────────────────────
+                        # 'success'    → opening gravada no banco
+                        # 'no_opening' → odds carregaram mas Flashscore não tem odd de abertura
+                        #                (status DEFINITIVO — exclui da fila permanentemente)
+                        # 'failed'     → tabela de odds não renderizou ou erro de rede
+                        #                (status RETENTÁVEL — partida volta à fila na próxima run)
+                        has_odds_table = len(markets_ok) > 0 or len(markets_fail) > 0
+
+                        if has_opening:
+                            status = 'success'
+                        elif has_odds_table:
+                            # Odds carregaram mas realmente sem opening → definitivo
+                            status = 'no_opening'
+                        else:
+                            # Tabela nem carregou → falha transitória, manter elegível
+                            status = 'failed'
+                            logger.warning(
+                                f"[Retrofit-Diag] {fs_id}: tabela de odds não carregou — "
+                                f"marcando como 'failed' (retentável, NÃO queima a partida)"
+                            )
+
                         # Atualiza estatísticas e log da partida em conexão dedicada
                         async with pool.acquire() as conn:
-                            status = 'success' if has_opening else 'no_opening'
-                            if has_opening:
+                            if status == 'success':
                                 success_matches += 1
-                            else:
+                            elif status == 'no_opening':
                                 no_opening_matches += 1
+                            else:
+                                failed_matches += 1
                                 
                             await conn.execute("""
                                 INSERT INTO retrofit_match_log (match_id, league_id, status, error_message, processed_at)
