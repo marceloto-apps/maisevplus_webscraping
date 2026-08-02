@@ -30,6 +30,7 @@ NOTIFY_ON_SUCCESS: set[str] = {
     "db_backup",
     "run_data_quality_routine",
     "flashscore_retrofit_daily",
+    "odds_ingestion_watchdog",
 }
 
 def update_backfill_status(status: str, last_run_started: str = None, last_run_finished: str = None, last_error: str = None, processed_matches: int = None, details: str = None):
@@ -1346,4 +1347,70 @@ async def check_backfill_status():
         raise RuntimeError(f"Watchdog check_backfill_status.py falhou: {stderr_text}")
     logger.info("watchdog_status_check_success")
     return {"job": "check_backfill_status"}
+
+
+@safe_job
+async def odds_ingestion_watchdog():
+    """
+    Trigger: 09:00 BRT (diário)
+    Monitora se novas odds do Flashscore foram inseridas no banco (odds_history ou prematch_odds)
+    nas últimas 24 horas. Dispara alerta CRÍTICO no Telegram se a ingestão estiver zerada.
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        oh_count = await conn.fetchval("""
+            SELECT COUNT(*)
+            FROM odds_history
+            WHERE source = 'flashscore'
+              AND time >= NOW() - INTERVAL '24 hours'
+        """) or 0
+
+        po_count = await conn.fetchval("""
+            SELECT COUNT(*)
+            FROM prematch_odds
+            WHERE source = 'flashscore'
+              AND time >= NOW() - INTERVAL '24 hours'
+        """) or 0
+
+        total_new_odds = oh_count + po_count
+
+        if oh_count == 0 and po_count == 0:
+            msg = (
+                "🚨 *ALERTA CRÍTICO: INGESTÃO DE ODDS FLASHSCORE PARADA* 🚨\n\n"
+                "Nenhuma nova odd do Flashscore foi gravada nas últimas 24 horas em NENHUMA tabela!\n"
+                f"- `odds_history`: 0 registros\n"
+                f"- `prematch_odds`: 0 registros\n\n"
+                "⚠️ O DOM do Flashscore pode ter mudado ou os scrapers/backfill estão totalmente parados."
+            )
+            logger.critical("odds_ingestion_watchdog_both_zero", oh_count=oh_count, po_count=po_count)
+            TelegramAlert.fire("critical", msg)
+        elif oh_count == 0:
+            msg = (
+                "⚠️ *ALERTA: INGESTÃO PARADA EM ODDS_HISTORY* ⚠️\n\n"
+                "Nenhuma nova odd do Flashscore foi gravada em `odds_history` (backfill/retrofit/closing) nas últimas 24 horas!\n"
+                f"- `odds_history`: 0 registros\n"
+                f"- `prematch_odds`: {po_count} registros\n\n"
+                "🔍 Verifique o scraper de backfill/retrofit/closing."
+            )
+            logger.warning("odds_ingestion_watchdog_odds_history_zero", oh_count=oh_count, po_count=po_count)
+            TelegramAlert.fire("warning", msg)
+        elif po_count == 0:
+            msg = (
+                "⚠️ *ALERTA: INGESTÃO PARADA EM PREMATCH_ODDS* ⚠️\n\n"
+                "Nenhuma nova odd do Flashscore foi gravada em `prematch_odds` (live tracking) nas últimas 24 horas!\n"
+                f"- `odds_history`: {oh_count} registros\n"
+                f"- `prematch_odds`: 0 registros\n\n"
+                "🔍 Verifique os jobs de prematch tracking."
+            )
+            logger.warning("odds_ingestion_watchdog_prematch_zero", oh_count=oh_count, po_count=po_count)
+            TelegramAlert.fire("warning", msg)
+        else:
+            logger.info("odds_ingestion_watchdog_ok", total_odds=total_new_odds, oh_count=oh_count, po_count=po_count)
+
+    return {
+        "job": "odds_ingestion_watchdog",
+        "records_count": total_new_odds,
+        "details": f"Odds History: {oh_count} | Prematch: {po_count}"
+    }
+
 

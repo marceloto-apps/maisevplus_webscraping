@@ -143,6 +143,16 @@ async def main():
     failed_matches = 0
     no_opening_matches = 0
     
+    # ── Circuit breaker ──────────────────────────────────────────────
+    # Se N partidas consecutivas retornarem 0 linhas de odds parseadas,
+    # assume que o DOM mudou e aborta para não queimar partidas boas
+    # com status 'no_opening' (definitivo/permanente).
+    CIRCUIT_BREAKER_THRESHOLD = 10
+    consecutive_empty = 0
+    circuit_broken = False
+    html_dumps_saved = 0
+    MAX_HTML_DUMPS = 3  # salvar no máx 3 dumps de diagnóstico
+    
     catastrophic_error = None
     
     from datetime import timedelta
@@ -152,7 +162,7 @@ async def main():
 
     try:
         for b_idx, batch in enumerate(batches):
-            if timeout_reached:
+            if timeout_reached or circuit_broken:
                 break
 
             logger.info(f"Iniciando sub-lote {b_idx + 1}/{len(batches)} (Tamanho: {len(batch)} matches)")
@@ -191,6 +201,7 @@ async def main():
                             markets_fail = result.get("markets_failed", [])
                             inserted_count = result.get("total_inserted", 0)
                             is_complete = result.get("is_complete", False)
+                            diag_html   = result.get("debug_html")  # HTML bruto quando 0 odds extraídas
                             logger.info(
                                 f"[Retrofit-Diag] {fs_id}: "
                                 f"inserted={inserted_count}, "
@@ -198,6 +209,20 @@ async def main():
                                 f"markets_fail={markets_fail}, "
                                 f"complete={is_complete}"
                             )
+                            
+                            # Salvar HTML de diagnóstico para as primeiras falhas
+                            if diag_html and html_dumps_saved < MAX_HTML_DUMPS:
+                                import os as _os
+                                dump_dir = _os.path.join(_os.getcwd(), "logs", "html_dumps")
+                                _os.makedirs(dump_dir, exist_ok=True)
+                                dump_path = _os.path.join(dump_dir, f"retrofit_diag_{fs_id}.html")
+                                try:
+                                    with open(dump_path, "w", encoding="utf-8") as df:
+                                        df.write(diag_html)
+                                    logger.info(f"[Retrofit-Diag] HTML dump salvo: {dump_path}")
+                                    html_dumps_saved += 1
+                                except Exception as dump_err:
+                                    logger.warning(f"[Retrofit-Diag] Falha ao salvar HTML dump: {dump_err}")
 
                             # Verificar se gravou opening odds no banco (is_opening = TRUE)
                             has_opening = await conn.fetchval("""
@@ -209,24 +234,44 @@ async def main():
 
                         # ── Determinar status ──────────────────────────────────────────────
                         # 'success'    → opening gravada no banco
-                        # 'no_opening' → odds carregaram mas Flashscore não tem odd de abertura
-                        #                (status DEFINITIVO — exclui da fila permanentemente)
-                        # 'failed'     → tabela de odds não renderizou ou erro de rede
-                        #                (status RETENTÁVEL — partida volta à fila na próxima run)
-                        has_odds_table = len(markets_ok) > 0 or len(markets_fail) > 0
+                        # 'no_opening' → odds parseadas (linhas de bookmaker extraídas) 
+                        #                mas sem dado de abertura → DEFINITIVO
+                        # 'failed'     → parser retornou 0 entries OU tabela não carregou
+                        #                → RETENTÁVEL (volta à fila na próxima run)
+                        has_parsed_odds = len(markets_ok) > 0  # parser extraiu ao menos 1 mercado com entries
 
                         if has_opening:
                             status = 'success'
-                        elif has_odds_table:
-                            # Odds carregaram mas realmente sem opening → definitivo
+                            consecutive_empty = 0  # Reset do circuit breaker
+                        elif has_parsed_odds and inserted_count > 0:
+                            # Parser extraiu odds E inseriu no banco, mas nenhuma foi opening
                             status = 'no_opening'
+                            consecutive_empty = 0  # Reset — o scraping está funcionando
+                        elif has_parsed_odds:
+                            # Parser extraiu odds mas nenhuma foi inserida (dedup total)
+                            # Opening pode já ter sido inserida numa run anterior
+                            status = 'no_opening'
+                            consecutive_empty = 0
                         else:
-                            # Tabela nem carregou → falha transitória, manter elegível
+                            # Parser retornou 0 entries para TODOS os mercados
+                            # → provável mudança de DOM, NÃO queimar a partida
                             status = 'failed'
+                            consecutive_empty += 1
                             logger.warning(
-                                f"[Retrofit-Diag] {fs_id}: tabela de odds não carregou — "
-                                f"marcando como 'failed' (retentável, NÃO queima a partida)"
+                                f"[Retrofit-Diag] {fs_id}: parser retornou 0 entries — "
+                                f"marcando como 'failed' (retentável). "
+                                f"Consecutive empty: {consecutive_empty}/{CIRCUIT_BREAKER_THRESHOLD}"
                             )
+                            
+                            # ── Circuit breaker: abortar se muitas falhas consecutivas ──
+                            if consecutive_empty >= CIRCUIT_BREAKER_THRESHOLD:
+                                circuit_broken = True
+                                logger.error(
+                                    f"[Retrofit] CIRCUIT BREAKER ATIVADO após {consecutive_empty} "
+                                    f"partidas consecutivas sem odds extraídas. "
+                                    f"Provável mudança de DOM no Flashscore. Abortando."
+                                )
+                                # NÃO break aqui — deixa o status da partida atual ser registrado abaixo
 
                         # Atualiza estatísticas e log da partida em conexão dedicada
                         async with pool.acquire() as conn:
@@ -278,6 +323,10 @@ async def main():
 
                     # Respeitar rate limits
                     await asyncio.sleep(2.0)
+                    
+                    # Circuit breaker: sair do inner loop após registrar a partida
+                    if circuit_broken:
+                        break
             
             # Intervalo entre sub-lotes para resfriar
             if b_idx < len(batches) - 1:
@@ -297,6 +346,20 @@ async def main():
                     error_details = $2
                 WHERE league_id = $1
             """, league_id, catastrophic_error)
+        elif circuit_broken:
+            # Circuit breaker ativado — marcar liga como 'failed' (retentável)
+            # para não queimar mais partidas na próxima run
+            cb_msg = (
+                f"Circuit breaker ativado após {consecutive_empty} partidas "
+                f"consecutivas sem odds extraídas. Provável mudança de DOM."
+            )
+            await conn.execute("""
+                UPDATE retrofit_queue
+                SET status = 'failed',
+                    error_details = $2
+                WHERE league_id = $1
+            """, league_id, cb_msg)
+            logger.error(f"[Retrofit] Liga {league_id} marcada como 'failed' pelo circuit breaker.")
         else:
             # Verificar se ainda sobram partidas elegíveis na liga
             remaining = await conn.fetchval("""

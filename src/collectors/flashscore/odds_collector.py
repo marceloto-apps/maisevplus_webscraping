@@ -827,6 +827,15 @@ class FlashscoreOddsCollector(BaseCollector):
             if 'pinnacle' in match_unique_bookmakers:
                 metrics.pinnacle_found += 1
             metrics.total_bookmakers_extracted += len(match_unique_bookmakers)
+            
+            # Capturar HTML de diagnóstico quando o parser não extraiu nenhuma odd
+            debug_html = None
+            if not markets_collected and total_inserted == 0:
+                try:
+                    debug_html = await page.content()
+                    logger.debug(f"[Flashscore] HTML de diagnóstico capturado para {flashscore_id} ({len(debug_html)} bytes)")
+                except Exception:
+                    pass
                     
         finally:
             await page.close()
@@ -838,6 +847,7 @@ class FlashscoreOddsCollector(BaseCollector):
             "markets_collected": markets_collected,
             "markets_failed": markets_failed,
             "is_complete": is_complete,
+            "debug_html": debug_html,
         }
 
     async def collect(self, match_ids: List[dict] = None, is_closing: bool = False, is_prematch: bool = False, **kwargs) -> CollectResult:

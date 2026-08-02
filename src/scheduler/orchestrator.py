@@ -33,6 +33,7 @@ from src.scheduler.jobs import (
     flashscore_scheduled_cleaner,
     flashscore_integrity_check,
     flashscore_retrofit_daily,
+    odds_ingestion_watchdog,
 )
 
 logger = get_logger(__name__)
@@ -199,6 +200,15 @@ class AppOrchestrator:
             hour=8, minute=20,
             id="flashscore_backfill_2",
             misfire_grace_time=3600
+        )
+
+        # 09:00 - Odds Ingestion Watchdog (alerta se 0 odds em 24h)
+        self.scheduler.add_job(
+            odds_ingestion_watchdog,
+            'cron',
+            hour=9, minute=0,
+            id="odds_ingestion_watchdog",
+            misfire_grace_time=1800
         )
 
         # 11:05 - Flashscore Prematch Tracking 2 (Max 1h50m duration)
