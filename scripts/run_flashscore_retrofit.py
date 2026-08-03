@@ -106,7 +106,6 @@ async def main():
             WHERE m.league_id = $1
               AND m.flashscore_id IS NOT NULL
               AND m.kickoff <= NOW()
-              AND m.kickoff >= '2023-01-01 00:00:00+00'
               AND NOT EXISTS (
                   SELECT 1 FROM odds_history o
                   WHERE o.match_id = m.match_id AND o.is_opening = TRUE

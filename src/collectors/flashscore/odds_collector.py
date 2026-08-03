@@ -299,6 +299,16 @@ class FlashscoreOddsCollector(BaseCollector):
             except Exception:
                 pass
 
+            # Confirmação de idade (18+ / 25+ / "Eu tenho mais de 18 anos") para liberar a aba de ODDS no DOM
+            try:
+                age_btn = page.locator("button:has-text('Eu tenho mais de 18 anos'), button:has-text('18 anos'), button:has-text('18 AND OLDER'), button:has-text('18+'), button:has-text('SOU MAIOR'), a[href*='legal-age']")
+                if await age_btn.count() > 0:
+                    await age_btn.first.click()
+                    logger.debug(f"[Flashscore] Confirmação de idade (18+) aceita para {flashscore_id}")
+                    await page.wait_for_timeout(500)
+            except Exception:
+                pass
+
             # Extrair placares FT e HT da página de detalhes e atualizar na tabela matches
             try:
                 # Aguardar o container do score carregar para garantir que os placares estão na DOM
@@ -599,7 +609,7 @@ class FlashscoreOddsCollector(BaseCollector):
             # 3. Navegar para a aba de odds (1x2 FT) clicando no botão ODDS via SPA
             # Garantir remoção do modal de idade caso tenha surgido durante a coleta de stats
             try:
-                age_btn = page.locator("button:has-text('18 AND OLDER'), button:has-text('18+'), button:has-text('SOU MAIOR')")
+                age_btn = page.locator("button:has-text('Eu tenho mais de 18 anos'), button:has-text('18 anos'), button:has-text('18 AND OLDER'), button:has-text('18+'), button:has-text('SOU MAIOR'), a[href*='legal-age']")
                 if await age_btn.count() > 0:
                     await age_btn.first.click()
                     await page.wait_for_timeout(500)
