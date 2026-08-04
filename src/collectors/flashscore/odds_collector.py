@@ -301,10 +301,10 @@ class FlashscoreOddsCollector(BaseCollector):
             # Confirmação de idade (18+ / 25+ / "Eu tenho mais de 18 anos") para liberar a aba de ODDS no DOM
             try:
                 age_btn = page.locator("button:has-text('Eu tenho mais de 18 anos'), button:has-text('18 anos'), button:has-text('18 AND OLDER'), button:has-text('18+'), button:has-text('SOU MAIOR'), a[href*='legal-age']")
-                if await age_btn.count() > 0:
-                    await age_btn.first.click()
-                    logger.debug(f"[Flashscore] Confirmação de idade (18+) aceita para {flashscore_id}")
-                    await page.wait_for_timeout(500)
+                await age_btn.first.wait_for(state="visible", timeout=3000)
+                await age_btn.first.click()
+                logger.debug(f"[Flashscore] Confirmação de idade (18+) aceita para {flashscore_id}")
+                await page.wait_for_timeout(500)
             except Exception:
                 pass
 
@@ -620,9 +620,10 @@ class FlashscoreOddsCollector(BaseCollector):
             # Garantir remoção do modal de idade caso tenha surgido durante a coleta de stats
             try:
                 age_btn = page.locator("button:has-text('Eu tenho mais de 18 anos'), button:has-text('18 anos'), button:has-text('18 AND OLDER'), button:has-text('18+'), button:has-text('SOU MAIOR'), a[href*='legal-age']")
-                if await age_btn.count() > 0:
-                    await age_btn.first.click()
-                    await page.wait_for_timeout(500)
+                await age_btn.first.wait_for(state="visible", timeout=3000)
+                await age_btn.first.click()
+                logger.debug(f"[Flashscore] Modal de idade (18+) aceito na transição para odds de {flashscore_id}")
+                await page.wait_for_timeout(500)
             except Exception:
                 pass
 
