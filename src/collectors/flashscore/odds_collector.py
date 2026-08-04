@@ -138,11 +138,12 @@ class FlashscoreOddsCollector(BaseCollector):
                     }''', market_href)
                     
                     if not clicked_market:
-                        # Fallback: tentar navegação direta via URL para a sub-aba do mercado
-                        target_url = f"https://www.flashscore.com/match/{flashscore_id}/odds/{market_href}/full-time/"
+                        # Fallback: tentar navegação direta via URL hash para a sub-aba do mercado
+                        target_url = f"https://www.flashscore.com/match/{flashscore_id}/#/odds-comparison/{market_href}/{period_slug or 'full-time'}"
                         logger.debug(f"[Flashscore] Sub-aba '{market_href}' não clicada via SPA. Tentando navegação direta: {target_url}")
                         try:
                             await page.goto(target_url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
+                            await page.wait_for_timeout(1000)
                         except Exception as e:
                             logger.debug(f"[Flashscore] Falha ao navegar diretamente para {market_href}: {e}")
                             return False
@@ -218,8 +219,16 @@ class FlashscoreOddsCollector(BaseCollector):
                     }''', {"market_slug": market_href, "period_slug": period_slug})
                     
                     if not clicked_period and period_slug != "full-time":
-                        logger.debug(f"[Flashscore] Sub-aba de período '{period_slug}' não encontrada via href ou fallback para o mercado '{market_href}'. Pulando.")
-                        return False
+                        # Fallback: tentar navegação direta via URL hash para o período
+                        target_url = f"https://www.flashscore.com/match/{flashscore_id}/#/odds-comparison/{market_href}/{period_slug}"
+                        logger.debug(f"[Flashscore] Navegação direta de período para {period_slug}: {target_url}")
+                        try:
+                            await page.goto(target_url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
+                            await page.wait_for_timeout(1000)
+                            clicked_period = True
+                        except Exception:
+                            logger.debug(f"[Flashscore] Sub-aba de período '{period_slug}' não encontrada. Pulando.")
+                            return False
                     
                     if clicked_period:
                         # 2.1. Aguardar a URL atualizar para conter o period_slug
@@ -658,8 +667,8 @@ class FlashscoreOddsCollector(BaseCollector):
             # 4. Aguardar tabela de odds — selector e polling do HTML
             odds_table_ready = False
             try:
-                await page.wait_for_selector("div.wclOddsRow, div.ui-table__row, [data-testid='wcl-oddsCell'], button.wcl-oddsCell, a.oddsCell__odd", timeout=15000)
-                await page.wait_for_timeout(2000)
+                await page.wait_for_selector("div.wclOddsRow, div.ui-table__row, [data-testid='wcl-oddsCell'], button.wcl-oddsCell, a.oddsCell__odd", timeout=10000)
+                await page.wait_for_timeout(1500)
                 odds_table_ready = True
                 logger.debug(f"[Flashscore] Tabela de odds carregou via selector para {flashscore_id}")
             except Exception:
@@ -670,6 +679,7 @@ class FlashscoreOddsCollector(BaseCollector):
                     html_check = await page.content()
                     if any(x in html_check for x in ("ui-table__row", "wcl-tableRow", "wcl-oddsCell", "wcl-oddsValue", "oddsCell__odd", "oddsCell", "wcl-cell")):
                         odds_table_ready = True
+                        await page.wait_for_timeout(1500)
                         logger.debug(f"[Flashscore] Tabela de odds encontrada via HTML poll para {flashscore_id}")
                         break
                     await asyncio.sleep(1.0)
