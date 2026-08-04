@@ -280,16 +280,6 @@ class FlashscoreOddsCollector(BaseCollector):
             except Exception as e:
                 logger.warning(f"[Flashscore] Timeout na página base de {flashscore_id}: {e}")
 
-            # Aceitar modal de idade (18+) e banner de cookies se estiverem presentes
-            try:
-                age_btn = page.locator("button:has-text('18 AND OLDER'), button:has-text('18+'), button:has-text('SOU MAIOR')")
-                await age_btn.first.wait_for(state="visible", timeout=5000)
-                await age_btn.first.click()
-                logger.debug(f"[Flashscore] Modal de idade (18+) aceito para {flashscore_id}")
-                await page.wait_for_timeout(500)
-            except Exception:
-                pass
-
             try:
                 accept_btn = page.locator('button#onetrust-accept-btn-handler')
                 if await accept_btn.count() > 0:
