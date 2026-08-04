@@ -134,12 +134,15 @@ def _parse_line_value(raw_text: str, signed: bool = False) -> Optional[float]:
 
 def _extract_line_from_cell(row, signed: bool = False) -> Optional[float]:
     """Extrai o valor da linha (handicap/total) a partir da célula dedicada do Flashscore."""
-    cell = row.find(lambda tag: tag.get("data-testid") == "wcl-oddsCell" and "handicap" in (tag.get("class") or []))
+    cell = row.find(
+        lambda tag: tag.get("data-testid") in ("wcl-oddsCell", "wcl-totalCell", "wcl-handicapCell")
+        or (tag.get("class") and any(x in " ".join(tag.get("class")).lower() for x in ("handicap", "total", "line", "underover")))
+    )
     if not cell:
         cell = row.find(
             lambda tag: tag.name in ("a", "div", "span")
             and tag.get("class")
-            and any("handicap" in c.lower() for c in (tag.get("class") or []))
+            and any(x in c.lower() for c in (tag.get("class") or []) for x in ("handicap", "total", "line", "underover"))
         )
     if not cell:
         cell = row.find(
@@ -150,7 +153,7 @@ def _extract_line_from_cell(row, signed: bool = False) -> Optional[float]:
         )
 
     if cell:
-        val_span = cell.find(lambda tag: tag.get("data-testid") == "wcl-oddsValue")
+        val_span = cell.find(lambda tag: tag.get("data-testid") in ("wcl-oddsValue", "wcl-totalValue", "wcl-handicapValue"))
         raw = (val_span.get_text(strip=True) if val_span else cell.get_text(strip=True))
         
         if not raw and signed:
@@ -160,7 +163,8 @@ def _extract_line_from_cell(row, signed: bool = False) -> Optional[float]:
         if val is not None:
             return val
     
-    return None
+    # Fallback: tentar regex no texto bruto da linha completa
+    return _parse_line_from_text(row.get_text(strip=True), signed=signed)
 
 
 def _parse_line_from_text(full_text: str, signed: bool = False) -> Optional[float]:
@@ -400,6 +404,11 @@ class FlashscoreParser:
                         })
                 elif sys_market == "ou":
                     line_val = _extract_line_from_cell(row, signed=False)
+                    if line_val is None and cell_pairs and len(cell_pairs) >= 3:
+                        first_val = cell_pairs[0][0]
+                        if _is_valid_line(first_val) and first_val < 15.0:
+                            line_val = first_val
+
                     if line_val is not None and len(cell_pairs) >= 2:
                         odds_pairs = [p for p in cell_pairs if p[0] != line_val]
                         if len(odds_pairs) < 2:
