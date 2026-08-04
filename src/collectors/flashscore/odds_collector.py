@@ -623,10 +623,11 @@ class FlashscoreOddsCollector(BaseCollector):
                     logger.error(f"[Flashscore] [STATS] Falha ao coletar/salvar estatísticas para {flashscore_id}: {e}")
 
             # 3. Navegar para a aba de odds (1x2 FT)
-            # SOLUÇÃO DEFINITIVA: Criar um contexto de navegador completamente novo para a coleta de odds.
-            # O contexto anterior compartilha localStorage com o flag de aceitação do modal 18+, fazendo
-            # o Flashscore ocultar a aba COTAÇÕES mesmo sem mostrar o modal. Um contexto novo garante
-            # estado completamente limpo, idêntico ao fluxo do Retrofit que tem 100% de sucesso.
+            # CAUSA RAIZ CONFIRMADA: O Flashscore controla a visibilidade da aba Odds via
+            # localStorage.getItem("legal_age_confirmation") === "1". A aba não aparece no DOM
+            # até que o modal "18 AND OLDER" seja aceito (aparece ~5s após o carregamento da página).
+            # SOLUÇÃO: criar contexto limpo, aguardar modal até 10s, e como fallback forçar o
+            # localStorage diretamente antes de recarregar a página.
             if not is_prematch and not skip_stats:
                 try:
                     await context.close()
@@ -638,12 +639,13 @@ class FlashscoreOddsCollector(BaseCollector):
                 )
                 page = await context.new_page()
                 base_url = f"https://www.flashscore.com/match/{flashscore_id}/"
-                logger.debug(f"[Flashscore] [ODDS] Novo contexto criado para {flashscore_id}, navegando para {base_url}")
+                logger.debug(f"[Flashscore] [ODDS] Novo contexto para {flashscore_id}, navegando para {base_url}")
                 try:
                     await page.goto(base_url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
                 except Exception as e:
                     logger.warning(f"[Flashscore] Timeout ao abrir página de odds para {flashscore_id}: {e}")
 
+                # Aceitar cookie banner se aparecer
                 try:
                     accept_btn = page.locator('button#onetrust-accept-btn-handler')
                     if await accept_btn.count() > 0:
@@ -652,18 +654,39 @@ class FlashscoreOddsCollector(BaseCollector):
                 except Exception:
                     pass
 
+                # Aguardar e aceitar o modal 18+ (pode demorar até 10s para aparecer após page.goto)
+                age_accepted = False
                 try:
-                    age_btn = page.locator("button:has-text('Eu tenho mais de 18 anos'), button:has-text('18 anos'), button:has-text('18 AND OLDER'), button:has-text('18+'), button:has-text('SOU MAIOR'), a[href*='legal-age']")
-                    await age_btn.first.wait_for(state="visible", timeout=5000)
+                    age_btn = page.locator(
+                        "button:has-text('Eu tenho mais de 18 anos'), button:has-text('18 anos'), "
+                        "button:has-text('18 AND OLDER'), button:has-text('18+'), "
+                        "button:has-text('SOU MAIOR'), a[href*='legal-age']"
+                    )
+                    await age_btn.first.wait_for(state="visible", timeout=10000)
                     await age_btn.first.click()
-                    logger.debug(f"[Flashscore] Modal de idade (18+) aceito para {flashscore_id}")
+                    logger.debug(f"[Flashscore] [ODDS] Modal 18+ aceito via clique para {flashscore_id}")
                     await page.wait_for_timeout(500)
+                    age_accepted = True
                 except Exception:
                     pass
 
-            # Clicar na aba de ODDS via SPA (igual ao retrofit)
+                # Fallback: se o modal não apareceu, forçar aceitação via localStorage e recarregar
+                if not age_accepted:
+                    logger.debug(f"[Flashscore] [ODDS] Forçando legal_age_confirmation=1 via localStorage para {flashscore_id}")
+                    await page.evaluate("() => { window.localStorage.setItem('legal_age_confirmation', '1'); }")
+                    try:
+                        await page.reload(wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
+                        await page.wait_for_timeout(1000)
+                    except Exception:
+                        pass
+
+            # Aguardar a aba Odds/COTAÇÕES aparecer no tablist (liberada após aceitação do modal 18+)
             try:
-                await page.wait_for_selector("div[role='tablist'], a[href*='/odds/'], a[href*='/odds-comparison/'], a[href*='/comparacao-de-cotacoes/'], [data-testid*='odds']", timeout=5000)
+                await page.wait_for_selector(
+                    "a[href*='/odds/'], a[href*='/odds-comparison/'], a[href*='/comparacao-de-cotacoes/'], "
+                    "a[href*='odds'], [data-testid*='odds']",
+                    timeout=8000
+                )
             except Exception:
                 pass
 
@@ -676,7 +699,12 @@ class FlashscoreOddsCollector(BaseCollector):
                     let href = (l.getAttribute('href') || '').toLowerCase();
                     let txt = (l.textContent || l.innerText || '').trim().toUpperCase();
                     if (href.includes('legal-age') || href.includes('version') || l.closest('footer')) return false;
-                    return txt === 'ODDS' || txt === 'COTAÇÕES' || href.includes('/odds-comparison/') || href.includes('/comparacao-de-cotacoes/') || href.includes('/odds/');
+                    // Novo formato URL: /match/football/.../odds/?mid=...
+                    if (href.includes('/odds/') && href.includes('mid=')) return true;
+                    // Formato antigo: /odds-comparison/ ou /comparacao-de-cotacoes/
+                    if (href.includes('/odds-comparison/') || href.includes('/comparacao-de-cotacoes/')) return true;
+                    // Texto da aba (inglês ou português)
+                    return txt === 'ODDS' || txt === 'COTAÇÕES';
                 });
                 if (oddsLink) {
                     oddsLink.click();
@@ -687,7 +715,11 @@ class FlashscoreOddsCollector(BaseCollector):
 
             if not odds_clicked:
                 try:
-                    odds_loc = page.locator("a[href*='/odds/'], a[href*='/odds-comparison/'], a[href*='/comparacao-de-cotacoes/'], button:has-text('ODDS'), a:has-text('ODDS'), button:has-text('COTAÇÕES'), a:has-text('COTAÇÕES')").filter(has_not=page.locator("footer"))
+                    odds_loc = page.locator(
+                        "a[href*='/odds/'], a[href*='/odds-comparison/'], a[href*='/comparacao-de-cotacoes/'], "
+                        "a:has-text('Odds'), a:has-text('ODDS'), a:has-text('COTAÇÕES'), "
+                        "button:has-text('ODDS'), button:has-text('COTAÇÕES')"
+                    ).filter(has_not=page.locator("footer"))
                     if await odds_loc.count() > 0:
                         await odds_loc.first.click()
                         odds_clicked = True
