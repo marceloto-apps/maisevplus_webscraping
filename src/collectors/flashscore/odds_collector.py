@@ -646,10 +646,10 @@ class FlashscoreOddsCollector(BaseCollector):
 
                 try:
                     age_btn = page.locator("button:has-text('Eu tenho mais de 18 anos'), button:has-text('18 anos'), button:has-text('18 AND OLDER'), button:has-text('18+'), button:has-text('SOU MAIOR'), a[href*='legal-age']")
-                    if await age_btn.count() > 0:
-                        await age_btn.first.click()
-                        logger.debug(f"[Flashscore] Modal de idade (18+) aceito para {flashscore_id}")
-                        await page.wait_for_timeout(500)
+                    await age_btn.first.wait_for(state="visible", timeout=3000)
+                    await age_btn.first.click()
+                    logger.debug(f"[Flashscore] Modal de idade (18+) aceito para {flashscore_id}")
+                    await page.wait_for_timeout(500)
                 except Exception:
                     pass
 
