@@ -623,18 +623,26 @@ class FlashscoreOddsCollector(BaseCollector):
                     logger.error(f"[Flashscore] [STATS] Falha ao coletar/salvar estatísticas para {flashscore_id}: {e}")
 
             # 3. Navegar para a aba de odds (1x2 FT)
+            # SOLUÇÃO DEFINITIVA: Criar um contexto de navegador completamente novo para a coleta de odds.
+            # O contexto anterior compartilha localStorage com o flag de aceitação do modal 18+, fazendo
+            # o Flashscore ocultar a aba COTAÇÕES mesmo sem mostrar o modal. Um contexto novo garante
+            # estado completamente limpo, idêntico ao fluxo do Retrofit que tem 100% de sucesso.
             if not is_prematch and not skip_stats:
                 try:
-                    await page.close()
+                    await context.close()
                 except Exception:
                     pass
+                context = await browser.new_context(
+                    timezone_id="America/Sao_Paulo",
+                    locale="pt-BR"
+                )
                 page = await context.new_page()
                 base_url = f"https://www.flashscore.com/match/{flashscore_id}/"
-                logger.debug(f"[Flashscore] Navegando para página limpa {base_url} para coleta de odds")
+                logger.debug(f"[Flashscore] [ODDS] Novo contexto criado para {flashscore_id}, navegando para {base_url}")
                 try:
                     await page.goto(base_url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
                 except Exception as e:
-                    logger.warning(f"[Flashscore] Timeout na página base de {flashscore_id}: {e}")
+                    logger.warning(f"[Flashscore] Timeout ao abrir página de odds para {flashscore_id}: {e}")
 
                 try:
                     accept_btn = page.locator('button#onetrust-accept-btn-handler')
@@ -646,7 +654,7 @@ class FlashscoreOddsCollector(BaseCollector):
 
                 try:
                     age_btn = page.locator("button:has-text('Eu tenho mais de 18 anos'), button:has-text('18 anos'), button:has-text('18 AND OLDER'), button:has-text('18+'), button:has-text('SOU MAIOR'), a[href*='legal-age']")
-                    await age_btn.first.wait_for(state="visible", timeout=3000)
+                    await age_btn.first.wait_for(state="visible", timeout=5000)
                     await age_btn.first.click()
                     logger.debug(f"[Flashscore] Modal de idade (18+) aceito para {flashscore_id}")
                     await page.wait_for_timeout(500)
