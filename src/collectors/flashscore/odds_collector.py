@@ -596,73 +596,64 @@ class FlashscoreOddsCollector(BaseCollector):
                 except Exception as e:
                     logger.error(f"[Flashscore] [STATS] Falha ao coletar/salvar estatísticas para {flashscore_id}: {e}")
 
-            # 3. Navegar para a aba de odds (1x2 FT) clicando no botão ODDS via SPA
-            # Garantir remoção do modal de idade caso tenha surgido durante a coleta de stats
-            try:
-                age_btn = page.locator("button:has-text('Eu tenho mais de 18 anos'), button:has-text('18 anos'), button:has-text('18 AND OLDER'), button:has-text('18+'), button:has-text('SOU MAIOR'), a[href*='legal-age']")
-                if await age_btn.count() > 0:
-                    await age_btn.first.click()
-                    await page.wait_for_timeout(500)
-            except Exception:
-                pass
+            # 3. Navegar para a aba de odds (1x2 FT)
+            # Se viemos da coleta de estatísticas (URL contém /stats/, /summary/, etc.), navegamos direto para a URL limpa de odds
+            curr_url = page.url
+            odds_clicked = False
 
-            try:
-                await page.wait_for_selector("div[role='tablist'], a[href*='/odds/'], a[href*='/odds-comparison/'], a[href*='/1x2-odds/'], [data-testid*='odds']", timeout=10000)
-            except Exception:
-                pass
-
-            odds_clicked = await page.evaluate('''() => {
-                let ot = document.getElementById('onetrust-consent-sdk');
-                if (ot) ot.style.display = 'none';
-                
-                let els = Array.from(document.querySelectorAll('a, button, div[role="tab"]'));
-                let oddsLink = els.find(l => {
-                    let href = (l.getAttribute('href') || '').toLowerCase();
-                    let txt = (l.textContent || l.innerText || '').trim().toUpperCase();
-                    if (href.includes('legal-age') || href.includes('version') || l.closest('footer')) return false;
-                    return txt === 'ODDS' || txt === 'COTAÇÕES' || href.includes('/odds-comparison/') || href.includes('/odds/');
-                });
-                if (oddsLink) {
-                    oddsLink.click();
-                    return true;
-                }
-                return false;
-            }''')
+            if any(sub in curr_url for sub in ['/stats/', '/summary/', '/report/', '/h2h/', '/standings/']):
+                odds_url = f"https://www.flashscore.com/match/{flashscore_id}/#/odds-comparison/1x2-odds/full-time"
+                logger.debug(f"[Flashscore] Transição de stats para odds de {flashscore_id}. Navegando para {odds_url}")
+                try:
+                    await page.goto(odds_url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
+                    await page.wait_for_timeout(1500)
+                    odds_clicked = True
+                except Exception as e:
+                    logger.warning(f"[Flashscore] Falha ao navegar direto para odds de {flashscore_id}: {e}")
 
             if not odds_clicked:
+                # Garantir remoção do modal de idade caso tenha surgido durante a coleta de stats
                 try:
-                    odds_loc = page.locator("a[href*='/odds/'], button:has-text('ODDS'), a:has-text('ODDS')").filter(has_not=page.locator("footer"))
-                    if await odds_loc.count() > 0:
-                        await odds_loc.first.click()
-                        odds_clicked = True
-                        logger.debug(f"[Flashscore] Aba ODDS clicada via Playwright locator para {flashscore_id}")
+                    age_btn = page.locator("button:has-text('Eu tenho mais de 18 anos'), button:has-text('18 anos'), button:has-text('18 AND OLDER'), button:has-text('18+'), button:has-text('SOU MAIOR'), a[href*='legal-age']")
+                    if await age_btn.count() > 0:
+                        await age_btn.first.click()
+                        await page.wait_for_timeout(500)
                 except Exception:
                     pass
-            
+
+                try:
+                    await page.wait_for_selector("div[role='tablist'], a[href*='/odds/'], a[href*='/odds-comparison/'], a[href*='/1x2-odds/'], [data-testid*='odds']", timeout=5000)
+                except Exception:
+                    pass
+
+                odds_clicked = await page.evaluate('''() => {
+                    let ot = document.getElementById('onetrust-consent-sdk');
+                    if (ot) ot.style.display = 'none';
+                    
+                    let els = Array.from(document.querySelectorAll('a, button, div[role="tab"]'));
+                    let oddsLink = els.find(l => {
+                        let href = (l.getAttribute('href') || '').toLowerCase();
+                        let txt = (l.textContent || l.innerText || '').trim().toUpperCase();
+                        if (href.includes('legal-age') || href.includes('version') || l.closest('footer')) return false;
+                        return txt === 'ODDS' || txt === 'COTAÇÕES' || href.includes('/odds-comparison/') || href.includes('/odds/');
+                    });
+                    if (oddsLink) {
+                        oddsLink.click();
+                        return true;
+                    }
+                    return false;
+                }''')
+
             if not odds_clicked:
-                curr_url = page.url
-                # Remove sub-rotas como /summary/stats/2nd-half/ antes de montar a URL de odds
-                clean_url = curr_url
-                for sub in ['/summary/', '/stats/', '/report/', '/h2h/', '/standings/']:
-                    if sub in clean_url:
-                        clean_url = clean_url.split(sub)[0] + '/'
-                
-                if "/match/" in clean_url and "?" in clean_url:
-                    odds_url = clean_url.replace("/?", "/odds/1x2-odds/full-time/?")
-                elif "/match/" in clean_url:
-                    clean_base = clean_url.rstrip('/')
-                    odds_url = f"{clean_base}/odds/1x2-odds/full-time/?mid={flashscore_id}"
-                else:
-                    odds_url = f"https://www.flashscore.com/match/{flashscore_id}/#/odds-comparison/1x2-odds/full-time"
-                
+                odds_url = f"https://www.flashscore.com/match/{flashscore_id}/#/odds-comparison/1x2-odds/full-time"
                 logger.debug(f"[Flashscore] Botão ODDS não clicado via SPA. Fallback para {odds_url}")
                 try:
                     await page.goto(odds_url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
-                    await page.wait_for_timeout(1000)
+                    await page.wait_for_timeout(1500)
                 except Exception:
                     pass
             else:
-                logger.debug(f"[Flashscore] Aba ODDS clicada com sucesso via SPA para {flashscore_id}")
+                logger.debug(f"[Flashscore] Aba ODDS ativada com sucesso para {flashscore_id}")
 
             # 4. Aguardar tabela de odds — selector e polling do HTML
             odds_table_ready = False
