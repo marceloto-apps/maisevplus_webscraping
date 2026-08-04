@@ -641,13 +641,24 @@ class FlashscoreOddsCollector(BaseCollector):
             
             if not odds_clicked:
                 curr_url = page.url
-                if "/match/" in curr_url and "?" in curr_url:
-                    odds_url = curr_url.replace("/?", "/odds/1x2-odds/full-time/?")
+                # Remove sub-rotas como /summary/stats/2nd-half/ antes de montar a URL de odds
+                clean_url = curr_url
+                for sub in ['/summary/', '/stats/', '/report/', '/h2h/', '/standings/']:
+                    if sub in clean_url:
+                        clean_url = clean_url.split(sub)[0] + '/'
+                
+                if "/match/" in clean_url and "?" in clean_url:
+                    odds_url = clean_url.replace("/?", "/odds/1x2-odds/full-time/?")
+                elif "/match/" in clean_url:
+                    clean_base = clean_url.rstrip('/')
+                    odds_url = f"{clean_base}/odds/1x2-odds/full-time/?mid={flashscore_id}"
                 else:
                     odds_url = f"https://www.flashscore.com/match/{flashscore_id}/#/odds-comparison/1x2-odds/full-time"
+                
                 logger.debug(f"[Flashscore] Botão ODDS não clicado via SPA. Fallback para {odds_url}")
                 try:
                     await page.goto(odds_url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
+                    await page.wait_for_timeout(1000)
                 except Exception:
                     pass
             else:
