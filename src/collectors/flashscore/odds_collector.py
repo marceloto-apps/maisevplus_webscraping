@@ -623,24 +623,28 @@ class FlashscoreOddsCollector(BaseCollector):
                     logger.error(f"[Flashscore] [STATS] Falha ao coletar/salvar estatísticas para {flashscore_id}: {e}")
 
             # 3. Navegar para a aba de odds (1x2 FT)
-            # Se viemos da coleta de estatísticas (URL contém /stats/, /summary/, etc.), navegamos de volta para a base da partida para garantir reset do SPA
-            curr_url = page.url
-            if any(sub in curr_url for sub in ['/stats/', '/summary/', '/report/', '/h2h/', '/standings/']):
-                base_match_url = f"https://www.flashscore.com/match/{flashscore_id}/"
-                logger.debug(f"[Flashscore] Resetando página para base {base_match_url} após estatísticas")
+            # Se viemos da coleta de estatísticas, abrir uma página limpa para garantir que o roteador SPA inicialize diretamente na aba de Odds
+            if not is_prematch and not skip_stats:
                 try:
-                    await page.goto(base_match_url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
+                    await page.close()
+                except Exception:
+                    pass
+                page = await context.new_page()
+                odds_initial_url = f"https://www.flashscore.com/match/{flashscore_id}/#/comparacao-de-cotacoes/1x2-cotacoes/fim-do-jogo"
+                logger.debug(f"[Flashscore] Abrindo página limpa para odds de {flashscore_id}: {odds_initial_url}")
+                try:
+                    await page.goto(odds_initial_url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
                     await page.wait_for_timeout(1000)
                 except Exception as e:
-                    logger.warning(f"[Flashscore] AVISO ao resetar para página base: {e}")
+                    logger.warning(f"[Flashscore] AVISO ao abrir página de odds para {flashscore_id}: {e}")
 
-            # Garantir remoção do modal de idade caso tenha surgido durante a coleta de stats
+            # Aceitar modal de idade (18+) na página de odds se visível
             try:
                 age_btn = page.locator("button:has-text('Eu tenho mais de 18 anos'), button:has-text('18 anos'), button:has-text('18 AND OLDER'), button:has-text('18+'), button:has-text('SOU MAIOR'), a[href*='legal-age']")
-                if await age_btn.first.is_visible(timeout=1500):
-                    await age_btn.first.click()
-                    logger.debug(f"[Flashscore] Modal de idade (18+) aceito na transição para odds de {flashscore_id}")
-                    await page.wait_for_timeout(500)
+                await age_btn.first.wait_for(state="visible", timeout=3000)
+                await age_btn.first.click()
+                logger.debug(f"[Flashscore] Modal de idade (18+) aceito na página de odds para {flashscore_id}")
+                await page.wait_for_timeout(500)
             except Exception:
                 pass
 
