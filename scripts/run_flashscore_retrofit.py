@@ -247,14 +247,9 @@ async def main():
                             # Parser extraiu odds E inseriu no banco, mas nenhuma foi opening
                             status = 'no_opening'
                             consecutive_empty = 0  # Reset — o scraping está funcionando
-                        elif has_parsed_odds:
-                            # Parser extraiu odds mas nenhuma foi inserida (dedup total)
-                            # Opening pode já ter sido inserida numa run anterior
-                            status = 'no_opening'
-                            consecutive_empty = 0
                         else:
-                            # Parser retornou 0 entries para TODOS os mercados
-                            # → provável mudança de DOM, NÃO queimar a partida
+                            # Parser não gravou opening nem inseriu odds
+                            # → marca como 'failed' (retentável) para não queimar a partida
                             status = 'failed'
                             consecutive_empty += 1
                             logger.warning(

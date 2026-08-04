@@ -810,6 +810,7 @@ class FlashscoreOddsCollector(BaseCollector):
                                     )
                                     if opening_inserted:
                                         match_opening_inserted = True
+                                        total_inserted += 1
                                 except Exception as e:
                                     logger.warning(
                                         f"[Flashscore] [OPENING] Falha ao inserir opening para "
