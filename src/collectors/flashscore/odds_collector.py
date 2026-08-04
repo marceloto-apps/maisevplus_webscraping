@@ -147,7 +147,11 @@ class FlashscoreOddsCollector(BaseCollector):
                             "double-chance": "chance-dupla",
                             "draw-no-bet": "empate-anula-aposta"
                         }.get(market_href, market_href)
-                        pt_per = "1o-tempo" if period_slug == "1st-half" else "fim-do-jogo"
+                        pt_per = {
+                            "1st-half": "1o-tempo",
+                            "2nd-half": "2o-tempo",
+                            "full-time": "fim-do-jogo"
+                        }.get(period_slug, period_slug or "fim-do-jogo")
                         
                         target_url_pt = f"https://www.flashscore.com/match/{flashscore_id}/#/comparacao-de-cotacoes/{pt_mkt}/{pt_per}"
                         logger.debug(f"[Flashscore] Sub-aba '{market_href}' não clicada via SPA. Tentando navegação direta PT: {target_url_pt}")
@@ -235,10 +239,11 @@ class FlashscoreOddsCollector(BaseCollector):
                         return false;
                     }''', {"market_slug": market_href, "period_slug": period_slug})
                     
-                    if not clicked_period and period_slug != "full-time":
-                        # Fallback: tentar navegação direta via URL hash para o período
-                        target_url = f"https://www.flashscore.com/match/{flashscore_id}/#/odds-comparison/{market_href}/{period_slug}"
-                        logger.debug(f"[Flashscore] Navegação direta de período para {period_slug}: {target_url}")
+                    if not clicked_period:
+                        # Fallback: tentar navegação direta via URL hash para o período (EN sempre)
+                        en_period = period_slug or "full-time"
+                        target_url = f"https://www.flashscore.com/match/{flashscore_id}/#/odds-comparison/{market_href}/{en_period}"
+                        logger.debug(f"[Flashscore] Navegação direta de período para {en_period}: {target_url}")
                         try:
                             await page.goto(target_url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
                             await page.wait_for_timeout(1000)
@@ -769,7 +774,7 @@ class FlashscoreOddsCollector(BaseCollector):
                 logger.debug(f"[Flashscore] Coletando {m_key} para {flashscore_id}")
                 
                 try:
-                    if not is_first_market:
+                    if not is_first_market or not odds_clicked:
                         market_parts = m_config["hash"].replace("#/odds-comparison/", "").split("/")
                         market_type_slug = market_parts[0] if market_parts else ""  # ex: "over-under"
                         period_slug = market_parts[1] if len(market_parts) > 1 else ""  # ex: "full-time"
