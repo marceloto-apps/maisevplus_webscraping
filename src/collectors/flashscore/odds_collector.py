@@ -623,79 +623,74 @@ class FlashscoreOddsCollector(BaseCollector):
                     logger.error(f"[Flashscore] [STATS] Falha ao coletar/salvar estatísticas para {flashscore_id}: {e}")
 
             # 3. Navegar para a aba de odds (1x2 FT)
-            # Se viemos da coleta de estatísticas, abrir uma página limpa para garantir que o roteador SPA inicialize diretamente na aba de Odds
             if not is_prematch and not skip_stats:
                 try:
                     await page.close()
                 except Exception:
                     pass
                 page = await context.new_page()
-                odds_initial_url = f"https://www.flashscore.com/match/{flashscore_id}/#/comparacao-de-cotacoes/1x2-cotacoes/fim-do-jogo"
-                logger.debug(f"[Flashscore] Abrindo página limpa para odds de {flashscore_id}: {odds_initial_url}")
+                base_url = f"https://www.flashscore.com/match/{flashscore_id}/"
+                logger.debug(f"[Flashscore] Navegando para página limpa {base_url} para coleta de odds")
                 try:
-                    await page.goto(odds_initial_url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
-                    await page.wait_for_timeout(1000)
+                    await page.goto(base_url, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
                 except Exception as e:
-                    logger.warning(f"[Flashscore] AVISO ao abrir página de odds para {flashscore_id}: {e}")
+                    logger.warning(f"[Flashscore] Timeout na página base de {flashscore_id}: {e}")
 
-            # Aceitar modal de idade (18+) na página de odds se visível
-            try:
-                age_btn = page.locator("button:has-text('Eu tenho mais de 18 anos'), button:has-text('18 anos'), button:has-text('18 AND OLDER'), button:has-text('18+'), button:has-text('SOU MAIOR'), a[href*='legal-age']")
-                await age_btn.first.wait_for(state="visible", timeout=3000)
-                await age_btn.first.click()
-                logger.debug(f"[Flashscore] Modal de idade (18+) aceito na página de odds para {flashscore_id}")
-                await page.wait_for_timeout(500)
-            except Exception:
-                pass
-
-            odds_clicked = False
-            try:
-                odds_loc = page.locator(
-                    "a[href*='/odds/'], a[href*='/odds-comparison/'], a[href*='/comparacao-de-cotacoes/'], "
-                    "button:has-text('ODDS'), a:has-text('ODDS'), button:has-text('COTAÇÕES'), a:has-text('COTAÇÕES'), "
-                    "div[role='tab']:has-text('ODDS'), div[role='tab']:has-text('COTAÇÕES')"
-                ).filter(has_not=page.locator("footer"))
-                if await odds_loc.count() > 0:
-                    await odds_loc.first.click(timeout=3000)
-                    odds_clicked = True
-                    logger.debug(f"[Flashscore] Aba ODDS/COTAÇÕES clicada via Playwright locator para {flashscore_id}")
-                    await page.wait_for_timeout(1000)
-            except Exception:
-                pass
-
-            if not odds_clicked:
-                odds_clicked = await page.evaluate('''() => {
-                    let ot = document.getElementById('onetrust-consent-sdk');
-                    if (ot) ot.style.display = 'none';
-                    let els = Array.from(document.querySelectorAll('a, button, div[role="tab"]'));
-                    let oddsLink = els.find(l => {
-                        let href = (l.getAttribute('href') || '').toLowerCase();
-                        let txt = (l.textContent || l.innerText || '').trim().toUpperCase();
-                        if (href.includes('legal-age') || href.includes('version') || l.closest('footer')) return false;
-                        return txt.includes('ODDS') || txt.includes('COTAÇ') || href.includes('/odds-comparison/') || href.includes('/comparacao-de-cotacoes/') || href.includes('/odds/');
-                    });
-                    if (oddsLink) {
-                        oddsLink.click();
-                        return true;
-                    }
-                    return false;
-                }''')
-
-            if not odds_clicked:
-                odds_url_pt = f"https://www.flashscore.com/match/{flashscore_id}/#/comparacao-de-cotacoes/1x2-cotacoes/fim-do-jogo"
-                logger.debug(f"[Flashscore] Botão ODDS não clicado via SPA. Fallback PT para {odds_url_pt}")
                 try:
-                    await page.goto(odds_url_pt, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
-                    await page.wait_for_timeout(1500)
+                    accept_btn = page.locator('button#onetrust-accept-btn-handler')
+                    if await accept_btn.count() > 0:
+                        await accept_btn.click()
+                        await page.wait_for_timeout(300)
                 except Exception:
-                    odds_url_en = f"https://www.flashscore.com/match/{flashscore_id}/#/odds-comparison/1x2-odds/full-time"
-                    try:
-                        await page.goto(odds_url_en, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
-                        await page.wait_for_timeout(1500)
-                    except Exception:
-                        pass
+                    pass
+
+                try:
+                    age_btn = page.locator("button:has-text('Eu tenho mais de 18 anos'), button:has-text('18 anos'), button:has-text('18 AND OLDER'), button:has-text('18+'), button:has-text('SOU MAIOR'), a[href*='legal-age']")
+                    if await age_btn.count() > 0:
+                        await age_btn.first.click()
+                        logger.debug(f"[Flashscore] Modal de idade (18+) aceito para {flashscore_id}")
+                        await page.wait_for_timeout(500)
+                except Exception:
+                    pass
+
+            # Clicar na aba de ODDS via SPA (igual ao retrofit)
+            try:
+                await page.wait_for_selector("div[role='tablist'], a[href*='/odds/'], a[href*='/odds-comparison/'], a[href*='/comparacao-de-cotacoes/'], [data-testid*='odds']", timeout=5000)
+            except Exception:
+                pass
+
+            odds_clicked = await page.evaluate('''() => {
+                let ot = document.getElementById('onetrust-consent-sdk');
+                if (ot) ot.style.display = 'none';
+                
+                let els = Array.from(document.querySelectorAll('a, button, div[role="tab"]'));
+                let oddsLink = els.find(l => {
+                    let href = (l.getAttribute('href') || '').toLowerCase();
+                    let txt = (l.textContent || l.innerText || '').trim().toUpperCase();
+                    if (href.includes('legal-age') || href.includes('version') || l.closest('footer')) return false;
+                    return txt === 'ODDS' || txt === 'COTAÇÕES' || href.includes('/odds-comparison/') || href.includes('/comparacao-de-cotacoes/') || href.includes('/odds/');
+                });
+                if (oddsLink) {
+                    oddsLink.click();
+                    return true;
+                }
+                return false;
+            }''')
+
+            if not odds_clicked:
+                try:
+                    odds_loc = page.locator("a[href*='/odds/'], a[href*='/odds-comparison/'], a[href*='/comparacao-de-cotacoes/'], button:has-text('ODDS'), a:has-text('ODDS'), button:has-text('COTAÇÕES'), a:has-text('COTAÇÕES')").filter(has_not=page.locator("footer"))
+                    if await odds_loc.count() > 0:
+                        await odds_loc.first.click()
+                        odds_clicked = True
+                        logger.debug(f"[Flashscore] Aba ODDS clicada via Playwright locator para {flashscore_id}")
+                except Exception:
+                    pass
+
+            if odds_clicked:
+                logger.debug(f"[Flashscore] Aba ODDS clicada com sucesso via SPA para {flashscore_id}")
             else:
-                logger.debug(f"[Flashscore] Aba ODDS ativada com sucesso para {flashscore_id}")
+                logger.warning(f"[Flashscore] Botão ODDS não clicado via SPA para {flashscore_id}")
 
             # 4. Aguardar tabela de odds — selector e polling do HTML
             odds_table_ready = False
