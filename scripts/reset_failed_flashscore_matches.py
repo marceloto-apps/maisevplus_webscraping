@@ -28,18 +28,14 @@ async def main():
         print("INSPEÇÃO E RESET DE PARTIDAS DO BACKFILL FLASHSCORE")
         print("=" * 80)
 
-        # 1. Partidas com scraping_flashscore = TRUE mas flashscore_odds_collected = FALSE ou sem odds em odds_history
+        # 1. Partidas com scraping_flashscore = TRUE mas flashscore_odds_collected = FALSE (ou NULL)
         rows = await conn.fetch("""
             SELECT m.match_id, m.flashscore_id, m.kickoff, l.code as league_code,
-                   m.flashscore_stats_collected, m.flashscore_odds_collected,
-                   (SELECT COUNT(*) FROM odds_history oh WHERE oh.match_id = m.match_id) as odds_count
+                   m.flashscore_stats_collected, m.flashscore_odds_collected
             FROM matches m
             JOIN leagues l ON m.league_id = l.league_id
             WHERE m.scraping_flashscore = TRUE
-              AND (
-                  m.flashscore_odds_collected = FALSE
-                  OR (SELECT COUNT(*) FROM odds_history oh WHERE oh.match_id = m.match_id) = 0
-              )
+              AND (m.flashscore_odds_collected IS NULL OR m.flashscore_odds_collected = FALSE)
             ORDER BY m.kickoff DESC
         """)
 
@@ -59,7 +55,7 @@ async def main():
             for r in rows[:5]:
                 print(f"     * FS_ID: {r['flashscore_id']} | Kickoff: {r['kickoff'].strftime('%Y-%m-%d %H:%M')} | "
                       f"Liga: {r['league_code']} | Stats: {r['flashscore_stats_collected']} | "
-                      f"Odds: {r['flashscore_odds_collected']} (count={r['odds_count']})")
+                      f"Odds: {r['flashscore_odds_collected']}")
 
             match_ids = [r["match_id"] for r in rows]
 
